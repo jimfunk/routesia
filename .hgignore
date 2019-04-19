@@ -1,0 +1,6 @@
+syntax: glob
+build
+.*
+*.pyc
+*_pb2.py
+

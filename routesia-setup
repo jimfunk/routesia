@@ -1,0 +1,7 @@
+#!/bin/bash
+#
+# routesia-setup -- Perform setup tasks for Routesia
+#
+
+# Enable services
+systemctl enable --now mosquitto

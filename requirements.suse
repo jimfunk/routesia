@@ -1,0 +1,4 @@
+mosquitto
+python3-paho-mqtt
+python3-prompt_toolkit
+python3-protobuf
