@@ -2,20 +2,28 @@ import paho.mqtt.client as mqtt
 from queue import Queue
 
 from routesia.event import Event
+from routesia.injector import Injector, Provider
 
 
-class Server:
+class Server(Provider):
     def __init__(self, host='localhost', port=1883):
         self.host = host
         self.port = port
         self.running = False
 
+        self.injector = Injector()
+        self.injector.add_provider(Server, self)
+
         self.event_registry = {}
         self.eventqueue = Queue()
         self.broker = mqtt.Client('core.server')
 
+    def add_provider(self, cls):
+        self.injector.add_provider(cls, self.injector.run(cls))
+
     def start(self):
         if not self.running:
+            self.injector.startup()
             self.broker.connect(self.host, self.port)
             self.broker.loop_start()
             self.running = True
@@ -23,6 +31,7 @@ class Server:
     def stop(self):
         if self.running:
             self.broker.loop_stop()
+            self.injector.shutdown()
             self.running = False
 
     def run(self):

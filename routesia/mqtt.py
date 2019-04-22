@@ -1,12 +1,14 @@
 """
-routesia/command.py - Command line support
+routesia/mqtt.py - MQTT broker
 """
 
 from threading import Thread
 import paho.mqtt.client as mqtt
 
+from routesia.injector import Provider
 
-class MQTT:
+
+class MQTT(Provider):
     def __init__(self, host='localhost', port=1883):
         super().__init__()
         self.mqtt_client = mqtt.Client()
@@ -19,5 +21,5 @@ class MQTT:
     def on_message(self, client, obj, msg):
         pass
 
-
     def mqtt_thread(self):
+        pass

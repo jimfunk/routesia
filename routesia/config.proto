@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package routesia.config;
 
-import "google/protobuf/any.proto";
+import "routesia/interface/interface.proto";
+import "routesia/netfilter/netfilter.proto";
 
 
 message Config {
@@ -14,7 +15,11 @@ message Config {
     }
     System system = 1;
 
-    // Each module will have it's own schema
+    // Interface module
     //
-    map<string, google.protobuf.Any> modules = 2;
+    routesia.interface.InterfaceConfig interface = 2;
+
+    // Netfilter module
+    //
+    routesia.netfilter.NetfilterConfig netfilter = 3;
 }

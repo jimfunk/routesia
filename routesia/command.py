@@ -2,8 +2,9 @@
 routesia/command.py - Command line support
 """
 
-from threading import Thread
 import paho.mqtt.client as mqtt
+
+from routesia.injector import Provider
 
 
 class CommandHandler:
@@ -29,7 +30,7 @@ class ShowHandler(CommandHandler):
         raise NotImplementedError
 
 
-class Command(CommandHandler):
+class Command(CommandHandler, Provider):
     def __init__(self, host='localhost', port=1883):
         super().__init__()
         self.register_sub_handler('show', ShowHandler())

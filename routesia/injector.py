@@ -2,25 +2,28 @@
 routesia/injector.py - Injector for plugins
 """
 
+from collections import OrderedDict
 import inspect
 
-from routesia.plugin import PluginManager
+from routesia.exceptions import InvalidProvider
 
 
 class Provider:
-    pass
+    def startup(self):
+        pass
+
+    def shutdown(self):
+        pass
 
 
 class Injector:
-    def __init__(self, plugin_manager=PluginManager, static_providers={}):
-        self.plugin_manager = plugin_manager
-        # Assign the given static providers
-        self.providers = static_providers.copy()
-        # Load static providers from plugins
-        for plugin in self.plugin_manager.plugins.values():
-            for provider in plugin.static_providers:
-                if provider not in self.providers:
-                    self.providers[provider] = self.run(provider)
+    def __init__(self):
+        self.providers = OrderedDict()
+
+    def add_provider(self, cls, instance):
+        if not isinstance(instance, Provider):
+            raise InvalidProvider
+        self.providers[cls] = instance
 
     def get_provider(self, cls):
         "Get an instance for a provider"
@@ -40,3 +43,11 @@ class Injector:
         for arg, cls in items:
             kwargs[arg] = self.get_provider(cls)
         return fn(**kwargs)
+
+    def startup(self):
+        for provider in self.providers.values():
+            provider.startup()
+
+    def shutdown(self):
+        for provider in self.providers.values():
+            provider.shutdown()

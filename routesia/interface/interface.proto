@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package routesia.interface;
+
+import "routesia/interface/address/address.proto";
+
+
+message InterfaceLink {
+    // Link up/down
+    //
+    bool up = 1;
+
+    // Don't accept ARP
+    //
+    bool noarp = 2;
+
+    // Transmit queue length
+    //
+    uint32 txqueuelen = 3;
+
+    // Maximum transmission unit
+    //
+    uint32 mtu = 4;
+
+    // Link layer address
+    //
+    string address = 5;
+
+    // Link layer broadcast address
+    //
+    string broadcast = 6;
+
+    // Master device for interface (bridge, bond, etc.)
+    //
+    string master = 7;
+
+    // IPv6 address generation mode
+    //
+    enum AddrGenMode {
+        NONE = 0;
+        EUI64 = 1;
+        STABLE_SECRET = 2;
+        RANDOM = 3;
+    }
+    AddrGenMode addrgenmode = 8;
+
+    // IPv6 address token
+    //
+    string token = 9;
+}
+
+
+// Loopback configuration
+//
+message LoopbackInterfaceConfig {
+    // Name
+    //
+    string name = 1;
+
+    // Link parameters
+    //
+    InterfaceLink link = 2;
+
+    // Addresses
+    //
+    repeated routesia.interface.address.Address address = 3;
+}
+
+
+// Ethernet configuration
+//
+message EthernetInterfaceConfig {
+    // Name
+    //
+    string name = 1;
+
+    // Link parameters
+    //
+    InterfaceLink link = 2;
+
+    // Addresses
+    //
+    repeated routesia.interface.address.Address address = 3;
+}
+
+
+// Bridge configuration
+//
+message BridgeInterfaceConfig {
+    // Name
+    //
+    string name = 1;
+
+    // Link parameters
+    //
+    InterfaceLink link = 2;
+
+    // Addresses
+    //
+    repeated routesia.interface.address.Address address = 3;
+}
+
+
+// VLAN configuration
+//
+message VLANInterfaceConfig {
+    // Name
+    //
+    string name = 1;
+
+    // Link parameters
+    //
+    InterfaceLink link = 2;
+
+    // Addresses
+    //
+    repeated routesia.interface.address.Address address = 3;
+}
+
+
+// Interface module config
+//
+message InterfaceConfig {
+    repeated LoopbackInterfaceConfig loopback = 1;
+    repeated EthernetInterfaceConfig ethernet = 2;
+    repeated BridgeInterfaceConfig bridge = 3;
+    repeated VLANInterfaceConfig vlan = 4;
+}

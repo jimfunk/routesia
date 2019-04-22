@@ -1,5 +1,5 @@
 """
-routesia_interface/interface_types.py - Interface type constants
+routesia/interface/interface_types.py - Interface type constants
 """
 
 # From net/if_arp.h

@@ -1,6 +1,8 @@
 syntax: glob
 build
+dist
 .*
+*.egg-info
 *.pyc
 *_pb2.py
 

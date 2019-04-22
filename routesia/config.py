@@ -2,11 +2,12 @@ from google.protobuf import text_format
 import os
 
 from routesia import config_pb2
+from routesia.injector import Provider
 
 SCHEMA = "1.0"
 
 
-class Config:
+class Config(Provider):
     def __init__(self, location='/etc/routesia/config'):
         self.location = location
         self.data = config_pb2.Config()
@@ -56,15 +57,3 @@ class Config:
 
     def register_section(self, name, provider):
         self.sections[name] = provider
-
-    def _traverse_params(self, data, *params):
-        if params:
-            param = params[0]
-            if param in data:
-                return self._traverse_params(data[param], *params[1:])
-            return None
-        else:
-            return data
-
-    def get(self, *params):
-        return self._traverse_params(self.data, *params)
