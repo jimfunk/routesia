@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package routesia.ipam;
+
+
+// VLAN configuration
+//
+message Host {
+    // Name
+    //
+    string name = 1;
+
+    // Hardware address
+    //
+    string hardware_address = 2;
+
+    // IP addresses
+    //
+    repeated string ip_address = 3;
+}
+
+// Interface module config
+//
+message IPAMConfig {
+    repeated Host host = 1;
+}

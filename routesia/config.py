@@ -57,3 +57,6 @@ class Config(Provider):
 
     def register_section(self, name, provider):
         self.sections[name] = provider
+
+    def startup(self):
+        self.staged_data.CopyFrom(self.data)

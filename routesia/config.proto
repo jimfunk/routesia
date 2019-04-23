@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package routesia.config;
 
+import "routesia/dhcp/dhcp.proto";
 import "routesia/interface/interface.proto";
+import "routesia/ipam/ipam.proto";
 import "routesia/netfilter/netfilter.proto";
 
 
@@ -15,11 +17,19 @@ message Config {
     }
     System system = 1;
 
+    // IP address management module
+    //
+    routesia.ipam.IPAMConfig ipam = 2;
+
     // Interface module
     //
-    routesia.interface.InterfaceConfig interface = 2;
+    routesia.interface.InterfaceConfig interface = 3;
 
     // Netfilter module
     //
-    routesia.netfilter.NetfilterConfig netfilter = 3;
+    routesia.netfilter.NetfilterConfig netfilter = 4;
+
+    // DHCP module
+    //
+    routesia.dhcp.DHCPConfig dhcp = 5;
 }

@@ -1,6 +1,10 @@
+kea
 mosquitto
 nftables
+nsd
+python3-dbus-python
 python3-eventfd
 python3-paho-mqtt
 python3-prompt_toolkit
 python3-protobuf
+unbound

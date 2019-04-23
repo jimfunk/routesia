@@ -9,3 +9,7 @@ class RoutesiaException(Exception):
 
 class InvalidProvider(RoutesiaException):
     pass
+
+
+class CommandNotFound(RoutesiaException):\
+    pass

@@ -103,13 +103,13 @@ class IPRouteProvider(Provider):
             target=self.event_thread,
             name='IProuteEventThread',
             kwargs={
-                'server': server,
+                'server': self.server,
             },
             daemon=True,
         )
-        self.thread.start()
 
     def startup(self):
+        self.thread.start()
         # This order is important
         self.get_interfaces()
         self.get_addresses()

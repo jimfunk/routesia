@@ -16,9 +16,10 @@ class Provider:
         pass
 
 
-class Injector:
+class Injector(Provider):
     def __init__(self):
         self.providers = OrderedDict()
+        self.add_provider(Injector, self)
 
     def add_provider(self, cls, instance):
         if not isinstance(instance, Provider):
@@ -46,8 +47,10 @@ class Injector:
 
     def startup(self):
         for provider in self.providers.values():
-            provider.startup()
+            if provider != self:
+                provider.startup()
 
     def shutdown(self):
         for provider in self.providers.values():
-            provider.shutdown()
+            if provider != self:
+                provider.shutdown()

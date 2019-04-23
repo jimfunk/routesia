@@ -8,7 +8,6 @@ import tempfile
 from routesia.config import Config
 from routesia.injector import Provider
 from routesia.netfilter import netfilter_pb2
-from routesia.server import Server
 
 
 class Zone:
@@ -201,8 +200,7 @@ class NetfilterConfig:
 
 
 class NetfilterProvider(Provider):
-    def __init__(self, server: Server, config: Config):
-        self.server = server
+    def __init__(self, config: Config):
         self.config = config
 
     def handle_config_update(self, old, new):
@@ -214,12 +212,11 @@ class NetfilterProvider(Provider):
         temp.write(str(config).encode('utf8'))
         temp.flush()
         try:
-            ret = subprocess.run(['/usr/sbin/nft', '--file', temp.name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+            subprocess.run(['/usr/sbin/nft', '--file', temp.name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
         except subprocess.CalledProcessError as e:
             print(e.stdout.decode('utf8'))
             print(e)
             print(config)
-
 
     def flush(self):
         subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])

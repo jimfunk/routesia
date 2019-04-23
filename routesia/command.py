@@ -2,47 +2,59 @@
 routesia/command.py - Command line support
 """
 
-import paho.mqtt.client as mqtt
+from collections import OrderedDict
 
-from routesia.injector import Provider
+from routesia.exceptions import CommandNotFound
+from routesia.injector import Provider, Injector
+from routesia.mqtt import MQTT
 
 
 class CommandHandler:
-    def __init__(self):
-        self.sub_handlers = {}
-
-    def get_sub_handler(self, name):
-        return self.sub_handlers[name]
-
-    def register_sub_handler(self, name, handler):
-        self.sub_handlers[name] = handler
-
-    def get_commands(self):
-        return self.sub_handlers.keys()
-
-
-class ShowHandler(CommandHandler):
-    def __init__(self):
-        super().__init__()
-        self.handlers = {}
+    name = None
+    required_arguments = []
+    optional_arguments = []
+    short_help = "Missing short_help"
+    long_help = "Missing long_help"
 
     def handle(self, *args):
         raise NotImplementedError
 
 
-class Command(CommandHandler, Provider):
-    def __init__(self, host='localhost', port=1883):
+class HelpCommand(CommandHandler):
+    name = "help"
+    short_help = "Show help."
+    long_help = "If called without arguments, show all available commands. If called with a command name, show detailed help for that command."
+
+    def handle(self, command: 'CommandProvider', name=None):
+        if name:
+            if name in command.commands:
+                return command.commands[name].long_help
+            else:
+                return 'Command "%s" not found.' % name
+
+        s = ''
+        for name, handler in command.commands.items():
+            s += '%s - %s\n' % (name, handler.short_help)
+        return s
+
+
+class CommandProvider(Provider):
+    def __init__(self, mqtt: MQTT, injector: Injector):
         super().__init__()
-        self.register_sub_handler('show', ShowHandler())
-        self.mqtt_client = mqtt.Client()
-        self.mqtt_client.on_connect = self.on_connect
-        self.mqtt_client.on_message = self.on_message
+        self.mqtt = mqtt
+        self.injector = injector
+        self.commands = OrderedDict()
 
-    def on_connect(self, client, obj, flags, rc):
-        print("Connected to broker")
+    def register_command(self, handler: CommandHandler):
+        self.commands[handler.name] = handler
 
-    def on_message(self, client, obj, msg):
-        pass
+    def run_command(self, name, kwargs):
+        if name not in self.commands:
+            raise CommandNotFound(name)
+        self.injector.run(self.commands[name].handle, **kwargs)
 
-    def mqtt_thread(self):
-        pass
+    def handle_command(self, message):
+        print(message)
+
+    def startup(self):
+        self.mqtt.subscribe('command/#', self.handle_command)
