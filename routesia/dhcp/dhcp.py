@@ -23,6 +23,21 @@ class DHCP4Config:
         self.config = config
         self.ipam = ipam
 
+    def generate_option_definitions(self, config):
+        option_definitions = []
+        for option_definition in config:
+            option_definition_data = {}
+            if not all((option_definition.name, option_definition.code, option_definition.type)):
+                # Invalid
+                continue
+            for field in ('name', 'code', 'type', 'record_types', 'encapsulate'):
+                value = getattr(option_definition, field)
+                if value:
+                    option_definition_data[field] = value
+            option_definition_data['array'] = 'true' if option_definition.array else 'false'
+            option_definitions.append(option_definition_data)
+        return option_definitions
+
     def generate_options(self, config):
         options = []
         for option in config:
@@ -36,6 +51,24 @@ class DHCP4Config:
                     option_data[field] = value
             options.append(option_data)
         return options
+
+    def generate_client_classes(self, config):
+        client_classes = []
+        for client_class in config:
+            client_class_data = {}
+            if not all((client_class.name, client_class.test)):
+                # Invalid
+                continue
+            for field in ('name', 'test', 'next_server'):
+                value = getattr(client_class, field)
+                if value:
+                    client_class_data[field] = value
+            if client_class.option_definition:
+                client_class_data['option-def'] = self.generate_option_definitions(client_class.option_definition)
+            if client_class.option:
+                client_class_data['option-data'] = self.generate_options(client_class.option)
+            client_classes.append(client_class_data)
+        return client_classes
 
     def get_ipam_reservations(self, subnet):
         reservations = []
@@ -101,6 +134,14 @@ class DHCP4Config:
             data['rebind-timer'] = config.rebind_timer
         if config.valid_lifetime:
             data['valid-lifetime'] = config.valid_lifetime
+        if config.next_server:
+            data['next-server'] = config.next_server
+
+        if config.option_definition:
+            data['option-def'] = self.generate_option_definitions(config.option_definition)
+
+        if config.client_class:
+            data['client-classes'] = self.generate_client_classes(config.client_class)
 
         if config.option:
             data['option-data'] = self.generate_options(config.option)
