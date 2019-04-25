@@ -30,11 +30,11 @@ class DHCP4Config:
             if not all((option_definition.name, option_definition.code, option_definition.type)):
                 # Invalid
                 continue
-            for field in ('name', 'code', 'type', 'record_types', 'encapsulate'):
+            for field in ('name', 'code', 'space', 'type', 'record_types', 'encapsulate'):
                 value = getattr(option_definition, field)
                 if value:
                     option_definition_data[field] = value
-            option_definition_data['array'] = 'true' if option_definition.array else 'false'
+            option_definition_data['array'] = option_definition.array
             option_definitions.append(option_definition_data)
         return option_definitions
 
@@ -91,6 +91,10 @@ class DHCP4Config:
         data = {
             'subnet': str(subnet),
         }
+
+        if config.next_server:
+            data['next-server'] = config.next_server
+
         pools = []
         for pool_config in config.pool:
             pools.append({'pool': pool_config})
