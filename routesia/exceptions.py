@@ -11,5 +11,9 @@ class InvalidProvider(RoutesiaException):
     pass
 
 
-class CommandNotFound(RoutesiaException):\
+class CommandNotFound(RoutesiaException):
+    pass
+
+
+class CommandError(RoutesiaException):
     pass

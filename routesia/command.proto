@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package routesia.command;
+
+
+message CommandRequest {
+    // Request ID
+    //
+    uint64 id = 1;
+
+    // Command name
+    //
+    string name = 2;
+
+    // Arguments
+    //
+    repeated string argument = 3;
+}
+
+
+message CommandResponse {
+    // Request ID
+    //
+    uint64 id = 1;
+
+    // Response codes
+    //
+    enum ResponseCode {
+        OK = 0;
+        UNSPECIFIED_ERROR = 1;
+        COMMAND_NOT_FOUND = 2;
+        COMMAND_ERROR = 3;
+    }
+    ResponseCode response_code = 2;
+
+    // Content will always be a string
+    //
+    string content = 3;
+}

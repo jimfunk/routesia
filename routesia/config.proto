@@ -6,6 +6,7 @@ import "routesia/dhcp/dhcp.proto";
 import "routesia/interface/interface.proto";
 import "routesia/ipam/ipam.proto";
 import "routesia/netfilter/netfilter.proto";
+import "routesia/route/route.proto";
 
 
 message Config {
@@ -25,11 +26,15 @@ message Config {
     //
     routesia.interface.InterfaceConfig interface = 3;
 
+    // Route module
+    //
+    routesia.route.RouteModuleConfig route = 4;
+
     // Netfilter module
     //
-    routesia.netfilter.NetfilterConfig netfilter = 4;
+    routesia.netfilter.NetfilterConfig netfilter = 5;
 
     // DHCP module
     //
-    routesia.dhcp.DHCPConfig dhcp = 5;
+    routesia.dhcp.DHCPConfig dhcp = 6;
 }

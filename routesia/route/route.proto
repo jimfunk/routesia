@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package routesia.route;
+
+// Next hop gateway
+//
+message RouteNextHop {
+    // Gateway
+    //
+    string gateway = 1;
+
+    // Interface
+    //
+    string interface = 2;
+
+    // Hops (For multipath)
+    //
+    uint32 hops = 3;
+}
+
+message RouteState {
+    // Table
+    //
+    uint32 table_id = 1;
+
+    // Destination
+    //
+    string destination = 2;
+
+    // Protocol
+    //
+    uint32 protocol = 3;
+
+    // Scope
+    //
+    uint32 scope = 4;
+
+    // Preferred source
+    //
+    string preferred_source = 5;
+
+    // Next hops (gateways)
+    //
+    repeated routesia.route.RouteNextHop nexthop = 6;
+}
+
+// Static route configuration
+//
+message RouteConfig {
+    // Destination
+    //
+    string destination = 1;
+
+    // Next hops (gateways)
+    //
+    repeated routesia.route.RouteNextHop nexthop = 2;
+}
+
+message RouteTableConfig {
+    // Name
+    //
+    string name = 1;
+
+    // ID
+    //
+    uint32 id = 2;
+
+    // Static routes
+    //
+    repeated RouteConfig static = 3;
+}
+
+// Route module config
+//
+message RouteModuleConfig {
+    repeated RouteTableConfig table = 1;
+}

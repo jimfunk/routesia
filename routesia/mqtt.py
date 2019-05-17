@@ -2,9 +2,13 @@
 routesia/mqtt.py - MQTT broker
 """
 
+import logging
 import paho.mqtt.client as mqtt
 
 from routesia.injector import Provider
+
+
+logger = logging.getLogger(__name__)
 
 
 class MQTT(Provider):
@@ -22,10 +26,14 @@ class MQTT(Provider):
         print("Connected to broker")
 
     def on_message(self, client, obj, message):
-        for topic, callbacks in self.subscribers:
-            if mqtt.topic_matches_sub(topic, message.topic):
-                for callback in callbacks:
-                    callback(message)
+        try:
+            for topic, callbacks in self.subscribers.items():
+                if mqtt.topic_matches_sub(topic, message.topic):
+                    for callback in callbacks:
+                        callback(message)
+        except Exception as e:
+            logger.exception(e)
+            raise
 
     def subscribe(self, topic, callback, qos=0):
         if topic in self.subscribers:
@@ -33,6 +41,9 @@ class MQTT(Provider):
         else:
             self.subscribers[topic] = [callback]
             self.client.subscribe(topic, qos=qos)
+
+    def publish(self, topic, **kwargs):
+        return self.client.publish(topic, **kwargs)
 
     def startup(self):
         self.client.loop_start()

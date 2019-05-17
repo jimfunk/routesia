@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+#
+# rcl -- Routesia command line interface
+#
+
+import os
+import paho.mqtt.client as mqtt
+from prompt_toolkit import PromptSession, HTML
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import FileHistory
+import shlex
+import time
+from uuid import uuid4
+
+from routesia.command_pb2 import CommandRequest, CommandResponse
+
+
+CONFIG_PATH = os.path.expanduser('~/.config/routesia/')
+
+html_completer = WordCompleter(['set', 'unset', 'quit', 'help'])
+
+
+class RoutesiaCLI:
+    def __init__(self, host='localhost', port=1883):
+        self.host = host
+        self.port = port
+        self.client_id = uuid4()
+        self.request_id = 0
+        self.in_flight_requests = []
+
+        self.client = mqtt.Client()
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.connect(self.host, port=self.port)
+        self.client.subscribe('/command/response/%s' % self.client_id)
+
+    def get_request_id(self):
+        request_id = self.request_id
+        self.request_id += 1
+        return request_id
+
+    def handle(self, args):
+        cmd = CommandRequest()
+        cmd.id = self.get_request_id()
+        cmd.name = args.pop(0)
+        for arg in args:
+            cmd.argument.append(arg)
+
+        self.client.publish('/command/request/%s' % self.client_id, payload=cmd.SerializeToString())
+        self.in_flight_requests.append(cmd.id)
+        while (self.in_flight_requests):
+            time.sleep(0.1)
+
+    def run(self):
+        self.client.loop_start()
+        session = PromptSession(
+            HTML('<b>>>></b> '),
+            completer=html_completer,
+            history=FileHistory('%s/rcl_history' % CONFIG_PATH),
+            bottom_toolbar="No changes"
+        )
+
+        while True:
+            try:
+                text_input = session.prompt().strip()
+            except KeyboardInterrupt:
+                continue
+            except EOFError:
+                break
+            else:
+                if text_input:
+                    self.handle(shlex.split(text_input))
+
+        self.client.loop_stop()
+
+    def on_connect(self, client, obj, flags, rc):
+        print("Connected to broker")
+
+    def on_message(self, client, obj, message):
+        response = CommandResponse()
+        response.MergeFromString(message.payload)
+        if response.id in self.in_flight_requests:
+            self.in_flight_requests.remove(response.id)
+        print(response.content)
+
+
+if __name__ == '__main__':
+    if not os.path.isdir(CONFIG_PATH):
+        os.makedirs(CONFIG_PATH)
+
+    cli = RoutesiaCLI()
+    cli.run()

@@ -2,7 +2,7 @@
 routesia_rtnetlink/iproute.py - IPRoute provider
 """
 
-from ipaddress import ip_interface
+from ipaddress import ip_interface, ip_network
 from pyroute2 import IPRoute
 import select
 from threading import Thread
@@ -43,7 +43,8 @@ class AddressEvent(RtnetlinkEvent):
         super().__init__(iproute, message)
         self.ifindex = message['index']
         self.ifname = iproute.interface_map[self.ifindex]
-        self.ip = ip_interface('%s/%s' % (self.attrs['IFA_ADDRESS'], message['prefixlen']))
+        self.ip = ip_interface(
+            '%s/%s' % (self.attrs['IFA_ADDRESS'], message['prefixlen']))
 
 
 class AddressAddEvent(AddressEvent):
@@ -57,6 +58,8 @@ class AddressRemoveEvent(AddressEvent):
 class RouteEvent(RtnetlinkEvent):
     def __init__(self, iproute, message):
         super().__init__(iproute, message)
+        self.destination = ip_network(
+            '%s/%s' % (self.attrs['RTA_DST'], message['dst_len']))
 
 
 class RouteAddEvent(RouteEvent):
@@ -130,7 +133,8 @@ class IPRouteProvider(Provider):
                     if event[0] == iproute.fileno():
                         for message in iproute.get():
                             if message['event'] in ROUTE_EVENT_MAP:
-                                event = ROUTE_EVENT_MAP[message['event']](self, message)
+                                event = ROUTE_EVENT_MAP[message['event']](
+                                    self, message)
 
                                 # Update interface map if necessary
                                 if message['event'] == 'RTM_NEWLINK':
@@ -164,7 +168,7 @@ class IPRouteProvider(Provider):
             )
 
     def get_routes(self):
-        for message in self.iproute.get_routes():
+        for message in self.iproute.get_routes(table=0):
             self.server.publish_event(
                 RouteAddEvent(self, message)
             )

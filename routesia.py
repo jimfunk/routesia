@@ -14,6 +14,7 @@ from routesia.server import Server
 from routesia.interface.interface import InterfaceProvider
 from routesia.interface.address.address import AddressProvider
 from routesia.ipam.ipam import IPAMProvider
+from routesia.route.route import RouteProvider
 from routesia.rtnetlink.iproute import IPRouteProvider
 from routesia.netfilter.netfilter import NetfilterProvider
 
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     server.add_provider(IPRouteProvider)
     server.add_provider(InterfaceProvider)
     server.add_provider(AddressProvider)
+    server.add_provider(RouteProvider)
     server.add_provider(NetfilterProvider)
     server.add_provider(DHCPProvider)
 
