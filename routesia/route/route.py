@@ -4,22 +4,22 @@ routesia/route/route.py - Route support
 
 from ipaddress import ip_network
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.entity import Entity
 from routesia.injector import Provider
 from routesia.server import Server
 from routesia.rtnetlink.iproute import IPRouteProvider, RouteAddEvent, RouteRemoveEvent
-from routesia.route.route_pb2 import RouteState, RouteNextHop
+from routesia.route.route_pb2 import RouteState
 
 
 class TableEntity(Entity):
-    def __init__(self, id, iproute, name=None, config=None):
+    def __init__(self, iproute, id, name=None, config=None):
         super().__init__(config=config)
+        self.iproute = iproute
         self.id = id
         self.name = name
         if self.config and self.config.name:
             self.name = self.config.name
-        self.iproute = iproute
         self.routes = {}
 
     def update_config(self, config):
@@ -31,7 +31,7 @@ class TableEntity(Entity):
 
 
 class RouteEntity(Entity):
-    def __init__(self, table_id, destination, iproute, config=None, event=None):
+    def __init__(self, iproute, table_id, destination, config=None, event=None):
         super().__init__(config=config)
         self.table_id = table_id
         self.destination = destination
@@ -124,18 +124,26 @@ class RouteEntity(Entity):
 
 
 class RouteProvider(Provider):
-    def __init__(self, server: Server, iproute: IPRouteProvider, config: Config):
+    def __init__(self, server: Server, iproute: IPRouteProvider, config: ConfigProvider):
         self.server = server
         self.iproute = iproute
         self.config = config
         self.tables = {
-            253: TableEntity(253, 'default'),
-            254: TableEntity(254, 'main'),
-            255: TableEntity(255, 'local'),
+            253: TableEntity(self.iproute, 253, 'default'),
+            254: TableEntity(self.iproute, 254, 'main'),
+            255: TableEntity(self.iproute, 255, 'local'),
         }
 
+        self.config.register_init_config_hook(self.init_config)
         self.server.subscribe_event(RouteAddEvent, self.handle_route_add)
         self.server.subscribe_event(RouteRemoveEvent, self.handle_route_remove)
+
+    def init_config(self, data):
+        # Set the default tables. These are always present
+        for table in self.tables.values():
+            table_config = data.route.table.add()
+            table_config.name = table.name
+            table_config.id = table.id
 
     def handle_config_update(self, old, new):
         pass
@@ -156,7 +164,7 @@ class RouteProvider(Provider):
         table_id = event.message['table']
         if table_id not in self.tables:
             self.tables[table_id] = TableEntity(
-                table_id, self.iproute, config=self.find_config(table_id))
+                table_id, self.iproute, config=self.find_route_config(event))
 
         table = self.tables[table_id]
 
@@ -164,7 +172,7 @@ class RouteProvider(Provider):
             table.routes[event.destination].update_state(event)
         else:
             table.routes[event.destination] = RouteEntity(
-                table_id, event.destination, self.iproute, config=self.find_route_config(event), event=event)
+                self.iproute, table_id, event.destination, config=self.find_route_config(event), event=event)
 
     def handle_route_remove(self, event):
         table_id = event.message['table']
@@ -179,16 +187,16 @@ class RouteProvider(Provider):
             route = table.routes[dst]
             route.handle_remove()
             if not route.config:
-                del table[dst]
+                del table.routes[dst]
 
     def startup(self):
         route_module_config = self.config.data.route
         for table_config in route_module_config.table:
             if table_config.id not in self.tables:
                 self.tables[table_config.id] = TableEntity(
-                    table_config.id, self.iproute, config=table_config)
+                    self.iproute, table_config.id, config=table_config)
             table = self.tables[table_config.id]
             for static_route_config in table_config.static:
                 if static_route_config.destination not in table.routes:
                     table.routes[static_route_config.destination] = RouteEntity(
-                        table.id, static_route_config.destination, self.iproute, config=static_route_config)
+                        self.iproute, table.id, static_route_config.destination, config=static_route_config)

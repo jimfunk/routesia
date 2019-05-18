@@ -7,7 +7,7 @@ import pdb
 import sys
 import traceback
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.command import CommandProvider
 from routesia.dhcp.dhcp import DHCPProvider
 from routesia.server import Server
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     server = Server()
 
     server.add_provider(CommandProvider)
-    server.add_provider(Config)
+    server.add_provider(ConfigProvider)
     server.add_provider(IPAMProvider)
     server.add_provider(IPRouteProvider)
     server.add_provider(InterfaceProvider)

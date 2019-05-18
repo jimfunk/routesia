@@ -5,7 +5,7 @@ routesia/interface/interface.py - Interface support
 import subprocess
 import tempfile
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.injector import Provider
 from routesia.netfilter import netfilter_pb2
 
@@ -200,7 +200,7 @@ class NetfilterConfig:
 
 
 class NetfilterProvider(Provider):
-    def __init__(self, config: Config):
+    def __init__(self, config: ConfigProvider):
         self.config = config
 
     def handle_config_update(self, old, new):

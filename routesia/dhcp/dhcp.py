@@ -7,7 +7,7 @@ import json
 import shutil
 import tempfile
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.injector import Provider
 from routesia.ipam.ipam import IPAMProvider
 from routesia.systemd import SystemdProvider
@@ -165,7 +165,7 @@ class DHCP4Config:
 
 
 class DHCPProvider(Provider):
-    def __init__(self, config: Config, ipam: IPAMProvider, systemd: SystemdProvider):
+    def __init__(self, config: ConfigProvider, ipam: IPAMProvider, systemd: SystemdProvider):
         self.config = config
         self.ipam = ipam
         self.systemd = systemd

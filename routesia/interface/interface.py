@@ -2,7 +2,7 @@
 routesia/interface/interface.py - Interface support
 """
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.entity import Entity
 from routesia.injector import Provider
 from routesia.server import Server
@@ -126,7 +126,7 @@ INTERFACE_TYPE_MAP = {
 
 
 class InterfaceProvider(Provider):
-    def __init__(self, server: Server, iproute: IPRouteProvider, config: Config):
+    def __init__(self, server: Server, iproute: IPRouteProvider, config: ConfigProvider):
         self.server = server
         self.iproute = iproute
         self.config = config

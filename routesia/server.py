@@ -23,6 +23,7 @@ class Server(Provider):
 
     def start(self):
         if not self.running:
+            self.injector.load()
             self.injector.startup()
             self.broker.connect(self.host, self.port)
             self.broker.loop_start()

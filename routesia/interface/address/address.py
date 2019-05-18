@@ -6,7 +6,7 @@ import errno
 from ipaddress import ip_interface
 from pyroute2 import NetlinkError
 
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.entity import Entity
 from routesia.injector import Provider
 from routesia.interface.address.address_pb2 import Address
@@ -68,7 +68,7 @@ class AddressEntity(Entity):
 
 
 class AddressProvider(Provider):
-    def __init__(self, server: Server, iproute: IPRouteProvider, config: Config):
+    def __init__(self, server: Server, iproute: IPRouteProvider, config: ConfigProvider):
         self.server = server
         self.iproute = iproute
         self.config = config

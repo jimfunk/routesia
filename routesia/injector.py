@@ -9,6 +9,9 @@ from routesia.exceptions import InvalidProvider
 
 
 class Provider:
+    def load(self):
+        pass
+
     def startup(self):
         pass
 
@@ -45,12 +48,17 @@ class Injector(Provider):
             kwargs[arg] = self.get_provider(cls)
         return fn(**kwargs)
 
+    def load(self):
+        for provider in self.providers.values():
+            if provider != self:
+                self.run(provider.load)
+
     def startup(self):
         for provider in self.providers.values():
             if provider != self:
-                provider.startup()
+                self.run(provider.startup)
 
     def shutdown(self):
         for provider in self.providers.values():
             if provider != self:
-                provider.shutdown()
+                self.run(provider.shutdown)

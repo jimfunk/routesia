@@ -5,6 +5,7 @@ routesia_rtnetlink/iproute.py - IPRoute provider
 from ipaddress import ip_interface, ip_network
 from pyroute2 import IPRoute
 import select
+import socket
 from threading import Thread
 
 from routesia.event import Event
@@ -13,6 +14,10 @@ from routesia.server import Server
 
 
 RT_PROTO = 52
+
+
+class IgnoreMessage(Exception):
+    pass
 
 
 class RtnetlinkEvent(Event):
@@ -58,8 +63,17 @@ class AddressRemoveEvent(AddressEvent):
 class RouteEvent(RtnetlinkEvent):
     def __init__(self, iproute, message):
         super().__init__(iproute, message)
-        self.destination = ip_network(
-            '%s/%s' % (self.attrs['RTA_DST'], message['dst_len']))
+        if message['family'] not in (socket.AF_INET, socket.AF_INET6):
+            raise IgnoreMessage
+        if 'RTA_DST' in self.attrs:
+            self.destination = ip_network(
+                '%s/%s' % (self.attrs['RTA_DST'], message['dst_len']))
+        else:
+            if message['family'] == socket.AF_INET:
+                self.destination = ip_network(
+                    '0.0.0.0/%s' % message['dst_len'])
+            else:
+                self.destination = ip_network('::/%s' % message['dst_len'])
 
 
 class RouteAddEvent(RouteEvent):
@@ -133,8 +147,11 @@ class IPRouteProvider(Provider):
                     if event[0] == iproute.fileno():
                         for message in iproute.get():
                             if message['event'] in ROUTE_EVENT_MAP:
-                                event = ROUTE_EVENT_MAP[message['event']](
-                                    self, message)
+                                try:
+                                    event = ROUTE_EVENT_MAP[message['event']](
+                                        self, message)
+                                except IgnoreMessage:
+                                    continue
 
                                 # Update interface map if necessary
                                 if message['event'] == 'RTM_NEWLINK':
@@ -168,7 +185,7 @@ class IPRouteProvider(Provider):
             )
 
     def get_routes(self):
-        for message in self.iproute.get_routes(table=0):
+        for message in self.iproute.get_routes():
             self.server.publish_event(
                 RouteAddEvent(self, message)
             )

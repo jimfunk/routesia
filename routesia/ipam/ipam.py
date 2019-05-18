@@ -5,7 +5,7 @@ routesia/ipam/ipam.py - IP Address Management
 from ipaddress import ip_address
 
 from routesia.entity import Entity
-from routesia.config import Config
+from routesia.config import ConfigProvider
 from routesia.injector import Provider
 
 
@@ -28,7 +28,7 @@ class Host(Entity):
 
 
 class IPAMProvider(Provider):
-    def __init__(self, config: Config):
+    def __init__(self, config: ConfigProvider):
         self.config = config
         self.hosts = {}
         self.hosts_by_hardware_address = {}
