@@ -37,3 +37,28 @@ message CommandResponse {
     //
     string content = 3;
 }
+
+message CompletionRequest {
+    // Request ID
+    //
+    uint64 id = 1;
+
+    // Command name
+    //
+    string name = 2;
+
+    // Arguments
+    //
+    repeated string argument = 3;
+}
+
+
+message CompletionResponse {
+    // Request ID
+    //
+    uint64 id = 1;
+
+    // The results
+    //
+    repeated string candidate = 2;
+}

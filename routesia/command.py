@@ -5,8 +5,8 @@ routesia/command.py - Command line support
 from collections import OrderedDict
 import logging
 
-from routesia.command_pb2 import CommandRequest, CommandResponse
-from routesia.exceptions import CommandNotFound, CommandError
+from routesia.command_pb2 import CommandRequest, CommandResponse, CompletionRequest, CompletionResponse
+from routesia.exceptions import CommandError
 from routesia.injector import Provider, Injector
 from routesia.mqtt import MQTT
 
@@ -23,6 +23,9 @@ class CommandHandler:
 
     def handle(self, *args):
         raise NotImplementedError
+
+    def handle_completion(self, request):
+        return []
 
 
 class CommandProvider(Provider):
@@ -68,8 +71,34 @@ class CommandProvider(Provider):
 
         self.mqtt.publish('/command/response/%s' % client_id, payload=response.SerializeToString())
 
+    def handle_completion(self, message):
+        request = CompletionRequest()
+        client_id = message.topic.rsplit('/')[-1]
+        request.MergeFromString(message.payload)
+
+        response = CompletionResponse()
+        response.id = request.id
+
+        candidates = []
+
+        if request.name in self.commands.keys():
+            if request.argument:
+                candidates = self.commands[request.name].handle_completion(request)
+            else:
+                candidates = [request.name]
+        elif not request.argument:
+            for name in self.commands.keys():
+                if name.startswith(request.name):
+                    candidates.append(name)
+
+        for candidate in candidates:
+            response.candidate.append(candidate)
+
+        self.mqtt.publish('/command/completionresponse/%s' % client_id, payload=response.SerializeToString())
+
     def startup(self):
         self.mqtt.subscribe('/command/request/+', self.handle_command)
+        self.mqtt.subscribe('/command/completionrequest/+', self.handle_completion)
 
 
 class HelpCommand(CommandHandler):

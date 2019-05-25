@@ -6,18 +6,48 @@
 import os
 import paho.mqtt.client as mqtt
 from prompt_toolkit import PromptSession, HTML
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 import shlex
 import time
 from uuid import uuid4
 
-from routesia.command_pb2 import CommandRequest, CommandResponse
+from routesia.command_pb2 import CommandRequest, CommandResponse, CompletionRequest, CompletionResponse
 
 
 CONFIG_PATH = os.path.expanduser('~/.config/routesia/')
 
-html_completer = WordCompleter(['set', 'unset', 'quit', 'help'])
+# Maximum time to wait for a completion request
+#
+COMPLETION_TIMEOUT = 5.0
+
+
+class RoutesiaCompleter(Completer):
+    def __init__(self, cli, *args, **kwargs):
+        self.cli = cli
+        super().__init__(*args, **kwargs)
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        args = text.split()
+        request = CompletionRequest()
+        if args:
+            request.name = args[0]
+        for arg in args[1:]:
+            request.argument.append(arg)
+        if text.endswith(' '):
+            # Indicates that the last argument or command is already complete
+            request.argument.append('')
+        request.id = self.cli.get_request_id()
+        self.cli.client.publish('/command/completionrequest/%s' %
+                                self.cli.client_id, payload=request.SerializeToString())
+        deadline = time.time() + COMPLETION_TIMEOUT
+        while time.time() < deadline:
+            if request.id in self.cli.completion_results:
+                for candidate in self.cli.completion_results[request.id].candidate:
+                    yield Completion(candidate, start_position=-len(document.get_word_before_cursor()))
+                break
+            time.sleep(.1)
 
 
 class RoutesiaCLI:
@@ -27,12 +57,14 @@ class RoutesiaCLI:
         self.client_id = uuid4()
         self.request_id = 0
         self.in_flight_requests = []
+        self.completion_results = {}
 
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.connect(self.host, port=self.port)
         self.client.subscribe('/command/response/%s' % self.client_id)
+        self.client.subscribe('/command/completionresponse/%s' % self.client_id)
 
     def get_request_id(self):
         request_id = self.request_id
@@ -46,7 +78,8 @@ class RoutesiaCLI:
         for arg in args:
             cmd.argument.append(arg)
 
-        self.client.publish('/command/request/%s' % self.client_id, payload=cmd.SerializeToString())
+        self.client.publish('/command/request/%s' %
+                            self.client_id, payload=cmd.SerializeToString())
         self.in_flight_requests.append(cmd.id)
         while (self.in_flight_requests):
             time.sleep(0.1)
@@ -55,7 +88,7 @@ class RoutesiaCLI:
         self.client.loop_start()
         session = PromptSession(
             HTML('<b>>>></b> '),
-            completer=html_completer,
+            completer=RoutesiaCompleter(self),
             history=FileHistory('%s/rcl_history' % CONFIG_PATH),
             bottom_toolbar="No changes"
         )
@@ -77,11 +110,16 @@ class RoutesiaCLI:
         print("Connected to broker")
 
     def on_message(self, client, obj, message):
-        response = CommandResponse()
-        response.MergeFromString(message.payload)
-        if response.id in self.in_flight_requests:
-            self.in_flight_requests.remove(response.id)
-        print(response.content)
+        if message.topic.startswith('/command/response/'):
+            response = CommandResponse()
+            response.MergeFromString(message.payload)
+            if response.id in self.in_flight_requests:
+                self.in_flight_requests.remove(response.id)
+            print(response.content)
+        elif message.topic.startswith('/command/completionresponse/'):
+            response = CompletionResponse()
+            response.MergeFromString(message.payload)
+            self.completion_results[response.id] = response
 
 
 if __name__ == '__main__':

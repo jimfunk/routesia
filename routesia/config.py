@@ -1,7 +1,9 @@
+import difflib
 from google.protobuf import text_format
 import os
 
 from routesia import config_pb2
+from routesia.command import CommandProvider, CommandHandler
 from routesia.injector import Provider
 
 SCHEMA = "1.0"
@@ -59,5 +61,25 @@ class ConfigProvider(Provider):
         else:
             self.init_config()
 
-    def startup(self):
+    def startup(self, command: CommandProvider):
         self.staged_data.CopyFrom(self.data)
+        command.register_command(ShowConfigCommand())
+        command.register_command(ShowChangesCommand())
+
+
+class ShowConfigCommand(CommandHandler):
+    name = "show-config"
+    short_help = "Show configuration."
+    long_help = "Show full configuration."
+
+    def handle(self, cmd, config: ConfigProvider):
+        return str(config.data)
+
+
+class ShowChangesCommand(CommandHandler):
+    name = "show-changes"
+    short_help = "Show staged configuration changes."
+    long_help = "Show staged changes to the configuration."
+
+    def handle(self, cmd, config: ConfigProvider):
+        return '\n'.join(difflib.unified_diff(config.data.split('\n'), config.staged_data.split('\n')))
