@@ -115,13 +115,13 @@ INTERFACE_TYPE_MAP = {
     (interface_types.ARPHRD_ETHER, None): EthernetInterface,
     (interface_types.ARPHRD_ETHER, 'bridge'): BridgeInterface,
     (interface_types.ARPHRD_ETHER, 'vlan'): VLANInterface,
-    (interface_types.ARPHRD_INFINIBAND, None): InfinibandInterface,
-    (interface_types.ARPHRD_TUNNEL, None): IPIPInterface,
-    (interface_types.ARPHRD_TUNNEL6, None): IPIP6Interface,
+    # (interface_types.ARPHRD_INFINIBAND, None): InfinibandInterface,
+    # (interface_types.ARPHRD_TUNNEL, None): IPIPInterface,
+    # (interface_types.ARPHRD_TUNNEL6, None): IPIP6Interface,
     (interface_types.ARPHRD_LOOPBACK, None): LoopbackInterface,
-    (interface_types.ARPHRD_SIT, None): SITInterface,
-    (interface_types.ARPHRD_IPGRE, None): GREInterface,
-    (interface_types.ARPHRD_IEEE80211, None): WiFiInterface,
+    # (interface_types.ARPHRD_SIT, None): SITInterface,
+    # (interface_types.ARPHRD_IPGRE, None): GREInterface,
+    # (interface_types.ARPHRD_IEEE80211, None): WiFiInterface,
 }
 
 
