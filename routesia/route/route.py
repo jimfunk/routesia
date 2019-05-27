@@ -3,6 +3,7 @@ routesia/route/route.py - Route support
 """
 
 from ipaddress import ip_network
+import socket
 
 from routesia.config import ConfigProvider
 from routesia.entity import Entity
@@ -180,8 +181,15 @@ class RouteProvider(Provider):
             return
 
         table = self.tables[table_id]
-        dst = ip_network('%s/%s' %
-                         (event.attrs['RTA_DST'], event.message['dst_len']))
+        if 'RTA_DST' in event.attrs:
+            dst = ip_network('%s/%s' %
+                             (event.attrs['RTA_DST'], event.message['dst_len']))
+        else:
+            if event.message['family'] == socket.AF_INET:
+                dst = ip_network(
+                    '0.0.0.0/%s' % event.message['dst_len'])
+            else:
+                dst = ip_network('::/%s' % event.message['dst_len'])
 
         if dst in table.routes:
             route = table.routes[dst]
