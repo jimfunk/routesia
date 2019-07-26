@@ -83,7 +83,10 @@ class CommandProvider(Provider):
 
         if request.name in self.commands.keys():
             if request.argument:
-                candidates = self.commands[request.name].handle_completion(request)
+                try:
+                    candidates = self.commands[request.name].handle_completion(request)
+                except Exception as e:
+                    logger.exception(e)
             else:
                 candidates = [request.name]
         elif not request.argument:

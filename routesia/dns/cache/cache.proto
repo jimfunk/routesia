@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package routesia.dns.cache;
+
+
+// DNS cache listen address
+//
+message DNSCacheListenAddress {
+    // IP address to listen on
+    //
+    string address = 1;
+
+    // Port to listen on. Defaults to 53
+    //
+    uint32 port = 2;
+}
+
+
+// Access control
+//
+message DNSCacheAccessControlRule {
+    // Priority of control rule. Lower numbers are hit first
+    //
+    uint32 priority = 1;
+
+    // Network to match
+    //
+    string network = 2;
+
+    // Action
+    //
+    enum DNSCacheAccessControlRuleAction {
+        DENY = 0;
+        REFUSE = 1;
+        ALLOW = 2;
+        ALLOW_SET_RECURSION_DESIRED = 3;
+        ALLOW_SNOOP = 4;
+        DENY_NON_LOCAL = 5;
+        REFUSE_NON_LOCAL = 6;
+    }
+    DNSCacheAccessControlRuleAction action = 3;
+
+}
+
+
+// Local data
+//
+message DNSCacheLocalData {
+    // The record name
+    //
+    string name = 1;
+
+    // The type
+    //
+    enum DNSCacheLocalDataType {
+        A = 0;
+        AAAA = 1;
+        TXT = 2;
+    }
+    DNSCacheLocalDataType type = 2;
+
+    // The record time-to-live
+    //
+    uint32 ttl = 3;
+
+    // The record data
+    //
+    string data = 4;
+}
+
+
+// Local zone
+//
+message DNSCacheLocalZone {
+    // Name of domain. Must end with .
+    //
+    string name = 1;
+
+    // Type
+    //
+    enum DNSCacheLocalZoneType {
+        TRANSPARENT = 0;
+        TYPE_TRANSPARENT = 1;
+        REDIRECT = 2;
+        INFORM = 3;
+        INFORM_DENY = 4;
+        INFORM_REDIRECT = 5;
+        DENY = 6;
+        REFUSE = 7;
+        ALWAYS_TRANSPARENT = 8;
+        ALWAYS_REFUSE = 9;
+        ALWAYS_NXDOMAIN = 10;
+        NO_VIEW = 11;
+        NO_DEFAULT = 12;
+    }
+    DNSCacheLocalZoneType type = 2;
+
+    // Default TTL for records generated for this zone
+    //
+    uint32 ttl = 3;
+
+    // Use IPAM to generate records
+    //
+    bool use_ipam = 4;
+
+    // Add records matching these networks
+    //
+    repeated string ipam_network = 5;
+
+    repeated DNSCacheLocalData local_data = 6;
+}
+
+
+// Forward zone address
+//
+message DNSCacheForwardZoneAddress {
+    // Address to forward to
+    //
+    string address = 1;
+
+    // Port to use
+    //
+    uint32 port = 2;
+
+    // Name of host. Used for TLS to verify the certificate
+    //
+    string host = 3;
+}
+
+
+// Forward zone
+//
+message DNSCacheForwardZone {
+    // Name of zone. Must end with .
+    //
+    string name = 1;
+
+    // Use TLS when forwarding
+    //
+    bool forward_tls = 2;
+
+    repeated DNSCacheForwardZoneAddress forward_address = 3;
+}
+
+
+// DNS cache module config
+//
+message DNSCacheConfig {
+    // Enable DNS cache
+    //
+    bool enabled = 1;
+
+    // Enable upstream TLS
+    //
+    bool tls_upstream = 2;
+
+    // Default TTL for records
+    //
+    uint32 ttl = 3;
+
+    repeated DNSCacheListenAddress listen_address = 4;
+    repeated DNSCacheAccessControlRule access_control_rule = 5;
+    repeated DNSCacheForwardZone forward_zone = 6;
+    repeated DNSCacheLocalZone local_zone = 7;
+}

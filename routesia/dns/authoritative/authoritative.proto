@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package routesia.dns.authoritative;
+
+
+// DNS listen address
+//
+message AuthoritativeDNSListenAddress {
+    // IP address to listen on
+    //
+    string address = 1;
+
+    // Port to listen on. Defaults to 53
+    //
+    uint32 port = 2;
+}
+
+
+message AuthoritativeDNSZoneRecord {
+    // Record name
+    //
+    string name = 1;
+
+    // Record type
+    //
+    string type = 2;
+
+    // Record data
+    //
+    string data = 3;
+
+    // TTL
+    uint32 ttl = 4;
+}
+
+
+// Forward zone
+//
+message AuthoritativeDNSZone {
+    // Name of zone
+    //
+    string name = 1;
+
+    // Admin email address
+    //
+    string email = 2;
+
+    // Default TTL to use for records
+    //
+    uint32 ttl = 3;
+
+    // Refresh time
+    //
+    uint32 refresh = 4;
+
+    // Retry time
+    //
+    uint32 retry = 5;
+
+    // expire time
+    //
+    uint32 expire = 6;
+
+    // Minimum TTL
+    //
+    uint32 minimum_ttl = 7;
+
+    // Use IPAM to generate host addresses
+    //
+    bool use_ipam = 8;
+
+    // Generate records for IPAM addresses in these networks
+    //
+    repeated string ipam_network = 9;
+
+    // Servers to notify on changes
+    //
+    repeated string notify = 10;
+
+    // Allow transfers from servers
+    //
+    repeated string allow_transfer = 11;
+
+    repeated AuthoritativeDNSZoneRecord record = 12;
+}
+
+
+// DNS cache module config
+//
+message AuthoritativeDNSConfig {
+    // Enable authoritative DNS
+    //
+    bool enabled = 1;
+
+    // Number of servers to run
+    //
+    uint32 servers = 2;
+
+    repeated AuthoritativeDNSListenAddress listen_address = 3;
+
+    repeated AuthoritativeDNSZone zone = 4;
+}

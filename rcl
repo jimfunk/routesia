@@ -90,7 +90,6 @@ class RoutesiaCLI:
             HTML('<b>>>></b> '),
             completer=RoutesiaCompleter(self),
             history=FileHistory('%s/rcl_history' % CONFIG_PATH),
-            bottom_toolbar="No changes"
         )
 
         while True:

@@ -10,6 +10,8 @@ import traceback
 from routesia.config import ConfigProvider
 from routesia.command import CommandProvider
 from routesia.dhcp.dhcp import DHCPProvider
+from routesia.dns.cache.cache import DNSCacheProvider
+from routesia.dns.authoritative.authoritative import AuthoritativeDNSProvider
 from routesia.server import Server
 from routesia.interface.interface import InterfaceProvider
 from routesia.interface.address.address import AddressProvider
@@ -30,6 +32,8 @@ if __name__ == '__main__':
     server.add_provider(RouteProvider)
     server.add_provider(NetfilterProvider)
     server.add_provider(DHCPProvider)
+    server.add_provider(DNSCacheProvider)
+    server.add_provider(AuthoritativeDNSProvider)
 
     server.start()
     try:

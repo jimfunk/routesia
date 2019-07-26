@@ -61,19 +61,139 @@ class ConfigProvider(Provider):
         else:
             self.init_config()
 
+    def get_entity_completion(self, data, args):
+        if not args:
+            return data
+        if hasattr(data, args[0]):
+            return self.get_get_entity_config(getattr(data, args[0]), args[1:])
+        return None
+
+    def get_entity_config(self, data, args):
+        if not args:
+            return data
+        print(args[0])
+        if args[0] in data.DESCRIPTOR.fields_by_name:
+            field = data.DESCRIPTOR.fields_by_name[args[0]]
+            if field.label == field.LABEL_REPEATED:
+                if len(args) == 1:
+                    # Return all items
+                    return getattr(data, args[0])
+                else:
+                    # Return item where the primary field matches arg[1]
+                    for item in getattr(data, args[0]):
+                        primary = getattr(item, item.DESCRIPTOR.fields[0].name)
+                        if primary == args[1]:
+                            return self.get_get_entity_config(item, args[2:])
+            else:
+                return self.get_get_entity_config(getattr(data, args[0]), args[1:])
+        return None
+
     def startup(self, command: CommandProvider):
         self.staged_data.CopyFrom(self.data)
-        command.register_command(ShowConfigCommand())
+        command.register_command(GetCommand(self))
+        command.register_command(ShowRunningConfigCommand(self))
         command.register_command(ShowChangesCommand())
 
 
-class ShowConfigCommand(CommandHandler):
-    name = "show-config"
-    short_help = "Show configuration."
-    long_help = "Show full configuration."
+class ShowRunningConfigCommand(CommandHandler):
+    name = "show-running-config"
+    short_help = "Show running configuration."
+    long_help = "Show full running configuration."
 
-    def handle(self, cmd, config: ConfigProvider):
-        return str(config.data)
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config = config
+
+    def get_candidates(self, data, args):
+        if len(args) == 1:
+            candidates = []
+            for field in data.DESCRIPTOR.fields:
+                if field.name.startswith(args[0]):
+                    candidates.append(field.name)
+            return candidates
+        if hasattr(data, args[0]):
+            return self.get_candidates(getattr(data, args[0]), args[1:])
+        return []
+
+    def handle_completion(self, request):
+        try:
+            return self.get_candidates(self.config.data, request.argument)
+        except Exception as e:
+            print(e)
+            raise e
+
+    def get_section(self, data, args):
+        if hasattr(data, args[0]):
+            if len(args) == 1:
+                return getattr(data, args[0])
+            return self.get_section(data, args[1:])
+
+    def handle(self, cmd):
+        data = self.config.data
+
+        if cmd.argument:
+            data = self.get_section(data, cmd.argument)
+
+        return str(data)
+
+
+class GetCommand(CommandHandler):
+    name = "get"
+    short_help = "Get configuration."
+    long_help = "Get configuration for an entity."
+
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config = config
+
+    # def handle_completion(self, request):
+    #     return self.config.get_entity_completion(self.config.staged_data, request.argument)
+
+    def handle(self, cmd):
+        data = self.config.staged_data
+
+        if cmd.argument:
+            data = self.config.get_entity_config(data, cmd.argument)
+
+        return str(data)
+
+
+class SetCommand(CommandHandler):
+    name = "set"
+    short_help = "Set configuration item(s)."
+    long_help = "Set configuration item or items for an entity."
+
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config = config
+
+    def get_candidates(self, data, args):
+        if len(args) == 1:
+            candidates = []
+            for field in data.DESCRIPTOR.fields:
+                if field.name.startswith(args[0]):
+                    candidates.append(field.name)
+            return candidates
+        if hasattr(data, args[0]):
+            return self.get_candidates(getattr(data, args[0]), args[1:])
+        return []
+
+    def handle_completion(self, request):
+        return self.get_candidates(self.config.data, request.argument)
+
+    def get_section(self, data, args):
+        if hasattr(data, args[0]):
+            if len(args) == 1:
+                return getattr(data, args[0])
+            return self.get_section(data, args[1:])
+
+    def handle(self, cmd):
+        data = self.config.data
+
+        if cmd.argument:
+            data = self.get_section(data, cmd.argument)
+
+        return str(data)
 
 
 class ShowChangesCommand(CommandHandler):
