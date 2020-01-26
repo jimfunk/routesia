@@ -1,12 +1,7 @@
 """
-routesia/interface/interface.py - Interface support
+routesia/interface/config.py - Netfilter config
 """
 
-import subprocess
-import tempfile
-
-from routesia.config import ConfigProvider
-from routesia.injector import Provider
 from routesia.netfilter import netfilter_pb2
 
 
@@ -197,32 +192,3 @@ class NetfilterConfig:
         for rule_config in self.config.forward.rule:
             forward_chain.add_rule(Rule(rule_config, self.zones))
         filter_table.add_chain(forward_chain)
-
-
-class NetfilterProvider(Provider):
-    def __init__(self, config: ConfigProvider):
-        self.config = config
-
-    def handle_config_update(self, old, new):
-        self.apply()
-
-    def apply(self):
-        config = NetfilterConfig(self.config.data.netfilter)
-        temp = tempfile.NamedTemporaryFile()
-        temp.write(str(config).encode('utf8'))
-        temp.flush()
-        try:
-            subprocess.run(['/usr/sbin/nft', '--file', temp.name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
-        except subprocess.CalledProcessError as e:
-            print(e.stdout.decode('utf8'))
-            print(e)
-            print(config)
-
-    def flush(self):
-        subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])
-
-    def startup(self):
-        self.apply()
-
-    def shutdown(self):
-        self.flush()

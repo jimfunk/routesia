@@ -1,16 +1,10 @@
 """
-routesia/dhcp/dhcp.py - DHCP support using ISC Kea
+routesia/dns/cache/config.py - Unbound config
 """
 
 from ipaddress import ip_network
-import shutil
-import tempfile
 
-from routesia.config import ConfigProvider
 from routesia.dns.cache import cache_pb2
-from routesia.injector import Provider
-from routesia.ipam.ipam import IPAMProvider
-from routesia.systemd import SystemdProvider
 
 
 LOCAL_CONF = '/etc/unbound/local.d/routesia.conf'
@@ -99,7 +93,7 @@ class DNSCacheLocalConfig:
                 if not name.endswith('.'):
                     name += '.%s' % zone.name
                 ttl = local_data.ttl if local_data.ttl else zone_ttl
-                s += 'local-data: "%s %s IN %s \'%s\'"\n' % (
+                s += 'local-data: "%s %s IN %s %s"\n' % (
                                     name,
                                     ttl,
                                     self.record_type_map[local_data.type],
@@ -140,52 +134,3 @@ class DNSCacheForwardConfig:
                 s += '  forward-addr: %s\n' % value
 
         return s
-
-
-class DNSCacheProvider(Provider):
-    def __init__(self, config: ConfigProvider, ipam: IPAMProvider, systemd: SystemdProvider):
-        self.config = config
-        self.ipam = ipam
-        self.systemd = systemd
-
-    def handle_config_update(self, old, new):
-        pass
-
-    def apply(self):
-        config = self.config.data.dns_cache
-
-        if not config.enabled:
-            self.stop()
-            return
-
-        local_config = DNSCacheLocalConfig(config, self.ipam)
-
-        temp = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        temp.write(local_config.generate())
-        temp.flush()
-        temp.close()
-
-        shutil.move(temp.name, LOCAL_CONF)
-
-        forward_config = DNSCacheForwardConfig(config)
-
-        temp = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        temp.write(forward_config.generate())
-        temp.flush()
-        temp.close()
-
-        shutil.move(temp.name, FORWARD_CONF)
-
-        self.start()
-
-    def start(self):
-        self.systemd.manager.ReloadOrRestartUnit('unbound.service', 'replace')
-
-    def stop(self):
-        self.systemd.manager.StopUnit('unbound.service', 'replace')
-
-    def startup(self):
-        self.apply()
-
-    def shutdown(self):
-        self.stop()

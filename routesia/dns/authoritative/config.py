@@ -1,18 +1,9 @@
 """
-routesia/dnsserver/dnsserver.py - DHCP support using ISC Kea
+routesia/dns/authoritative/config.py - NS2 config
 """
 
 from ipaddress import ip_network
-import os
-import shutil
-import subprocess
-import tempfile
 import time
-
-from routesia.config import ConfigProvider
-from routesia.injector import Provider
-from routesia.ipam.ipam import IPAMProvider
-from routesia.systemd import SystemdProvider
 
 
 NSD_CONF = '/etc/nsd/nsd.conf'
@@ -43,7 +34,7 @@ class NSDZoneConfig:
 
         s = '$TTL %s\n' % self.config.ttl if self.config.ttl else DEFAULT_TTL
         s += '$ORIGIN %s\n' % domain
-        s += '@ IN SOA %s %s (%s %s %s %s %s)\n' % (
+        s += '@ IN SOA %s %s. (%s %s %s %s %s)\n' % (
             domain,
             email,
             serial,
@@ -60,9 +51,8 @@ class NSDZoneConfig:
                     for network in networks:
                         if address in network:
                             record_type = 'A' if address.version == 4 else 'AAAA'
-                            s += '%s.%s IN %s %s\n' % (
+                            s += '%s IN %s %s\n' % (
                                 host.name,
-                                self.config.name,
                                 record_type,
                                 address,
                             )
@@ -121,60 +111,3 @@ class NSDConfig:
                 s += '  provide-xfr: %s NOKEY\n' % allow_transfer
 
         return s
-
-
-class AuthoritativeDNSProvider(Provider):
-    def __init__(self, config: ConfigProvider, ipam: IPAMProvider, systemd: SystemdProvider):
-        self.config = config
-        self.ipam = ipam
-        self.systemd = systemd
-
-    def handle_config_update(self, old, new):
-        pass
-
-    def apply(self):
-        config = self.config.data.authoritative_dns
-
-        if not config.enabled:
-            self.stop()
-            return
-
-        nsd_config = NSDConfig(config)
-
-        temp = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        temp.write(nsd_config.generate())
-        temp.flush()
-        temp.close()
-        os.chmod(temp.name, 0o644)
-
-        shutil.move(temp.name, NSD_CONF)
-
-        for zone in config.zone:
-            zone_config = NSDZoneConfig(zone, self.ipam)
-
-            temp = tempfile.NamedTemporaryFile(delete=False, mode='w')
-            temp.write(zone_config.generate())
-            temp.flush()
-            temp.close()
-            os.chmod(temp.name, 0o644)
-
-            shutil.move(temp.name, '%s/%s' % (ZONE_DIR, zone.name))
-
-        self.start()
-
-    def start(self):
-        if not os.path.exists(NSD_SERVER_KEY):
-            try:
-                subprocess.run([NSD_CONTROL_SETUP], check_returncode=True)
-            except subprocess.CalledProcessError:
-                print("nsd-control-setup failed")
-        self.systemd.manager.ReloadOrRestartUnit('nsd.service', 'replace')
-
-    def stop(self):
-        self.systemd.manager.StopUnit('nsd.service', 'replace')
-
-    def startup(self):
-        self.apply()
-
-    def shutdown(self):
-        self.stop()

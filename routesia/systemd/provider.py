@@ -1,3 +1,6 @@
+"""
+routesia/systemd/provider.py - SystemD support
+"""
 import dbus
 
 from routesia.injector import Provider

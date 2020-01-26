@@ -1,16 +1,8 @@
 """
-routesia/dhcp/dhcp.py - DHCP support using ISC Kea
+routesia/dhcp/config.py - Manage Kea configuration
 """
 
 from ipaddress import ip_network
-import json
-import shutil
-import tempfile
-
-from routesia.config import ConfigProvider
-from routesia.injector import Provider
-from routesia.ipam.ipam import IPAMProvider
-from routesia.systemd import SystemdProvider
 
 
 DHCP4_CONF = '/etc/kea/kea-dhcp4.conf'
@@ -162,43 +154,3 @@ class DHCP4Config:
             'Dhcp4': self.generate_dhcp4(self.config.v4),
         }
         return data
-
-
-class DHCPProvider(Provider):
-    def __init__(self, config: ConfigProvider, ipam: IPAMProvider, systemd: SystemdProvider):
-        self.config = config
-        self.ipam = ipam
-        self.systemd = systemd
-
-    def handle_config_update(self, old, new):
-        pass
-
-    def apply(self):
-        config = self.config.data.dhcp
-
-        if not config.v4.interface:
-            self.stop()
-            return
-
-        dhcp4_config = DHCP4Config(config, self.ipam)
-
-        temp = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        json.dump(dhcp4_config.generate(), temp, indent=2)
-        temp.flush()
-        temp.close()
-
-        shutil.move(temp.name, DHCP4_CONF)
-
-        self.start()
-
-    def start(self):
-        self.systemd.manager.ReloadOrRestartUnit('kea.service', 'replace')
-
-    def stop(self):
-        self.systemd.manager.StopUnit('kea.service', 'replace')
-
-    def startup(self):
-        self.apply()
-
-    def shutdown(self):
-        self.stop()

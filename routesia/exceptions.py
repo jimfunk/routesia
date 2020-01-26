@@ -11,9 +11,23 @@ class InvalidProvider(RoutesiaException):
     pass
 
 
-class CommandNotFound(RoutesiaException):
+class EntityNotFound(RoutesiaException):
     pass
 
 
-class CommandError(RoutesiaException):
+class RPCException(RoutesiaException):
     pass
+
+
+class RPCUnspecifiedError(RPCException):
+    pass
+
+
+class RPCHandlerNotFound(RPCException):
+    pass
+
+
+class RPCEntityNotFound(RPCException):
+    pass
+
+
