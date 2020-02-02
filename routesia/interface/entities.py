@@ -107,7 +107,7 @@ class WiFiInterface(InterfaceEntity):
 
 # Interface class map indexed by type and kind
 #
-INTERFACE_TYPE_MAP = {
+INTERFACE_TYPE_ENTITY_MAP = {
     (interface_types.ARPHRD_ETHER, None): EthernetInterface,
     (interface_types.ARPHRD_ETHER, 'bridge'): BridgeInterface,
     (interface_types.ARPHRD_ETHER, 'vlan'): VLANInterface,

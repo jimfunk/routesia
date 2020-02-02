@@ -125,19 +125,22 @@ class AsyncRPCClient(RPCClient):
     def __init__(self, loop, host='localhost', port=1883):
         super().__init__(host=host, port=port)
         self.loop = loop
+        self.connect_future = self.loop.create_future()
         self.request_futures = {}
         self.mqtt.on_socket_open = self.on_socket_open
         self.mqtt.on_socket_close = self.on_socket_close
         self.mqtt.on_socket_register_write = self.on_socket_register_write
         self.mqtt.on_socket_unregister_write = self.on_socket_unregister_write
 
+    def on_connect(self, client, obj, flags, rc):
+        super().on_connect(client, obj, flags, rc)
+        self.connect_future.set_result(True)
+
     def on_socket_open(self, client, userdata, sock):
         self.loop.add_reader(sock, client.loop_read)
-        # self.misc = self.loop.create_task(self.misc_loop())
 
     def on_socket_close(self, client, userdata, sock):
         self.loop.remove_reader(sock)
-        # self.misc.cancel()
 
     def on_socket_register_write(self, client, userdata, sock):
         self.loop.add_writer(sock, client.loop_write)
@@ -148,6 +151,9 @@ class AsyncRPCClient(RPCClient):
     def handle_response(self, response):
         future = self.request_futures.pop(response.request_id)
         future.set_result(response)
+
+    async def wait_connect(self):
+        await self.connect_future
 
     async def request(self, topic, message):
         request_id = super().request(topic, message, self.handle_response)
@@ -160,6 +166,7 @@ class AsyncRPCClient(RPCClient):
     async def run(self):
         self.connect()
         while self.mqtt.loop_misc() == paho.mqtt.client.MQTT_ERR_SUCCESS:
+            self.mqtt.loop_write()
             try:
                 await asyncio.sleep(1)
             except asyncio.CancelledError:

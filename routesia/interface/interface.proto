@@ -50,79 +50,115 @@ message InterfaceLink {
 }
 
 
-// Loopback configuration
-//
-message LoopbackInterfaceConfig {
-    // Name
-    //
-    string name = 1;
-
-    // Link parameters
-    //
-    InterfaceLink link = 2;
-
-    // Addresses
-    //
-    repeated routesia.interface.address.Address address = 3;
-}
-
-
-// Ethernet configuration
-//
-message EthernetInterfaceConfig {
-    // Name
-    //
-    string name = 1;
-
-    // Link parameters
-    //
-    InterfaceLink link = 2;
-
-    // Addresses
-    //
-    repeated routesia.interface.address.Address address = 3;
-}
-
-
 // Bridge configuration
 //
 message BridgeInterfaceConfig {
-    // Name
+    // Ageing time
     //
-    string name = 1;
+    uint32 ageing_time = 1;
 
-    // Link parameters
+    // Forward delay
     //
-    InterfaceLink link = 2;
+    uint32 forward_delay = 2;
 
-    // Addresses
+    // Hello time
     //
-    repeated routesia.interface.address.Address address = 3;
+    uint32 hello_time = 3;
+
+    // Max age
+    //
+    uint32 max_age = 4;
+
+    // Spanning tree protocol (STP)
+    //
+    bool stp = 5;
+
+    // STP priority (Actually u16)
+    //
+    int32 priority = 6;
+
+    // VLAN filtering
+    //
+    bool vlan_filtering = 7;
+
+    // Default PVID of any new ports
+    //
+    int32 default_pvid = 8;
 }
 
 
 // VLAN configuration
 //
 message VLANInterfaceConfig {
-    // Name
+    // VLAN ID
     //
-    string name = 1;
+    string id = 1;
 
-    // Link parameters
+    // Group VLAN Registration Protocol (GVRP)
     //
-    InterfaceLink link = 2;
+    bool gvrp = 2;
 
-    // Addresses
+    // Multiple VLAN Registration Protocol (MVRP)
     //
-    repeated routesia.interface.address.Address address = 3;
+    bool mvrp = 3;
 }
 
 
 // Interface module config
 //
 message InterfaceConfig {
-    repeated LoopbackInterfaceConfig loopback = 1;
-    repeated EthernetInterfaceConfig ethernet = 2;
-    repeated BridgeInterfaceConfig bridge = 3;
-    repeated VLANInterfaceConfig vlan = 4;
+    // Name
+    //
+    string name = 1;
+
+    // Interface type
+    //
+    enum InterfaceType {
+        INTERFACE_LOOPBACK = 0;
+        INTERFACE_ETHERNET = 1;
+        INTERFACE_BRIDGE = 2;
+        INTERFACE_VLAN = 3;
+    }
+    InterfaceType type = 2;
+
+    // Link config parameters
+    //
+    InterfaceLink link = 3;
+
+    // Addresses
+    //
+    repeated routesia.interface.address.Address address = 4;
+
+    // Type-specific options
+    //
+    BridgeInterfaceConfig bridge = 100;
+    VLANInterfaceConfig vlan = 101;
+}
+
+
+// Interface model configuration
+//
+message InterfaceModuleConfig {
+    repeated InterfaceConfig interface = 1;
+}
+
+
+// Represents an interface entity
+//
+message Interface {
+    // Interface name
+    //
+    string name = 1;
+
+    // Interface config, if present
+    //
+    InterfaceConfig config = 2;
+
+}
+
+
+// A list of interface entities
+//
+message InterfaceList {
+    repeated Interface interface = 1;
 }

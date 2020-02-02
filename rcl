@@ -3,11 +3,28 @@
 # rcl -- Routesia command line interface
 #
 
+import argparse
+import sys
+
 from routesia.cli.cli import CLI
 from routesia.config.commands import ConfigCommandSet
+from routesia.interface.commands import InterfaceCommandSet
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Interactive command line client for Routesia')
+    parser.add_argument('--command', '-c', help='Run given command and exit')
+    args = parser.parse_args()
+
     cli = CLI()
     cli.register_command_set(ConfigCommandSet)
-    cli.run()
+    cli.register_command_set(InterfaceCommandSet)
+
+    ret = 0
+
+    if args.command:
+        ret = cli.run_command(args.command)
+    else:
+        cli.run()
+
+    sys.exit(ret)

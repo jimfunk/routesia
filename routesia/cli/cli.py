@@ -8,7 +8,9 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 import shlex
+import sys
 
+from routesia.exceptions import CommandError
 from routesia.rpc.client import AsyncRPCClient
 
 
@@ -20,7 +22,8 @@ class CLICommandTreeNode:
     Represents a node in the command tree
     """
 
-    def __init__(self, name):
+    def __init__(self, client, name):
+        self.client = client
         self.name = name
         self.argument = '=' in self.name if self.name else False
         self.children = {}
@@ -38,43 +41,57 @@ class CLICommandTreeNode:
         for child in self.children.values():
             child.dump(index + 1)
 
-    async def get_completions(self, client, args, suggestion, index=0):
+    def insert_command(self, command, components):
+        if not components:
+            # Command is complete. handler goes here
+            self.handler = command(self.client)
+        else:
+            component = components.pop(0)
+            if component not in self.children:
+                self.children[component] = CLICommandTreeNode(self.client, component)
+            self.children[component].insert_command(command, components)
+
+    def register_command(self, command):
+        components = command.command.split()
+        self.insert_command(command, components)
+
+    def register_command_set(self, command_set):
+        for command in command_set.commands:
+            self.register_command(command)
+
+    async def get_completions(self, args, suggestion):
         """
         Get completions based on args and suggestion. ``args`` is the list of
-        previous arguments and ``suggestion`` is the text of the current
-        argument typed in so far. The index indicates which argument is under
-        consideration as this traverses the tree.
+        previous arguments that have not been processed, and ``suggestion`` is
+        the text of the current argument typed in so far.
         """
         if self.handler:
-            # We are at the bottom. pass to the handler
-            return await self.handler.get_completions(client, args, suggestion, index)
+            return await self.handler.get_completions(args, suggestion)
 
-        if len(args) > index:
-            # Pass to lower
+        if args:
+            arg = args.pop(0)
+            if arg in self.children:
+                return await self.children[arg].get_completions(args, suggestion)
 
-            if args[index] in self.children:
-                return await self.children[args[index]].get_completions(client, args, suggestion, index+1)
-            return []
+        # Return all matching children
+        return [key for key in self.children.keys() if key.startswith(suggestion)]
 
-        # Return all children
-        return self.children.keys()
-
-    async def handle(self, client, command):
+    async def handle(self, command):
         if self.handler:
-            return await self.handler(client)
+            return await self.handler.handle(command)
 
         if command:
             arg = command.pop(0)
             if arg in self.children:
-                return await self.children[arg].handle(client, command)
+                return await self.children[arg].handle(command)
 
         print("Command incomplete or not found.")
 
 
 class RoutesiaCompleter(Completer):
-    def __init__(self, cli, client, *args, **kwargs):
-        self.cli = cli
+    def __init__(self, client, command_tree, *args, **kwargs):
         self.client = client
+        self.command_tree = command_tree
         super().__init__(*args, **kwargs)
 
     def get_completions(self, document, complete_event):
@@ -91,7 +108,7 @@ class RoutesiaCompleter(Completer):
         else:
             suggestion = args.pop(-1)
 
-        for candidate in await self.cli.command_tree.get_completions(self.client, args, suggestion):
+        for candidate in await self.command_tree.get_completions(args, suggestion):
             if candidate.startswith(suggestion):
                 yield Completion(candidate, start_position=-1 * len(document.get_word_before_cursor()))
 
@@ -100,31 +117,25 @@ class CLI:
     def __init__(self, host='localhost', port=1883, config_path=CONFIG_PATH):
         self.host = host
         self.port = port
-        self.command_tree = CLICommandTreeNode(None)
+        self.loop = asyncio.get_event_loop()
+        self.client = AsyncRPCClient(self.loop, self.host, self.port)
+        self.command_tree = CLICommandTreeNode(self.client, None)
 
-    def insert_command(self, node, command, index=0):
-        if index == len(command.command):
-            # Command is complete. handler goes here
-            node.handler = command()
-        else:
-            component = command.command[index]
-            if component not in node.children:
-                node.children[component] = CLICommandTreeNode(component)
-            self.insert_command(node.children[component], command, index+1)
+    def register_command(self, command):
+        self.command_tree.register_command(command)
 
     def register_command_set(self, command_set):
-        for command in command_set.commands:
-            self.insert_command(self.command_tree, command)
+        self.command_tree.register_command_set(command_set)
 
-    async def main(self, loop):
+    async def main(self):
         self.command_tree.dump()
 
-        client = AsyncRPCClient(loop, self.host, self.port)
-        loop.create_task(client.run())
+        self.loop.create_task(self.client.run())
+        await self.client.wait_connect()
 
         session = PromptSession(
             HTML('<b>>>></b> '),
-            completer=RoutesiaCompleter(self, client),
+            completer=RoutesiaCompleter(self.client, self.command_tree),
             history=FileHistory('%s/rcl_history' % CONFIG_PATH),
         )
 
@@ -140,8 +151,22 @@ class CLI:
                 else:
                     text = text.strip()
                     if text:
-                        await self.command_tree.handle(client, shlex.split(text))
+                        try:
+                            await self.command_tree.handle(shlex.split(text))
+                        except CommandError as e:
+                            print(e, file=sys.stderr)
+
+    async def get_command_result(self, cmd):
+        self.loop.create_task(self.client.run())
+        await self.client.wait_connect()
+        try:
+            await self.command_tree.handle(shlex.split(cmd))
+        except CommandError as e:
+            print(e, file=sys.stderr)
+            return 1
 
     def run(self):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.main(loop))
+        self.loop.run_until_complete(self.main())
+
+    def run_command(self, cmd):
+        return self.loop.run_until_complete(self.get_command_result(cmd))

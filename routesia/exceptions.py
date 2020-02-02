@@ -31,3 +31,5 @@ class RPCEntityNotFound(RPCException):
     pass
 
 
+class CommandError(RoutesiaException):
+    pass
