@@ -1,7 +1,7 @@
 """
 routesia/cli/command.py - Command line interface command definitions
 """
-import inspect
+from collections import OrderedDict
 
 from routesia.exceptions import CommandError
 
@@ -128,95 +128,99 @@ class CLICommand:
                         completions.append(candidate)
                 return completions
     """
+
     command = None
+    parameters = tuple()
 
     def __init__(self, client):
         self.client = client
-        self.signature = inspect.Signature.from_callable(self.call)
-        self.parameters = self.signature.parameters
-        self.positional_parameters = [p for p in self.parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD]
-        self.num_positional_parameters = len(self.positional_parameters)
-        self.keyword_parameters = [p for p in self.parameters.values() if p.kind == p.KEYWORD_ONLY]
+        self.parameter_map = OrderedDict(self.parameters)
 
-    def check_args(self, command, test=True):
-        args = []
-        kwargs = {}
+    def check_args(self, command):
+        keyword_args_present = False
+        kwargs = {name: None for name in self.parameter_map.keys()}
+        extra_args = []
 
         for i, arg in enumerate(command):
-            if '=' in arg:
-                param_name, value = arg.split('=', 1)
-                if param_name in self.parameters:
-                    param = self.parameters[param_name]
-                    if param.annotation is not param.empty:
-                        try:
-                            value = param_name.annotation(value)
-                        except Exception as e:
-                            raise CommandError(str(e))
-                    kwargs[param_name] = value
-                    continue
-            param = list(self.parameters.values())[i]
-            if param.annotation is not param.empty:
-                try:
-                    arg = param_name.annotation(arg)
-                except Exception as e:
-                    raise CommandError(str(e))
-            args.append(arg)
+            param_name = None
+            param_value = arg
 
-        if test:
+            if i >= len(kwargs) or arg == "|":
+                extra_args = command[i:]
+                break
+
+            if "=" in arg:
+                name, value = arg.split("=", 1)
+                if name in self.parameter_map:
+                    keyword_args_present = True
+                    param_name = name
+                    param_value = value
+
+            if not param_name:
+                if keyword_args_present:
+                    raise CommandError("Positional argument given after named argument")
+                param_name = list(self.parameter_map.keys())[i]
+
             try:
-                self.signature.bind(*args, **kwargs)
-            except TypeError as e:
+                kwargs[param_name] = self.parameter_map[param_name](param_value)
+            except Exception as e:
                 raise CommandError(str(e))
+            kwargs[param_name] = param_value
 
-        # TODO: If we get a '|' in the commmands, parse into a filter. Perhaps
-        # return a bound method as a 3rd value?
-
-        return args, kwargs
+        return kwargs, extra_args, keyword_args_present
 
     async def handle(self, command):
-        args, kwargs = self.check_args(command)
-        result = await self.call(*args, **kwargs)
-        # TODO: filter
+        kwargs, extra_args, _ = self.check_args(command)
+        result = await self.call(**kwargs)
+        # TODO: If we get a '|' in extra_args, parse into a filter
         self.display(result)
 
     async def get_completions(self, args, suggestion, **kwargs):
+        if len(args) + 1 > len(self.parameters):
+            # No more params available
+            return []
+
         completions = []
 
         # Get any args already given
-        args, kwargs = self.check_args(args, test=False)
+        kwargs, extra_args, keyword_args_present = self.check_args(args)
 
-        if kwargs or len(args) >= self.num_positional_parameters:
-            # If we have any kwargs or the positionals are all defined, this
-            # suggestion is a kwarg
-            if '=' in suggestion:
-                param_name, value = suggestion.split('=', 1)
-                if param_name in self.kwargs:
-                    # Already given as kwarg. Not valid
-                    return []
-                if param_name not in self.parameters:
-                    # Not a param
-                    return []
-                param = self.parameters[param_name]
-                if param.kind == param.POSITIONAL_OR_KEYWORD:
-                    # Already given as positional
-                    return []
-                completion_method = getattr(self, 'get_%s_completions' % param.name, None)
-                if completion_method:
-                    for completion in await completion_method(suggestion, *args, **kwargs):
-                        completions.append('%s=%s' % (param_name, completion))
-                return completions
-            else:
-                # If we don't know which one, just suggest unused kwargs
-                for parameter in self.keyword_parameters:
-                    if parameter.name not in kwargs:
-                        completions.append('%s=' % parameter.name)
-                    return completions
-        else:
-            # This is positional
-            param = list(self.parameters.values())[len(args)]
-            completion_method = getattr(self, 'get_%s_completions' % param.name, None)
+        param_name = None
+        param_value = suggestion
+        positional = True
+
+        if '=' in suggestion:
+            name, value = suggestion.split("=", 1)
+            if name in self.parameter_map:
+                positional = False
+                param_name = name
+                param_value = value
+
+        if keyword_args_present:
+            # Only kwargs are valid at this point
+            positional = False
+
+        if positional:
+            positional_param_name = list(self.parameter_map.keys())[len(args)]
+            completion_method = getattr(
+                self, "get_%s_completions" % positional_param_name, None
+            )
             if completion_method:
-                return await completion_method(suggestion, *args, **kwargs)
+                for completion in await completion_method(param_value, **kwargs):
+                    completions.append(completion)
+
+        if param_name:
+            completion_method = getattr(
+                self, "get_%s_completions" % param_name, None
+            )
+            if completion_method:
+                for completion in await completion_method(param_value, **kwargs):
+                    completions.append('%s=%s' % (param_name, completion))
+        else:
+            # Suggest unused kwargs
+            for name in kwargs.keys():
+                if kwargs[name] is None:
+                    completions.append("%s=" % name)
 
         return completions
 
@@ -234,4 +238,20 @@ class CLICommandSet:
     """
     Represents a set of CLICommand classes.
     """
+
     commands = tuple()
+
+
+class CLIEnum:
+    """
+    Wraps a protobuf enum for use as a type annotation converting a string to
+    the emnumerated value.
+    """
+
+    def __init__(self, enum):
+        self.enum = enum
+
+    def __call__(self, value):
+        if value is None:
+            return self.enum.values()[0]
+        return self.enum.Value(value)

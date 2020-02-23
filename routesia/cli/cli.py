@@ -7,6 +7,7 @@ from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
+import re
 import shlex
 import sys
 
@@ -14,7 +15,9 @@ from routesia.exceptions import CommandError
 from routesia.rpc.client import AsyncRPCClient
 
 
-CONFIG_PATH = os.path.expanduser('~/.config/routesia/')
+CONFIG_PATH = os.path.expanduser("~/.config/routesia/")
+
+PARAM_RE = re.compile(r"([a-zA-Z0-9_=]+|[^a-zA-Z0-9_=\s]+)")
 
 
 class CLICommandTreeNode:
@@ -25,18 +28,18 @@ class CLICommandTreeNode:
     def __init__(self, client, name):
         self.client = client
         self.name = name
-        self.argument = '=' in self.name if self.name else False
+        self.argument = "=" in self.name if self.name else False
         self.children = {}
         self.handler = None
 
     def dump(self, index=0):
-        s = '    ' * index
+        s = "    " * index
         if self.name:
-            s += self.name + ' '
+            s += self.name + " "
         if self.handler:
             s += str(self.handler)
         if self.children:
-            s += '->'
+            s += "->"
         print(s)
         for child in self.children.values():
             child.dump(index + 1)
@@ -103,18 +106,22 @@ class RoutesiaCompleter(Completer):
     async def get_completions_async(self, document, complete_event):
         text = document.text_before_cursor
         args = text.split()
-        if not text or text[-1] == ' ':
-            suggestion = ''
+        if not text or text[-1] == " ":
+            suggestion = ""
         else:
             suggestion = args.pop(-1)
 
         for candidate in await self.command_tree.get_completions(args, suggestion):
             if candidate.startswith(suggestion):
-                yield Completion(candidate, start_position=-1 * len(document.get_word_before_cursor()))
+                yield Completion(
+                    candidate,
+                    start_position=-1
+                    * len(document.get_word_before_cursor(pattern=PARAM_RE)),
+                )
 
 
 class CLI:
-    def __init__(self, host='localhost', port=1883, config_path=CONFIG_PATH):
+    def __init__(self, host="localhost", port=1883, config_path=CONFIG_PATH):
         self.host = host
         self.port = port
         self.loop = asyncio.get_event_loop()
@@ -134,9 +141,9 @@ class CLI:
         await self.client.wait_connect()
 
         session = PromptSession(
-            HTML('<b>>>></b> '),
+            HTML("<b>>>></b> "),
             completer=RoutesiaCompleter(self.client, self.command_tree),
-            history=FileHistory('%s/rcl_history' % CONFIG_PATH),
+            history=FileHistory("%s/rcl_history" % CONFIG_PATH),
         )
 
         while True:

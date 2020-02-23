@@ -5,6 +5,17 @@ package routesia.interface;
 import "routesia/interface/address/address.proto";
 
 
+// Interface type
+//
+enum InterfaceType {
+    UNDEFINED = 0;
+    LOOPBACK = 1;
+    ETHERNET = 2;
+    BRIDGE = 3;
+    VLAN = 4;
+}
+
+
 message InterfaceLink {
     // Link up/down
     //
@@ -37,9 +48,9 @@ message InterfaceLink {
     // IPv6 address generation mode
     //
     enum AddrGenMode {
-        NONE = 0;
-        EUI64 = 1;
-        STABLE_SECRET = 2;
+        EUI64 = 0;
+        NONE = 1;
+        STABLE_PRIVACY = 2;
         RANDOM = 3;
     }
     AddrGenMode addrgenmode = 8;
@@ -90,17 +101,21 @@ message BridgeInterfaceConfig {
 // VLAN configuration
 //
 message VLANInterfaceConfig {
+    // Trunk interface
+    //
+    string trunk = 1;
+
     // VLAN ID
     //
-    string id = 1;
+    string id = 2;
 
     // Group VLAN Registration Protocol (GVRP)
     //
-    bool gvrp = 2;
+    bool gvrp = 3;
 
     // Multiple VLAN Registration Protocol (MVRP)
     //
-    bool mvrp = 3;
+    bool mvrp = 4;
 }
 
 
@@ -113,12 +128,6 @@ message InterfaceConfig {
 
     // Interface type
     //
-    enum InterfaceType {
-        INTERFACE_LOOPBACK = 0;
-        INTERFACE_ETHERNET = 1;
-        INTERFACE_BRIDGE = 2;
-        INTERFACE_VLAN = 3;
-    }
     InterfaceType type = 2;
 
     // Link config parameters
@@ -150,9 +159,13 @@ message Interface {
     //
     string name = 1;
 
+    // Link parameters
+    //
+    InterfaceLink link = 2;
+
     // Interface config, if present
     //
-    InterfaceConfig config = 2;
+    InterfaceConfig config = 3;
 
 }
 
@@ -161,4 +174,21 @@ message Interface {
 //
 message InterfaceList {
     repeated Interface interface = 1;
+}
+
+
+// Represents an interface config and the parameters that are set
+//
+message InterfaceConfigUpdate {
+    // The interface name
+    //
+    string ifname = 1;
+
+    // The interface config
+    //
+    InterfaceConfig config = 2;
+
+    // An array of field numbers representing the fields from config that are
+    // to be set
+    repeated int32 field_number = 3;
 }

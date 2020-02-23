@@ -5,7 +5,7 @@ from google.protobuf import text_format
 import logging
 import os
 
-from routesia.config import config_pb2
+from routesia.config.config_pb2 import Config, CommitResult
 from routesia.rpc.provider import RPCProvider
 from routesia.injector import Provider
 
@@ -21,8 +21,8 @@ class ConfigProvider(Provider):
         self.rpc = rpc
         self.location = location
 
-        self.data = config_pb2.Config()
-        self.staged_data = config_pb2.Config()
+        self.data = Config()
+        self.staged_data = Config()
 
         self.init_config_handlers = set()
         self.change_handlers = set()
@@ -85,30 +85,30 @@ class ConfigProvider(Provider):
         else:
             self.init_config()
 
-    def rpc_get_running(self, msg):
+    def rpc_get_running(self, msg: None) -> Config:
         return self.data
 
-    def rpc_get_staged(self, msg):
+    def rpc_get_staged(self, msg: None) -> Config:
         return self.staged_data
 
-    def rpc_commit(self, msg):
-        result = config_pb2.CommitResult()
+    def rpc_commit(self, msg: None) -> CommitResult:
+        result = CommitResult()
 
         if self.data.SerializeToString() == self.staged_data.SerializeToString():
-            result.result_code = config_pb2.CommitResult.COMMIT_UNCHANGED
+            result.result_code = CommitResult.COMMIT_UNCHANGED
             result.message = 'No staged changes.'
         else:
             previous_data = self.data
             self.data = self.staged_data
             self.data.system.version += 1
 
-            result = config_pb2.CommitResult()
+            result = CommitResult()
 
             if self.call_change_handlers(previous_data, self.data):
-                result.result_code = config_pb2.CommitResult.COMMIT_SUCCESS
+                result.result_code = CommitResult.COMMIT_SUCCESS
                 result.message = 'Committed version %s.' % self.data.system.version
             else:
-                result.result_code = config_pb2.CommitResult.COMMIT_ERROR
+                result.result_code = CommitResult.COMMIT_ERROR
                 result.message = 'Committed version %s but application failed. The system may be in an unexpected state.' % self.data.system.version
 
         return result

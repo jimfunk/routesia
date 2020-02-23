@@ -4,9 +4,10 @@ routesia/interface/provider.py - Interface support
 
 import logging
 from routesia.config.provider import ConfigProvider
+from routesia.exceptions import RPCInvalidParameters, RPCEntityExists
 from routesia.injector import Provider
-from routesia.interface.entities import INTERFACE_TYPE_ENTITY_MAP
-from routesia.interface.interface_pb2 import InterfaceConfig, InterfaceList
+from routesia.interface.entities import INTERFACE_TYPE_ENTITY_MAP, INTERFACE_CONFIG_TYPE_ENTITY_MAP
+from routesia.interface import interface_pb2
 from routesia.interface import interface_types
 from routesia.rpc.provider import RPCProvider
 from routesia.rtnetlink.events import InterfaceAddEvent, InterfaceRemoveEvent
@@ -20,13 +21,13 @@ logger = logging.getLogger(__name__)
 # Interface config type indexed by type and kind
 #
 INTERFACE_TYPE_CONFIG_MAP = {
-    (interface_types.ARPHRD_ETHER, None): InterfaceConfig.INTERFACE_ETHERNET,
-    (interface_types.ARPHRD_ETHER, 'bridge'): InterfaceConfig.INTERFACE_BRIDGE,
-    (interface_types.ARPHRD_ETHER, 'vlan'): InterfaceConfig.INTERFACE_VLAN,
+    (interface_types.ARPHRD_ETHER, None): interface_pb2.ETHERNET,
+    (interface_types.ARPHRD_ETHER, 'bridge'): interface_pb2.BRIDGE,
+    (interface_types.ARPHRD_ETHER, 'vlan'): interface_pb2.VLAN,
     # (interface_types.ARPHRD_INFINIBAND, None): ,
     # (interface_types.ARPHRD_TUNNEL, None): ,
     # (interface_types.ARPHRD_TUNNEL6, None): ,
-    (interface_types.ARPHRD_LOOPBACK, None): InterfaceConfig.INTERFACE_LOOPBACK,
+    (interface_types.ARPHRD_LOOPBACK, None): interface_pb2.LOOPBACK,
     # (interface_types.ARPHRD_SIT, None): ,
     # (interface_types.ARPHRD_IPGRE, None): ,
     # (interface_types.ARPHRD_IEEE80211, None): ,
@@ -40,61 +41,106 @@ class InterfaceProvider(Provider):
         self.config = config
         self.rpc = rpc
         self.interfaces = {}
+        self.running = False
 
         self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
 
-    def handle_config_update(self, old, new):
-        pass
+    def on_config_change(self, old, new):
+        old_interfaces = {}
+        new_interfaces = {}
+        for interface in old.interface.interface:
+            old_interfaces[interface.name] = interface
+        for interface in new.interface.interface:
+            new_interfaces[interface.name] = interface
+        old_interface_names = set(old_interfaces.keys())
+        new_interface_names = set(new_interfaces.keys())
 
-    def find_config(self, interface_event):
-        # section = INTERFACE_TYPE_ENTITY_MAP[(interface_event.iftype, interface_event.kind)].section
+        # Remove old interfaces
+        for ifname in old_interface_names - new_interface_names:
+            if ifname in self.interfaces:
+                self.interfaces[ifname].on_interface_remove()
 
-        for interface_config in self.config.data.interface.interface:
-            # Just do ifname for now. Get clever later
-            if interface_config.name == interface_event.ifname:
-                if INTERFACE_TYPE_CONFIG_MAP[(interface_event.iftype, interface_event.kind)] == interface_config.type:
-                    return interface_config
-                else:
-                    logger.warning(
-                        "Could not apply interface config for %s because the config type does not match the existing interface type." %
-                        interface_event.ifname
-                    )
+        # Add new interfaces
+        for ifname in new_interface_names - old_interface_names:
+            if ifname in self.interfaces:
+                self.interfaces[ifname].on_config_change()
+            else:
+                entity_class = INTERFACE_CONFIG_TYPE_ENTITY_MAP[interface.type]
+                self.interfaces[ifname] = entity_class(self, ifname, config=new_interfaces[ifname])
+
+        # Update the rest
+        for ifname in new_interface_names & old_interface_names:
+            old_config = old_interfaces[ifname]
+            new_config = new_interfaces[ifname]
+            if old_config.SerializeToString() != new_config.SerializeToString():
+                self.interfaces[ifname].on_config_change(new_config)
 
     def handle_interface_add(self, interface_event):
         map_type = (interface_event.iftype, interface_event.kind)
         ifname = interface_event.ifname
 
-        if map_type in INTERFACE_TYPE_ENTITY_MAP:
-            if ifname not in self.interfaces:
-                config = self.find_config(interface_event)
-                interface = INTERFACE_TYPE_ENTITY_MAP[map_type](ifname, self.iproute, config=config, event=interface_event)
-                self.interfaces[ifname] = interface
-            else:
-                interface = self.interfaces[ifname]
+        if ifname in self.interfaces:
+            self.interfaces[ifname].update_state(interface_event)
+        else:
+            if map_type in INTERFACE_TYPE_ENTITY_MAP:
+                interface = INTERFACE_TYPE_ENTITY_MAP[map_type](self, ifname)
                 interface.update_state(interface_event)
+                self.interfaces[ifname] = interface
 
     def handle_interface_remove(self, interface_event):
-        map_type = (interface_event.iftype, interface_event.kind)
         ifname = interface_event.ifname
 
-        if map_type in INTERFACE_TYPE_ENTITY_MAP:
-            if ifname in self.interfaces:
-                self.interfaces[ifname].handle_remove()
+        if ifname in self.interfaces:
+            interface = self.interfaces[ifname]
+            interface.on_interface_remove()
+            if not interface.config:
                 del self.interfaces[ifname]
 
-    def rpc_list_interfaces(self, msg):
-        interfaces = InterfaceList()
-        for entity in self.interfaces.values():
-            interface = interfaces.interface.add()
-            interface.name = entity.name
-            if entity.config:
-                interface.config.CopyFrom(entity.config)
-        return interfaces
+    def load(self):
+        self.config.register_change_handler(self.on_config_change)
+        for interface in self.config.data.interface.interface:
+            entity_class = INTERFACE_CONFIG_TYPE_ENTITY_MAP[interface.type]
+            self.interfaces[interface.name] = entity_class(self, interface.name, config=interface)
 
     def startup(self):
+        self.running = True
         self.rpc.register('/interface/list', self.rpc_list_interfaces)
-        interface_module_config = self.config.data.interface
-        for interface_config in interface_module_config.interface:
-            # Wipe any existing addresses since we are controlling it
-            self.iproute.iproute.flush_addr(label=interface_config.name)
+        self.rpc.register('/interface/config/add', self.rpc_add_interface)
+        self.rpc.register('/interface/config/update', self.rpc_update_interface)
+        for interface in self.interfaces.values():
+            interface.startup()
+
+    def shutdown(self):
+        self.running = False
+        for interface in self.interfaces.values():
+            interface.shutdown()
+
+    def get_ifindex(self, ifname):
+        if ifname in self.interfaces:
+            return self.interfaces[ifname].ifindex
+        return None
+
+    def rpc_list_interfaces(self, msg: None) -> interface_pb2.InterfaceList:
+        interfaces = interface_pb2.InterfaceList()
+        for entity in self.interfaces.values():
+            interface = interfaces.interface.add()
+            entity.to_message(interface)
+        return interfaces
+
+    def rpc_add_interface(self, msg: interface_pb2.InterfaceConfig) -> None:
+        if not msg.ifname:
+            raise RPCInvalidParameters("ifname not specified")
+        for interface in self.config.staged_data.interface.interface:
+            if interface.ifname == msg.ifname:
+                raise RPCEntityExists(msg.ifname)
+        self.staged_data.interface.interface.append(msg)
+
+    def rpc_update_interface(self, msg: interface_pb2.InterfaceConfigUpdate) -> None:
+        if not msg.ifname:
+            raise RPCInvalidParameters("ifname not specified")
+        for interface in self.config.staged_data.interface.interface:
+            if interface.ifname == msg.ifname:
+                for field_number in msg.field_number:
+                    name = interface.DESCRIPTOR.fields_by_number[field_number].name
+                    setattr(interface, name, getattr(msg.config, name))

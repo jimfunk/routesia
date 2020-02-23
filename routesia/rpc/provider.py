@@ -4,7 +4,7 @@ routesia/rpc/provider.py - RPC over MQTT
 
 import logging
 
-from routesia.exceptions import EntityNotFound
+from routesia.exceptions import RPCInvalidParameters, RPCEntityNotFound, RPCEntityExists
 from routesia.injector import Provider
 from routesia.mqtt import MQTT
 from routesia.rpc import rpc_pb2
@@ -59,12 +59,17 @@ class RPCProvider(Provider):
 
         try:
             result = self.handlers[handler_topic](message)
-        except EntityNotFound as e:
+        except RPCInvalidParameters as e:
+            self.send_error(client_id, request_id, rpc_pb2.RPCError.INVALID_PARAMETERS, "Invalid parameters: %s" % e)
+            return
+        except RPCEntityNotFound as e:
             self.send_error(client_id, request_id, rpc_pb2.RPCError.ENTITY_NOT_FOUND, "Entity not found: %s" % e)
+            return
+        except RPCEntityExists as e:
+            self.send_error(client_id, request_id, rpc_pb2.RPCError.ENTITY_EXISTS, "Entity exists: %s" % e)
             return
         except Exception:
             logger.exception("Got exception handling %s." % handler_topic)
-
             self.send_error(client_id, request_id, rpc_pb2.RPCError.UNSPECIFIED_ERROR, "An unspecified server error occured.")
             return
 

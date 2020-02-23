@@ -11,7 +11,15 @@ class InvalidProvider(RoutesiaException):
     pass
 
 
+class ProviderLoadError(RoutesiaException):
+    pass
+
+
 class EntityNotFound(RoutesiaException):
+    pass
+
+
+class InvalidConfig(RoutesiaException):
     pass
 
 
@@ -27,7 +35,15 @@ class RPCHandlerNotFound(RPCException):
     pass
 
 
+class RPCInvalidParameters(RPCException):
+    pass
+
+
 class RPCEntityNotFound(RPCException):
+    pass
+
+
+class RPCEntityExists(RPCException):
     pass
 
 
