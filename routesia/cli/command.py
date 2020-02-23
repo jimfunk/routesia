@@ -14,8 +14,11 @@ class CLICommand:
 
         class EchoCommand(CLICommand):
             command = 'echo'
+            parameters = (
+                ('text', String(required=True)),
+            )
 
-            async def call(self, text):
+            async def call(self, text, **kwargs):
                 message = Message()
                 message.text = text
                 return await self.client.request('/echo', message)
@@ -24,23 +27,24 @@ class CLICommand:
     type to call the command. The command is split up and placed in the
     command tree. The call method must implement the command itself.
 
+    If the command accepts parameters, they must be described using the
+    parameters class attribute. Each parameter must be described as a 2-tuple
+    of the parameter name, and an instance a Parameter subclass from
+    routesia.cli.parameters.
+
     Inside the call implementation, the RPCClient instance can be accessed as
     ``self.client``.
 
-    Arguments to the call method are pulled from the command line and passed
-    the same way as any python function, but the arguments are whitespace
-    delimited and strings need not be quoted unless they contain whitespace.
-    Arguments are passed as strings unless the parameters are given type
-    annotations, in which case they are coerced first.
+    Arguments on the command line are always passed to the Parameter subclass
+    as strings for type conversion if necessary. The value stored in the
+    dictionary is dependent on the associated Parameter class. Any parameters
+    not given are not included in the dictionary.
 
-    For example, given the following call implementation::
+    If any extra arguments are given they are included as a simple list in the
+    dictionary with the key ``__extra__``.
 
-        async def call(self, msg, a:float, b:int, operation='+')
-
-    The following command inputs are interpreted as below:
-        * ``hey 1 2`` is equivalent to ``call("hey", 1, 2.0)``
-        * ``ho 1 2 -`` is equivalent to ``call("ho", 1, 2.0, "-")``
-        * ``"let's go!" '1 2 operation=*`` is equivalent to ``call("let's go!", 1, 2.0, operation="*")``
+    Arguments are whitespace delimited unless quoted according to standard
+    shell rules.
 
     Since the commands are represented by a tree, commands can be layered in a
     hierarchy. For example, say we have the following commands::
@@ -86,15 +90,18 @@ class CLICommand:
 
         class ShowFoo(CLICommand):
             command = 'show foo'
+            parameters = (
+                ('subcommand', String()),
+            )
 
             def __init__(self, client):
                 super().__init(client)
                 self.command_tree = CLICommandTreeNode(self.client, None)
                 self.command_tree.register_command(ShowFooBar)
 
-            async def call(self, *args):
-                if args:
-                    return await self.command_tree.handle(args)
+            async def call(self, **kwargs):
+                if "subcommand" in kwargs:
+                    return await self.command_tree.handle([kwargs["subcommand"]] + kwargs["__extra__"])
                 # Normal command implementation
 
     The arguments of the call method may be subject to completion, provided
@@ -102,24 +109,28 @@ class CLICommand:
     command. The function is async, in case the client is needed to look up
     the values. The function is given the suggestion, which may be an empty
     string if the argument is empty so far. Any already known arguments are
-    given as ``*args`` and **kwargs``.
+    given as **kwargs``.
 
     For example:
 
         class ShowFoo(CLICommand):
             command = 'show foo'
+            parameters = (
+                ("first_arg", String(required=True)),
+                ("second_arg", String(required=True)),
+            )
 
-            async def call(self, first_arg, second_arg):
+            async def call(self, first_arg, second_arg, **kwargs):
                 ...
 
-            async def get_first_arg_completions(self, suggestion, *args, **kwargs):
+            async def get_first_arg_completions(self, suggestion, **kwargs):
                 completions = []
                 for candidate in get_first_arg_values():
                     if candidate.startswith(suggestion):
                         completions.append(candidate)
                 return completions
 
-            async def get_second_arg_completions(self, suggestion, *args, **kwargs):
+            async def get_second_arg_completions(self, suggestion, **kwargs):
                 first_arg = args[0]
                 completions = []
                 # You can use the first argument to filter the second argument
@@ -127,6 +138,11 @@ class CLICommand:
                     if candidate.startswith(suggestion):
                         completions.append(candidate)
                 return completions
+
+    Some parameter types may also have built-in completion functions that are
+    used even the command does not explicitly define a completion function for
+    the parameter. For example, the ``Bool()`` parameter will offer the "true"
+    and "false" completions.
     """
 
     command = None
@@ -138,14 +154,14 @@ class CLICommand:
 
     def check_args(self, command):
         keyword_args_present = False
-        kwargs = {name: None for name in self.parameter_map.keys()}
+        kwargs = {}
         extra_args = []
 
         for i, arg in enumerate(command):
             param_name = None
             param_value = arg
 
-            if i >= len(kwargs) or arg == "|":
+            if i >= len(self.parameters) or arg == "|":
                 extra_args = command[i:]
                 break
 
@@ -165,15 +181,34 @@ class CLICommand:
                 kwargs[param_name] = self.parameter_map[param_name](param_value)
             except Exception as e:
                 raise CommandError(str(e))
-            kwargs[param_name] = param_value
 
-        return kwargs, extra_args, keyword_args_present
+        if extra_args:
+            kwargs["__extra__"] = extra_args
+
+        return kwargs, keyword_args_present
 
     async def handle(self, command):
-        kwargs, extra_args, _ = self.check_args(command)
+        kwargs, _ = self.check_args(command)
         result = await self.call(**kwargs)
         # TODO: If we get a '|' in extra_args, parse into a filter
         self.display(result)
+
+    async def get_parameter_completions(self, param_name, suggestion, **kwargs):
+        # Try command-specific completion
+        completion_method = getattr(
+            self, "get_%s_completions" % param_name.replace(".", "_"), None
+        )
+        if completion_method:
+            return await completion_method(suggestion, **kwargs)
+
+        # Try parameter-specific completions
+        completion_method = getattr(
+            self.parameter_map[param_name], "get_completions", None
+        )
+        if completion_method:
+            return completion_method()
+
+        return []
 
     async def get_completions(self, args, suggestion, **kwargs):
         if len(args) + 1 > len(self.parameters):
@@ -183,13 +218,13 @@ class CLICommand:
         completions = []
 
         # Get any args already given
-        kwargs, extra_args, keyword_args_present = self.check_args(args)
+        kwargs, keyword_args_present = self.check_args(args)
 
         param_name = None
         param_value = suggestion
         positional = True
 
-        if '=' in suggestion:
+        if "=" in suggestion:
             name, value = suggestion.split("=", 1)
             if name in self.parameter_map:
                 positional = False
@@ -202,24 +237,20 @@ class CLICommand:
 
         if positional:
             positional_param_name = list(self.parameter_map.keys())[len(args)]
-            completion_method = getattr(
-                self, "get_%s_completions" % positional_param_name, None
-            )
-            if completion_method:
-                for completion in await completion_method(param_value, **kwargs):
-                    completions.append(completion)
+            for completion in await self.get_parameter_completions(
+                positional_param_name, param_value, **kwargs
+            ):
+                completions.append(completion)
 
         if param_name:
-            completion_method = getattr(
-                self, "get_%s_completions" % param_name, None
-            )
-            if completion_method:
-                for completion in await completion_method(param_value, **kwargs):
-                    completions.append('%s=%s' % (param_name, completion))
+            for completion in await self.get_parameter_completions(
+                param_name, param_value, **kwargs
+            ):
+                completions.append("%s=%s" % (param_name, completion))
         else:
             # Suggest unused kwargs
-            for name in kwargs.keys():
-                if kwargs[name] is None:
+            for name in self.parameter_map.keys():
+                if name not in kwargs:
                     completions.append("%s=" % name)
 
         return completions

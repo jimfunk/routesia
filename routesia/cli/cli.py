@@ -7,7 +7,6 @@ from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
-import re
 import shlex
 import sys
 
@@ -16,8 +15,6 @@ from routesia.rpc.client import AsyncRPCClient
 
 
 CONFIG_PATH = os.path.expanduser("~/.config/routesia/")
-
-PARAM_RE = re.compile(r"([a-zA-Z0-9_=]+|[^a-zA-Z0-9_=\s]+)")
 
 
 class CLICommandTreeNode:
@@ -115,8 +112,7 @@ class RoutesiaCompleter(Completer):
             if candidate.startswith(suggestion):
                 yield Completion(
                     candidate,
-                    start_position=-1
-                    * len(document.get_word_before_cursor(pattern=PARAM_RE)),
+                    start_position=-1 * len(document.get_word_before_cursor(WORD=True)),
                 )
 
 

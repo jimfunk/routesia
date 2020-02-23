@@ -13,7 +13,13 @@ class Parameter:
 
 class Bool(Parameter):
     def __call__(self, value):
-        return bool(value)
+        value = value.lower()
+        if value in ('1', 'true', 't', 'yes'):
+            return True
+        return False
+
+    def get_completions(self):
+        return ('true', 'false')
 
 
 class String(Parameter):
@@ -100,3 +106,6 @@ class ProtobufEnum(Parameter):
         if value is None:
             return self.enum.values()[0]
         return self.enum.Value(value)
+
+    def get_completions(self):
+        return self.enum.keys()
