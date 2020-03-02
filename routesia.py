@@ -14,7 +14,7 @@ from routesia.dns.cache.provider import DNSCacheProvider
 from routesia.dns.authoritative.provider import AuthoritativeDNSProvider
 from routesia.server import Server
 from routesia.interface.provider import InterfaceProvider
-from routesia.interface.address.provider import AddressProvider
+from routesia.address.provider import AddressProvider
 from routesia.ipam.provider import IPAMProvider
 from routesia.route.provider import RouteProvider
 from routesia.rtnetlink.provider import IPRouteProvider

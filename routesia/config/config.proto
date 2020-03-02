@@ -2,6 +2,7 @@
 
 package routesia.config;
 
+import "routesia/address/address.proto";
 import "routesia/dhcp/dhcp.proto";
 import "routesia/dns/cache/cache.proto";
 import "routesia/dns/authoritative/authoritative.proto";
@@ -26,27 +27,31 @@ message Config {
 
     // Interface module
     //
-    routesia.interface.InterfaceModuleConfig interface = 3;
+    routesia.interface.InterfaceConfigList interfaces = 3;
+
+    // Address module
+    //
+    routesia.address.AddressConfigList addresses = 4;
 
     // Route module
     //
-    routesia.route.RouteModuleConfig route = 4;
+    routesia.route.RouteModuleConfig route = 5;
 
     // Netfilter module
     //
-    routesia.netfilter.NetfilterConfig netfilter = 5;
+    routesia.netfilter.NetfilterConfig netfilter = 6;
 
     // DHCP module
     //
-    routesia.dhcp.DHCPConfig dhcp = 6;
+    routesia.dhcp.DHCPConfig dhcp = 7;
 
     // DNS cache module
     //
-    routesia.dns.cache.DNSCacheConfig dns_cache = 7;
+    routesia.dns.cache.DNSCacheConfig dns_cache = 8;
 
     // Authoritative DNS module
     //
-    routesia.dns.authoritative.AuthoritativeDNSConfig authoritative_dns = 8;
+    routesia.dns.authoritative.AuthoritativeDNSConfig authoritative_dns = 9;
 }
 
 

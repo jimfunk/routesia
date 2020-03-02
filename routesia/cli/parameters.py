@@ -2,6 +2,8 @@
 routesia/cli/parameters.py - Parameter definition and processing for command line arguments
 """
 
+import ipaddress
+
 
 class Parameter:
     def __init__(self, required=False):
@@ -34,6 +36,27 @@ class String(Parameter):
         return str(value)
 
 
+class IPAddress(Parameter):
+    def __call__(self, value):
+        if value != '':
+            ipaddress.ip_address(value)
+        return value
+
+
+class IPInterface(Parameter):
+    def __call__(self, value):
+        if value != '':
+            ipaddress.ip_interface(value)
+        return value
+
+
+class IPNetwork(Parameter):
+    def __call__(self, value):
+        if value != '':
+            ipaddress.ip_network(value)
+        return value
+
+
 class Int32(Parameter):
     def __init__(self, min=-2147483648, max=2147483647, **kwargs):
         super().__init__(**kwargs)
@@ -44,8 +67,9 @@ class Int32(Parameter):
         i = int(value)
         if i < self.min:
             raise ValueError("Must be > %s" % self.min)
-        if i < self.max:
+        if i > self.max:
             raise ValueError("Must be > %s" % self.max)
+        return i
 
 
 class Int64:
@@ -60,8 +84,9 @@ class Int64:
         i = int(value)
         if i < self.min:
             raise ValueError("Must be > %s" % self.min)
-        if i < self.max:
+        if i > self.max:
             raise ValueError("Must be > %s" % self.max)
+        return i
 
 
 class UInt32(Parameter):
@@ -74,8 +99,9 @@ class UInt32(Parameter):
         i = int(value)
         if i < self.min:
             raise ValueError("Must be > %s" % self.min)
-        if i < self.max:
+        if i > self.max:
             raise ValueError("Must be > %s" % self.max)
+        return i
 
 
 class UInt64:
@@ -88,8 +114,9 @@ class UInt64:
         i = int(value)
         if i < self.min:
             raise ValueError("Must be > %s" % self.min)
-        if i < self.max:
+        if i > self.max:
             raise ValueError("Must be > %s" % self.max)
+        return i
 
 
 class ProtobufEnum(Parameter):

@@ -17,7 +17,7 @@ SCHEMA = "1.0"
 
 
 class ConfigProvider(Provider):
-    def __init__(self, rpc: RPCProvider, location='/etc/routesia/config'):
+    def __init__(self, rpc: RPCProvider, location="/etc/routesia/config"):
         self.rpc = rpc
         self.location = location
 
@@ -29,14 +29,14 @@ class ConfigProvider(Provider):
 
     @property
     def config_file(self):
-        return '%s/%s.conf' % (self.location, self.version)
+        return "%s/%s.conf" % (self.location, self.version)
 
     def get_latest_config_version(self):
         latest = None
         for filename in os.listdir(self.location):
-            if '.' in filename:
-                base, ext = filename.split('.', 1)
-                if ext == 'conf' and base.isdigit():
+            if "." in filename:
+                base, ext = filename.split(".", 1)
+                if ext == "conf" and base.isdigit():
                     version = int(base)
                     if latest is None or version > latest:
                         latest = version
@@ -48,11 +48,11 @@ class ConfigProvider(Provider):
     def register_change_handler(self, handler):
         self.change_handlers.add(handler)
 
-    def call_change_handlers(self, old, new):
+    def call_change_handlers(self):
         success = True
         for handler in self.change_handlers:
             try:
-                handler(old, new)
+                handler()
             except Exception:
                 logger.exception("Change handler failed (%s)" % handler)
                 success = False
@@ -67,7 +67,8 @@ class ConfigProvider(Provider):
         self.save_config()
 
     def save_config(self):
-        with open(self.config_file, 'w') as f:
+        self.version = self.data.system.version
+        with open(self.config_file, "w") as f:
             f.write(str(self.data))
 
     def load_config(self):
@@ -96,7 +97,7 @@ class ConfigProvider(Provider):
 
         if self.data.SerializeToString() == self.staged_data.SerializeToString():
             result.result_code = CommitResult.COMMIT_UNCHANGED
-            result.message = 'No staged changes.'
+            result.message = "No staged changes."
         else:
             previous_data = self.data
             self.data = self.staged_data
@@ -104,12 +105,16 @@ class ConfigProvider(Provider):
 
             result = CommitResult()
 
-            if self.call_change_handlers(previous_data, self.data):
+            if self.call_change_handlers():
+                self.save_config()
                 result.result_code = CommitResult.COMMIT_SUCCESS
-                result.message = 'Committed version %s.' % self.data.system.version
+                result.message = "Committed version %s." % self.data.system.version
             else:
+                # Roll back
+                self.data = previous_data
+                self.call_change_handlers()
                 result.result_code = CommitResult.COMMIT_ERROR
-                result.message = 'Committed version %s but application failed. The system may be in an unexpected state.' % self.data.system.version
+                result.message = "Failed to commit changes. Attempting rollback but the system may be in an unexpected state."
 
         return result
 
@@ -118,6 +123,6 @@ class ConfigProvider(Provider):
 
         # Register RPC methods
         #
-        self.rpc.register('/config/running/get', self.rpc_get_running)
-        self.rpc.register('/config/staged/get', self.rpc_get_staged)
-        self.rpc.register('/config/staged/commit', self.rpc_commit)
+        self.rpc.register("/config/running/get", self.rpc_get_running)
+        self.rpc.register("/config/staged/get", self.rpc_get_staged)
+        self.rpc.register("/config/staged/commit", self.rpc_commit)

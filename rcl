@@ -6,6 +6,7 @@
 import argparse
 import sys
 
+from routesia.address.commands import AddressCommandSet
 from routesia.cli.cli import CLI
 from routesia.config.commands import ConfigCommandSet
 from routesia.interface.commands import InterfaceCommandSet
@@ -17,6 +18,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     cli = CLI()
+    cli.register_command_set(AddressCommandSet)
     cli.register_command_set(ConfigCommandSet)
     cli.register_command_set(InterfaceCommandSet)
 

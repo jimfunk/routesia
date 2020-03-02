@@ -2,6 +2,8 @@
 routesia/rpc/provider.py - RPC over MQTT
 """
 
+from google.protobuf.message import Message
+import inspect
 import logging
 
 from routesia.exceptions import RPCInvalidParameters, RPCEntityNotFound, RPCEntityExists
@@ -57,8 +59,21 @@ class RPCProvider(Provider):
             self.send_error(client_id, request_id, rpc_pb2.RPCError.HANDLER_NOT_FOUND, "No handler for %s found." % handler_topic)
             return
 
+        handler = self.handlers[handler_topic]
+        kwargs = {}
+
+        # Figure out if method requres the message and whether it should be
+        # parsed first
+        signature = inspect.Signature.from_callable(handler)
+        if "msg" in signature.parameters:
+            annotation = signature.parameters['msg'].annotation
+            if annotation and issubclass(annotation, Message):
+                kwargs["msg"] = annotation.FromString(message.payload)
+            else:
+                kwargs["msg"] = message
+
         try:
-            result = self.handlers[handler_topic](message)
+            result = handler(**kwargs)
         except RPCInvalidParameters as e:
             self.send_error(client_id, request_id, rpc_pb2.RPCError.INVALID_PARAMETERS, "Invalid parameters: %s" % e)
             return
@@ -73,7 +88,10 @@ class RPCProvider(Provider):
             self.send_error(client_id, request_id, rpc_pb2.RPCError.UNSPECIFIED_ERROR, "An unspecified server error occured.")
             return
 
-        self.mqtt.publish('/response/%s/%s/result' % (client_id, request_id), payload=result.SerializeToString())
+        if result is not None:
+            result = result.SerializeToString()
+
+        self.mqtt.publish('/response/%s/%s/result' % (client_id, request_id), payload=result)
 
     def startup(self):
         self.mqtt.subscribe('/request/+/+/#', self.handle_request)

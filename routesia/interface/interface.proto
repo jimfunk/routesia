@@ -2,193 +2,157 @@ syntax = "proto3";
 
 package routesia.interface;
 
-import "routesia/interface/address/address.proto";
-
-
 // Interface type
 //
 enum InterfaceType {
-    UNDEFINED = 0;
-    LOOPBACK = 1;
-    ETHERNET = 2;
-    BRIDGE = 3;
-    VLAN = 4;
+  UNDEFINED = 0;
+  LOOPBACK = 1;
+  ETHERNET = 2;
+  BRIDGE = 3;
+  VLAN = 4;
 }
-
 
 message InterfaceLink {
-    // Link up/down
-    //
-    bool up = 1;
+  // Link up/down
+  //
+  bool up = 1;
 
-    // Don't accept ARP
-    //
-    bool noarp = 2;
+  // Don't accept ARP
+  //
+  bool noarp = 2;
 
-    // Transmit queue length
-    //
-    uint32 txqueuelen = 3;
+  // Transmit queue length
+  //
+  uint32 txqueuelen = 3;
 
-    // Maximum transmission unit
-    //
-    uint32 mtu = 4;
+  // Maximum transmission unit
+  //
+  uint32 mtu = 4;
 
-    // Link layer address
-    //
-    string address = 5;
+  // Link layer address
+  //
+  string address = 5;
 
-    // Link layer broadcast address
-    //
-    string broadcast = 6;
+  // Link layer broadcast address
+  //
+  string broadcast = 6;
 
-    // Master device for interface (bridge, bond, etc.)
-    //
-    string master = 7;
+  // Master device for interface (bridge, bond, etc.)
+  //
+  string master = 7;
 
-    // IPv6 address generation mode
-    //
-    enum AddrGenMode {
-        EUI64 = 0;
-        NONE = 1;
-        STABLE_PRIVACY = 2;
-        RANDOM = 3;
-    }
-    AddrGenMode addrgenmode = 8;
+  // IPv6 address generation mode
+  //
+  enum AddrGenMode {
+    EUI64 = 0;
+    NONE = 1;
+    STABLE_PRIVACY = 2;
+    RANDOM = 3;
+  }
+  AddrGenMode addrgenmode = 8;
 
-    // IPv6 address token
-    //
-    string token = 9;
+  // IPv6 address token
+  //
+  string token = 9;
 }
-
 
 // Bridge configuration
 //
 message BridgeInterfaceConfig {
-    // Ageing time
-    //
-    uint32 ageing_time = 1;
+  // Ageing time
+  //
+  uint32 ageing_time = 1;
 
-    // Forward delay
-    //
-    uint32 forward_delay = 2;
+  // Forward delay
+  //
+  uint32 forward_delay = 2;
 
-    // Hello time
-    //
-    uint32 hello_time = 3;
+  // Hello time
+  //
+  uint32 hello_time = 3;
 
-    // Max age
-    //
-    uint32 max_age = 4;
+  // Max age
+  //
+  uint32 max_age = 4;
 
-    // Spanning tree protocol (STP)
-    //
-    bool stp = 5;
+  // Spanning tree protocol (STP)
+  //
+  bool stp = 5;
 
-    // STP priority (Actually u16)
-    //
-    int32 priority = 6;
+  // STP priority (Actually u16)
+  //
+  int32 priority = 6;
 
-    // VLAN filtering
-    //
-    bool vlan_filtering = 7;
+  // VLAN filtering
+  //
+  bool vlan_filtering = 7;
 
-    // Default PVID of any new ports
-    //
-    int32 default_pvid = 8;
+  // Default PVID of any new ports
+  //
+  int32 default_pvid = 8;
 }
-
 
 // VLAN configuration
 //
 message VLANInterfaceConfig {
-    // Trunk interface
-    //
-    string trunk = 1;
+  // Trunk interface
+  //
+  string trunk = 1;
 
-    // VLAN ID
-    //
-    string id = 2;
+  // VLAN ID
+  //
+  string id = 2;
 
-    // Group VLAN Registration Protocol (GVRP)
-    //
-    bool gvrp = 3;
+  // Group VLAN Registration Protocol (GVRP)
+  //
+  bool gvrp = 3;
 
-    // Multiple VLAN Registration Protocol (MVRP)
-    //
-    bool mvrp = 4;
+  // Multiple VLAN Registration Protocol (MVRP)
+  //
+  bool mvrp = 4;
 }
-
 
 // Interface module config
 //
 message InterfaceConfig {
-    // Name
-    //
-    string name = 1;
+  // Name
+  //
+  string name = 1;
 
-    // Interface type
-    //
-    InterfaceType type = 2;
+  // Interface type
+  //
+  InterfaceType type = 2;
 
-    // Link config parameters
-    //
-    InterfaceLink link = 3;
+  // Link config parameters
+  //
+  InterfaceLink link = 3;
 
-    // Addresses
-    //
-    repeated routesia.interface.address.Address address = 4;
-
-    // Type-specific options
-    //
-    BridgeInterfaceConfig bridge = 100;
-    VLANInterfaceConfig vlan = 101;
+  // Type-specific options
+  //
+  BridgeInterfaceConfig bridge = 100;
+  VLANInterfaceConfig vlan = 101;
 }
 
-
-// Interface model configuration
+// List of interface configurations
 //
-message InterfaceModuleConfig {
-    repeated InterfaceConfig interface = 1;
-}
-
+message InterfaceConfigList { repeated InterfaceConfig interface = 1; }
 
 // Represents an interface entity
 //
 message Interface {
-    // Interface name
-    //
-    string name = 1;
+  // Interface name
+  //
+  string name = 1;
 
-    // Link parameters
-    //
-    InterfaceLink link = 2;
+  // Link parameters
+  //
+  InterfaceLink link = 2;
 
-    // Interface config, if present
-    //
-    InterfaceConfig config = 3;
-
+  // Interface config, if present
+  //
+  InterfaceConfig config = 3;
 }
-
 
 // A list of interface entities
 //
-message InterfaceList {
-    repeated Interface interface = 1;
-}
-
-
-// Represents an interface config and the parameters that are set
-//
-message InterfaceConfigUpdate {
-    // The interface name
-    //
-    string ifname = 1;
-
-    // The interface config
-    //
-    InterfaceConfig config = 2;
-
-    // An array of field numbers representing the fields from config that are
-    // to be set
-    repeated int32 field_number = 3;
-}
+message InterfaceList { repeated Interface interface = 1; }

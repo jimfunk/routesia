@@ -262,7 +262,8 @@ class CLICommand:
         """
         Display result
         """
-        print(result)
+        if result is not None:
+            print(result)
 
 
 class CLICommandSet:

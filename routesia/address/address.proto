@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package routesia.address;
+
+message AddressConfig {
+  // Interface name
+  //
+  string interface = 1;
+
+  // IP as a CIDR string
+  //
+  string ip = 2;
+
+  // Peer address
+  //
+  string peer = 3;
+
+  // Scope
+  //
+  uint32 scope = 4;
+}
+
+message AddressConfigList { repeated AddressConfig address = 1; }
+
+message Address {
+  // Address config
+  //
+  AddressConfig address = 1;
+
+  // State
+  //
+  enum AddressState {
+    PRESENT = 0;
+    INTERFACE_MISSING = 1;
+  }  AddressState state = 2;
+
+}
+
+message AddressList { repeated Address address = 1; }
