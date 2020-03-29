@@ -7,9 +7,41 @@ from routesia.exceptions import CommandError
 from routesia.interface import interface_pb2
 
 
+class InterfaceParameter(String):
+    "Completer using interfaces found on the system"
+
+    def __init__(self, **kwargs):
+        super().__init__(max_length=15, **kwargs)
+
+    async def get_completions(self, client, suggestion, **kwargs):
+        completions = []
+        data = await client.request("/interface/list", None)
+        interface_list = interface_pb2.InterfaceList.FromString(data)
+        for interface in interface_list.interface:
+            if interface.name.startswith(suggestion):
+                completions.append(interface.name)
+        return completions
+
+
+class ConfiguredInterfaceParameter(String):
+    "Completer using configured interfaces"
+
+    def __init__(self, **kwargs):
+        super().__init__(max_length=15, **kwargs)
+
+    async def get_completions(self, client, suggestion, **kwargs):
+        completions = []
+        data = await client.request("/interface/config/list", None)
+        interface_list = interface_pb2.InterfaceList.FromString(data)
+        for interface in interface_list.interface:
+            if interface.name.startswith(suggestion):
+                completions.append(interface.name)
+        return completions
+
+
 class InterfaceShow(CLICommand):
     command = "interface show"
-    parameters = (("name", String(max_length=15)),)
+    parameters = (("name", InterfaceParameter()),)
 
     async def call(self, interface=None):
         data = await self.client.request("/interface/list", None)
@@ -21,30 +53,10 @@ class InterfaceShow(CLICommand):
             raise CommandError("No such interface: %s" % interface)
         return interfaces
 
-    async def get_name_completions(self, suggestion, **kwargs):
-        completions = []
-        data = await self.client.request("/interface/list", None)
-        interface_list = interface_pb2.InterfaceList.FromString(data)
-        for interface in interface_list.interface:
-            if interface.name.startswith(suggestion):
-                completions.append(interface.name)
-        return completions
 
-
-class InterfaceConfigNameCompleter:
-    async def get_name_completions(self, suggestion, **kwargs):
-        completions = []
-        data = await self.client.request("/interface/config/list", None)
-        interface_list = interface_pb2.InterfaceList.FromString(data)
-        for interface in interface_list.interface:
-            if interface.name.startswith(suggestion):
-                completions.append(interface.name)
-        return completions
-
-
-class InterfaceConfigList(InterfaceConfigNameCompleter, CLICommand):
-    command = "interface config show"
-    parameters = (("name", String(max_length=15)),)
+class InterfaceConfigList(CLICommand):
+    command = "interface config list"
+    parameters = (("name", ConfiguredInterfaceParameter()),)
 
     async def call(self, name=None):
         data = await self.client.request("/interface/config/list", None)
@@ -57,50 +69,48 @@ class InterfaceConfigList(InterfaceConfigNameCompleter, CLICommand):
         return interfaces
 
 
-class InterfaceParamsCommand(CLICommand):
+interface_optional_parameters = (
+    ("type", ProtobufEnum(interface_pb2.InterfaceType)),
+    ("link.up", Bool()),
+    ("link.noarp", Bool()),
+    ("link.txqueuelen", UInt32()),
+    ("link.mtu", UInt32()),
+    ("link.address", String()),
+    ("link.broadcast", String()),
+    ("link.addrgenmode", ProtobufEnum(interface_pb2.InterfaceLink.AddrGenMode)),
+    ("link.token", String()),
+    ("bridge.ageing_time", UInt32()),
+    ("bridge.forward_delay", UInt32()),
+    ("bridge.hello_time", UInt32()),
+    ("bridge.max_age", UInt32()),
+    ("bridge.stp", Bool()),
+    ("bridge.priority", Int32()),
+    ("bridge.vlan_filtering", Bool()),
+    ("bridge.default_pvid", Int32()),
+)
+
+
+class InterfaceConfigAdd(CLICommand):
+    command = "interface config add"
     parameters = (
         ("name", String(max_length=15, required=True)),
-        ("type", ProtobufEnum(interface_pb2.InterfaceType)),
-        ("link.up", Bool()),
-        ("link.noarp", Bool()),
-        ("link.txqueuelen", UInt32()),
-        ("link.mtu", UInt32()),
-        ("link.address", String()),
-        ("link.broadcast", String()),
-        ("link.addrgenmode", ProtobufEnum(interface_pb2.InterfaceLink.AddrGenMode)),
-        ("link.token", String()),
-        ("bridge.ageing_time", UInt32()),
-        ("bridge.forward_delay", UInt32()),
-        ("bridge.hello_time", UInt32()),
-        ("bridge.max_age", UInt32()),
-        ("bridge.stp", Bool()),
-        ("bridge.priority", Int32()),
-        ("bridge.vlan_filtering", Bool()),
-        ("bridge.default_pvid", Int32()),
-    )
-
-    def set_config_from_params(self, config, **kwargs):
-        for param_name in kwargs:
-            if param_name in self.parameter_map:
-                if "." in param_name:
-                    sub, field = param_name.split(".")
-                    setattr(getattr(config, sub), field, kwargs[param_name])
-                else:
-                    setattr(config, param_name, kwargs[param_name])
-
-
-class InterfaceConfigAdd(InterfaceParamsCommand):
-    command = "interface config add"
+    ) + interface_optional_parameters
 
     async def call(self, name, **kwargs):
         interface = interface_pb2.InterfaceConfig()
         interface.name = name
-        self.set_config_from_params(interface, **kwargs)
+        self.update_message_from_args(interface, **kwargs)
+        if interface.type == interface_pb2.UNDEFINED:
+            # If type is not given, default to ETHERNET
+            interface.type = interface_pb2.ETHERNET
         await self.client.request("/interface/config/add", interface)
 
 
-class InterfaceConfigUpdate(InterfaceConfigNameCompleter, InterfaceParamsCommand):
+class InterfaceConfigUpdate(CLICommand):
     command = "interface config update"
+    parameters = (
+        ("name", ConfiguredInterfaceParameter(required=True)),
+    ) + interface_optional_parameters
 
     async def call(self, name, **kwargs):
         data = await self.client.request("/interface/config/list", None)
@@ -111,14 +121,14 @@ class InterfaceConfigUpdate(InterfaceConfigNameCompleter, InterfaceParamsCommand
                 interface = interface_object
         if not interface:
             raise CommandError("No such interface: %s" % name)
-        self.set_config_from_params(interface, **kwargs)
+        self.update_message_from_args(interface, **kwargs)
         await self.client.request("/interface/config/update", interface)
 
 
-class InterfaceConfigDelete(InterfaceConfigNameCompleter, CLICommand):
+class InterfaceConfigDelete(CLICommand):
     command = "interface config delete"
     parameters = (
-        ("name", String(max_length=15, required=True)),
+        ("name", ConfiguredInterfaceParameter(required=True)),
     )
 
     async def call(self, name, **kwargs):

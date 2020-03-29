@@ -107,6 +107,9 @@ class ConfigProvider(Provider):
 
             if self.call_change_handlers():
                 self.save_config()
+                self.staged_data = Config()
+                self.staged_data.CopyFrom(self.data)
+
                 result.result_code = CommitResult.COMMIT_SUCCESS
                 result.message = "Committed version %s." % self.data.system.version
             else:

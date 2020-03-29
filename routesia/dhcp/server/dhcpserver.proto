@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package routesia.dhcp;
+
+// Vendor option definition
+//
+message OptionDefinition {
+    // Option name
+    //
+    string name = 1;
+
+    // Option code
+    //
+    uint32 code = 2;
+
+    // Option space
+    //
+    string space = 3;
+
+    // Option type
+    //
+    string type = 4;
+
+    // Is option an array
+    //
+    bool array = 5;
+
+    // Types contained in record, if type is record
+    //
+    string record_types = 6;
+
+    // Encapsulation for option
+    //
+    string encapsulate = 7;
+}
+
+
+message OptionData {
+    // Option name
+    //
+    string name = 1;
+
+    // Option code
+    //
+    uint32 code = 2;
+
+    // Option data
+    //
+    string data = 3;
+}
+
+
+message Reservation {
+    // Hardware address
+    //
+    string hardware_address = 1;
+
+    // IP address
+    //
+    string ip_address = 2;
+}
+
+
+// Client classes
+//
+message ClientClass {
+    // Name
+    //
+    string name = 1;
+
+    // Test
+    //
+    string test = 2;
+
+    // Next-server option
+    //
+    string next_server = 3;
+
+    // Option definitions
+    //
+    repeated OptionDefinition option_definition = 4;
+
+    // Option data
+    //
+    repeated OptionData option = 5;
+}
+
+
+message DHCPv4Subnet {
+    // Subnet address
+    //
+    string address = 1;
+
+    // Use IPAM for reservations
+    //
+    bool use_ipam = 2;
+
+    // Next-server option
+    //
+    string next_server = 3;
+
+    // Pool definition
+    //
+    repeated string pool = 4;
+
+    // Subnet options
+    //
+    repeated OptionData option = 5;
+
+    // Reservations
+    //
+    repeated Reservation reservation = 6;
+}
+
+
+// DHCPv4
+//
+message DHCPv4Server {
+    // Interfaces to listen on
+    //
+    repeated string interface = 1;
+
+    // Renew timer
+    //
+    uint32 renew_timer = 2;
+
+    // Rebind timer
+    //
+    uint32 rebind_timer = 3;
+
+    // Valid lifetime
+    //
+    uint32 valid_lifetime = 4;
+
+    // Global next-server option
+    //
+    string next_server = 5;
+
+    // Option definitions
+    //
+    repeated OptionDefinition option_definition = 6;
+
+    // Client classes
+    //
+    repeated ClientClass client_class = 7;
+
+    // Global options
+    //
+    repeated OptionData option = 8;
+
+    // Subnet
+    //
+    repeated DHCPv4Subnet subnet = 9;
+}
+
+
+// DHCP server config
+//
+message DHCPServerConfig {
+    DHCPv4Server v4 = 1;
+}

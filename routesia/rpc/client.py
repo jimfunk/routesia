@@ -7,7 +7,13 @@ import logging
 import paho.mqtt.client
 from uuid import uuid4
 
-from routesia.exceptions import RPCUnspecifiedError, RPCHandlerNotFound, RPCEntityNotFound
+from routesia.exceptions import (
+    RPCUnspecifiedError,
+    RPCHandlerNotFound,
+    RPCInvalidParameters,
+    RPCEntityNotFound,
+    RPCEntityExists,
+)
 from routesia.rpc import rpc_pb2
 
 
@@ -18,10 +24,13 @@ class RPCResponse:
     """
     Map RPCError codes to exceptions.
     """
+
     error_map = {
         rpc_pb2.RPCError.UNSPECIFIED_ERROR: RPCUnspecifiedError,
         rpc_pb2.RPCError.HANDLER_NOT_FOUND: RPCHandlerNotFound,
+        rpc_pb2.RPCError.INVALID_PARAMETERS: RPCInvalidParameters,
         rpc_pb2.RPCError.ENTITY_NOT_FOUND: RPCEntityNotFound,
+        rpc_pb2.RPCError.ENTITY_EXISTS: RPCEntityExists,
     }
 
     """
@@ -31,6 +40,7 @@ class RPCResponse:
     be None. On error, message will be None and error will be the resulting
     protobuf error message.
     """
+
     def __init__(self, request_id, message, error):
         self.request_id = request_id
         self.message = message
@@ -44,11 +54,13 @@ class RPCResponse:
             if self.error.response_code in self.error_map:
                 raise self.error_map[self.error.response_code](self.error.message)
             else:
-                raise RPCUnspecifiedError("Got error with unknown code %s" % self.error_map.response)
+                raise RPCUnspecifiedError(
+                    "Got error with unknown code %s" % self.error_map.response
+                )
 
 
 class RPCClient:
-    def __init__(self, host='localhost', port=1883):
+    def __init__(self, host="localhost", port=1883):
         self.host = host
         self.port = port
 
@@ -62,7 +74,7 @@ class RPCClient:
 
     def connect(self):
         self.mqtt.connect(self.host, port=self.port)
-        self.mqtt.subscribe('/response/%s/+/#' % self.client_id)
+        self.mqtt.subscribe("/response/%s/+/#" % self.client_id)
 
     def get_request_id(self):
         request_id = self.request_id
@@ -79,15 +91,11 @@ class RPCClient:
         Returns the generated request ID for the request.
         """
         if message is None:
-            payload = b''
+            payload = b""
         else:
             payload = message.SerializeToString()
         request_id = self.get_request_id()
-        topic = '/request/%s/%s/%s' % (
-            self.client_id,
-            request_id,
-            topic.lstrip('/'),
-        )
+        topic = "/request/%s/%s/%s" % (self.client_id, request_id, topic.lstrip("/"),)
         if callback:
             self.in_flight_requests[request_id] = callback
         self.mqtt.publish(topic, payload=payload)
@@ -97,11 +105,11 @@ class RPCClient:
         logger.debug("Connected to broker")
 
     def on_message(self, client, obj, message):
-        _, _, request_id, status = message.topic[9:].split('/', 3)
+        _, _, request_id, status = message.topic[9:].split("/", 3)
         request_id = int(request_id)
         callback = self.in_flight_requests.pop(request_id)
         if callback:
-            if status == 'error':
+            if status == "error":
                 error = rpc_pb2.RPCError.FromString(message.payload)
                 response = RPCResponse(request_id, None, error)
             else:
@@ -109,7 +117,9 @@ class RPCClient:
             try:
                 callback(response)
             except Exception:
-                logger.exception("Caught exception running callback for request ID %s" % request_id)
+                logger.exception(
+                    "Caught exception running callback for request ID %s" % request_id
+                )
         else:
             logger.warn("Got unexpected result for request %s." % request_id)
 
@@ -122,7 +132,8 @@ class AsyncRPCClient(RPCClient):
     """
     An asyncio version of RPCClient
     """
-    def __init__(self, loop, host='localhost', port=1883):
+
+    def __init__(self, loop, host="localhost", port=1883):
         super().__init__(host=host, port=port)
         self.loop = loop
         self.connect_future = self.loop.create_future()

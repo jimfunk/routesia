@@ -9,7 +9,7 @@ import sys
 import traceback
 
 from routesia.config.provider import ConfigProvider
-from routesia.dhcp.provider import DHCPProvider
+from routesia.dhcp.server.provider import DHCPServerProvider
 from routesia.dns.cache.provider import DNSCacheProvider
 from routesia.dns.authoritative.provider import AuthoritativeDNSProvider
 from routesia.server import Server
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     server.add_provider(AddressProvider)
     server.add_provider(RouteProvider)
     server.add_provider(NetfilterProvider)
-    server.add_provider(DHCPProvider)
+    server.add_provider(DHCPServerProvider)
     server.add_provider(DNSCacheProvider)
     server.add_provider(AuthoritativeDNSProvider)
 

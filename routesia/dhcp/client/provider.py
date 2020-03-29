@@ -18,7 +18,7 @@ DHCP4_CONTROL_SOCK = '/tmp/kea-dhcp4-ctrl.sock'
 DHCP4_LEASE_DB = '/var/lib/kea/dhcp4.leases'
 
 
-class DHCPProvider(Provider):
+class DHCPClientProvider(Provider):
     def __init__(self, config: ConfigProvider, ipam: IPAMProvider, systemd: SystemdProvider):
         self.config = config
         self.ipam = ipam

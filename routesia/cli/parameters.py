@@ -3,14 +3,21 @@ routesia/cli/parameters.py - Parameter definition and processing for command lin
 """
 
 import ipaddress
+import re
 
 
 class Parameter:
-    def __init__(self, required=False):
+    def __init__(self, required=False, completer=None):
         self.required = required
+        self.completer = completer
 
     def __call__(self, value):
         raise NotImplementedError
+
+    async def get_completions(self, client, suggestion, **kwargs):
+        if self.completer:
+            return await self.completer(client, suggestion, **kwargs)
+        return []
 
 
 class Bool(Parameter):
@@ -20,20 +27,26 @@ class Bool(Parameter):
             return True
         return False
 
-    def get_completions(self):
+    async def get_completions(self, client, suggestion, **kwargs):
         return ('true', 'false')
 
 
 class String(Parameter):
-    def __init__(self, min_length=None, max_length=None, **kwargs):
+    def __init__(self, min_length=None, max_length=None, regex=None, **kwargs):
         super().__init__(**kwargs)
         self.max_length = max_length
         self.min_length = min_length
+        self.regex = re.compile(regex) if regex else None
 
     def __call__(self, value):
         if value is None:
-            return ""
-        return str(value)
+            value = ""
+        else:
+            value = str(value)
+        if self.regex:
+            if not self.regex.match(value):
+                raise ValueError("Must match regex %s" % self.regex.pattern)
+        return value
 
 
 class IPAddress(Parameter):
@@ -55,6 +68,11 @@ class IPNetwork(Parameter):
         if value != '':
             ipaddress.ip_network(value)
         return value
+
+
+class HardwareAddress(String):
+    def __init__(self, **kwargs):
+        super().__init__(regex=r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', **kwargs)
 
 
 class Int32(Parameter):
@@ -134,5 +152,5 @@ class ProtobufEnum(Parameter):
             return self.enum.values()[0]
         return self.enum.Value(value)
 
-    def get_completions(self):
-        return self.enum.keys()
+    async def get_completions(self, client, suggestion, **kwargs):
+        return [key for key in self.enum.keys() if key.startswith(suggestion)]

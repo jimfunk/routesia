@@ -7,23 +7,13 @@ from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import IPAddress, IPInterface, String, UInt32
 from routesia.exceptions import CommandError
 from routesia.interface import interface_pb2
+from routesia.interface.commands import ConfiguredInterfaceParameter
 from routesia.address import address_pb2
 
 
-class InterfaceCompleter:
-    async def get_interface_completions(self, suggestion, **kwargs):
-        completions = []
-        data = await self.client.request("/interface/list", None)
-        interface_list = interface_pb2.InterfaceList.FromString(data)
-        for interface in interface_list.interface:
-            if interface.name.startswith(suggestion):
-                completions.append(interface.name)
-        return completions
-
-
-class AddressShow(InterfaceCompleter, CLICommand):
+class AddressShow(CLICommand):
     command = "address show"
-    parameters = (("interface", String(max_length=15)),)
+    parameters = (("interface", ConfiguredInterfaceParameter()),)
 
     async def call(self, interface=None):
         data = await self.client.request("/address/list", None)
@@ -38,22 +28,11 @@ class AddressShow(InterfaceCompleter, CLICommand):
         return addresses
 
 
-class AddressInterfaceCompleter:
-    async def get_interface_completions(self, suggestion, **kwargs):
-        completions = []
-        data = await self.client.request("/interface/config/list", None)
-        interface_list = interface_pb2.InterfaceList.FromString(data)
-        for interface in interface_list.interface:
-            if interface.name.startswith(suggestion):
-                completions.append(interface.name)
-        return completions
-
-
-class AddressIPCompleter:
-    async def get_ip_completions(self, suggestion, **kwargs):
+class IPParameter(IPInterface):
+    async def get_completions(self, client, suggestion, **kwargs):
         completions = []
         interface = kwargs.get("interface", None)
-        data = await self.client.request("/address/config/list", None)
+        data = await client.request("/address/config/list", None)
         address_list = address_pb2.AddressConfigList.FromString(data)
         for address in address_list.address:
             if (
@@ -63,11 +42,11 @@ class AddressIPCompleter:
         return completions
 
 
-class AddressConfigList(AddressIPCompleter, AddressInterfaceCompleter, CLICommand):
-    command = "address config show"
+class AddressConfigList(CLICommand):
+    command = "address config list"
     parameters = (
-        ("interface", String(max_length=15)),
-        ("ip", String()),
+        ("interface", ConfiguredInterfaceParameter()),
+        ("ip", IPParameter()),
     )
 
     async def call(self, interface=None, ip=None):
@@ -90,33 +69,29 @@ class AddressConfigList(AddressIPCompleter, AddressInterfaceCompleter, CLIComman
         return addresses
 
 
-class AddressParamsCommand(CLICommand):
+class AddressConfigAdd(CLICommand):
+    command = "address config add"
     parameters = (
-        ("interface", String(max_length=15, required=True)),
+        ("interface", ConfiguredInterfaceParameter(required=True)),
         ("ip", IPInterface(required=True)),
         ("peer", IPAddress()),
         ("scope", UInt32()),
     )
 
-    def set_config_from_params(self, config, **kwargs):
-        for param_name in kwargs:
-            if param_name in self.parameter_map:
-                setattr(config, param_name, kwargs[param_name])
-
-
-class AddressConfigAdd(AddressInterfaceCompleter, AddressParamsCommand):
-    command = "address config add"
-
     async def call(self, **kwargs):
         address = address_pb2.AddressConfig()
-        self.set_config_from_params(address, **kwargs)
+        self.update_message_from_args(address, **kwargs)
         await self.client.request("/address/config/add", address)
 
 
-class AddressConfigUpdate(
-    AddressInterfaceCompleter, AddressIPCompleter, AddressParamsCommand
-):
+class AddressConfigUpdate(CLICommand):
     command = "address config update"
+    parameters = (
+        ("interface", ConfiguredInterfaceParameter(required=True)),
+        ("ip", IPParameter(required=True)),
+        ("peer", IPAddress()),
+        ("scope", UInt32()),
+    )
 
     async def call(self, interface, ip, **kwargs):
         data = await self.client.request("/address/config/list", None)
@@ -129,15 +104,15 @@ class AddressConfigUpdate(
                 address = address_object
         if not address:
             raise CommandError("No such address: %s %s" % (interface, ip))
-        self.set_config_from_params(address, **kwargs)
+        self.update_message_from_args(address, **kwargs)
         await self.client.request("/address/config/update", address)
 
 
-class AddressConfigDelete(AddressInterfaceCompleter, AddressIPCompleter, CLICommand):
+class AddressConfigDelete(CLICommand):
     command = "address config delete"
     parameters = (
-        ("interface", String(max_length=15, required=True)),
-        ("ip", IPInterface(required=True)),
+        ("interface", ConfiguredInterfaceParameter(required=True)),
+        ("ip", IPParameter(required=True)),
     )
 
     async def call(self, interface, ip, **kwargs):
