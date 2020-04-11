@@ -4,8 +4,7 @@ package routesia.config;
 
 import "routesia/address/address.proto";
 import "routesia/dhcp/dhcp.proto";
-import "routesia/dns/cache/cache.proto";
-import "routesia/dns/authoritative/authoritative.proto";
+import "routesia/dns/dns.proto";
 import "routesia/interface/interface.proto";
 import "routesia/ipam/ipam.proto";
 import "routesia/netfilter/netfilter.proto";
@@ -47,11 +46,7 @@ message Config {
 
     // DNS cache module
     //
-    routesia.dns.cache.DNSCacheConfig dns_cache = 8;
-
-    // Authoritative DNS module
-    //
-    routesia.dns.authoritative.AuthoritativeDNSConfig authoritative_dns = 9;
+    routesia.dns.DNSConfig dns = 8;
 }
 
 

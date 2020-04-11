@@ -52,27 +52,42 @@ class String(Parameter):
 class IPAddress(Parameter):
     def __call__(self, value):
         if value != '':
-            ipaddress.ip_address(value)
+            value = str(ipaddress.ip_address(value))
         return value
 
 
 class IPInterface(Parameter):
     def __call__(self, value):
         if value != '':
-            ipaddress.ip_interface(value)
+            value = (ipaddress.ip_interface(value))
         return value
 
 
 class IPNetwork(Parameter):
     def __call__(self, value):
         if value != '':
-            ipaddress.ip_network(value)
+            value = str(ipaddress.ip_network(value))
         return value
 
 
 class HardwareAddress(String):
     def __init__(self, **kwargs):
         super().__init__(regex=r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', **kwargs)
+
+
+class Int16(Parameter):
+    def __init__(self, min=-32768, max=32767, **kwargs):
+        super().__init__(**kwargs)
+        self.min = min
+        self.max = max
+
+    def __call__(self, value):
+        i = int(value)
+        if i < self.min:
+            raise ValueError("Must be > %s" % self.min)
+        if i > self.max:
+            raise ValueError("Must be > %s" % self.max)
+        return i
 
 
 class Int32(Parameter):
@@ -94,6 +109,21 @@ class Int64:
     def __init__(
         self, min=-9223372036854775808, max=9223372036854775807, **kwargs
     ):
+        super().__init__(**kwargs)
+        self.min = min
+        self.max = max
+
+    def __call__(self, value):
+        i = int(value)
+        if i < self.min:
+            raise ValueError("Must be > %s" % self.min)
+        if i > self.max:
+            raise ValueError("Must be > %s" % self.max)
+        return i
+
+
+class UInt16(Parameter):
+    def __init__(self, min=0, max=65535, **kwargs):
         super().__init__(**kwargs)
         self.min = min
         self.max = max

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package routesia.dns.authoritative;
+package routesia.dns;
 
 
 // DNS listen address

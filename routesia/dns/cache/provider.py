@@ -22,7 +22,7 @@ class DNSCacheProvider(Provider):
         pass
 
     def apply(self):
-        config = self.config.data.dns_cache
+        config = self.config.data.dns.cache
 
         if not config.enabled:
             self.stop()

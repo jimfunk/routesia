@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package routesia.dns;
+
+import "routesia/dns/authoritative/authoritative.proto";
+import "routesia/dns/cache/cache.proto";
+
+// DHCP module config
+//
+message DNSConfig {
+    AuthoritativeDNSConfig authoritative = 1;
+    DNSCacheConfig cache = 2;
+}
