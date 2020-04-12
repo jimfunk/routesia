@@ -10,39 +10,35 @@ from routesia.dns.authoritative import authoritative_pb2
 class ZoneParameter(String):
     async def get_completions(self, client, suggestion, **kwargs):
         completions = []
-        data = await client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await client.request("/dns/authoritative/config/get", None)
+        )
         for zone in config.zone:
             if zone.name.startswith(suggestion):
                 completions.append(zone.name)
         return completions
 
 
-class ConfigShow(CLICommand):
-    command = "dns authoritative config show"
+class ConfigUpdate(CLICommand):
+    command = "dns authoritative config update"
 
     async def call(self, name=None) -> authoritative_pb2.AuthoritativeDNSConfig:
         data = await self.client.request("/dns/authoritative/config/get", None)
         return authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
 
 
-class ConfigEnable(CLICommand):
-    command = "dns authoritative config enable"
+class ConfigSet(CLICommand):
+    command = "dns authoritative config set"
+    parameters = (
+        ("enabled", Bool()),
+        ("servers", UInt32()),
+    )
 
     async def call(self, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
-        config.enabled = True
-        await self.client.request("/dns/authoritative/config/update", config)
-
-
-class ConfigDisable(CLICommand):
-    command = "dns authoritative config disable"
-
-    async def call(self, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
-        config.enabled = False
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
+        self.update_message_from_args(config, **kwargs)
         await self.client.request("/dns/authoritative/config/update", config)
 
 
@@ -54,8 +50,9 @@ class ConfigListenAddressAdd(CLICommand):
     )
 
     async def call(self, address, port=0, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
 
         for listen_address in config.listen_address:
             if listen_address.address == address and listen_address.port == port:
@@ -69,8 +66,9 @@ class ConfigListenAddressAdd(CLICommand):
 
 async def get_listen_address_address_completions(client, suggestion, **kwargs):
     completions = []
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     for listen_address in config.listen_address:
         if "port" in kwargs and listen_address.port != kwargs["port"].upper():
             continue
@@ -80,8 +78,9 @@ async def get_listen_address_address_completions(client, suggestion, **kwargs):
 
 async def get_listen_address_port_completions(client, suggestion, **kwargs):
     completions = []
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     for listen_address in config.listen_address:
         if "address" in kwargs and listen_address.address != kwargs["address"].upper():
             continue
@@ -100,8 +99,9 @@ class ConfigListenAddressRemove(CLICommand):
     )
 
     async def call(self, address, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         for i, listen_address in enumerate(config.listen_address):
             if listen_address.address == address:
                 if "port" in kwargs and listen_address.port != kwargs["port"]:
@@ -124,8 +124,9 @@ class ConfigZoneAdd(CLICommand):
     )
 
     async def call(self, name, email, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
 
         for zone in config.zone:
             if zone.name == name:
@@ -160,8 +161,9 @@ class ConfigZoneUpdate(ZoneCLICommand):
     )
 
     async def call(self, name, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
 
         zone = self.get_zone(config, name)
         self.update_message_from_args(zone, **kwargs)
@@ -174,8 +176,9 @@ class ConfigZoneRemove(CLICommand):
     parameters = (("name", ZoneParameter(required=True)),)
 
     async def call(self, name, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
 
         for i, zone in enumerate(config.zone):
             if zone.name == name:
@@ -193,8 +196,9 @@ class ConfigZoneIPAMNetworkAdd(ZoneCLICommand):
     )
 
     async def call(self, zone, network, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for ipam_network in zone.ipam_network:
             if ipam_network == network:
@@ -209,8 +213,9 @@ async def get_ipam_network_completions(client, suggestion, **kwargs):
     completions = []
     if "zone" not in kwargs:
         return completions
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     for zone in config.zone:
         if zone.name == kwargs["zone"]:
             break
@@ -229,8 +234,9 @@ class ConfigZoneIPAMNetworkRemove(ZoneCLICommand):
     )
 
     async def call(self, zone, network, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for i, ipam_network in enumerate(zone.ipam_network):
             if ipam_network == network:
@@ -247,8 +253,9 @@ class ConfigZoneNotifyAdd(ZoneCLICommand):
     )
 
     async def call(self, zone, address, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for notify in zone.notify:
             if notify == address:
@@ -263,8 +270,9 @@ async def get_notify_completions(client, suggestion, **kwargs):
     completions = []
     if "zone" not in kwargs:
         return completions
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     for zone in config.zone:
         if zone.name == kwargs["zone"]:
             break
@@ -283,8 +291,9 @@ class ConfigZoneNotifyRemove(ZoneCLICommand):
     )
 
     async def call(self, zone, address, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for i, notify in enumerate(zone.notify):
             if notify == address:
@@ -301,8 +310,9 @@ class ConfigZoneAllowTransferAdd(ZoneCLICommand):
     )
 
     async def call(self, zone, address, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for allow_transfer in zone.allow_transfer:
             if allow_transfer == address:
@@ -318,8 +328,9 @@ async def get_allow_transfer_completions(client, suggestion, **kwargs):
     completions = []
     if "zone" not in kwargs:
         return completions
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     for zone in config.zone:
         if zone.name == kwargs["zone"]:
             break
@@ -338,8 +349,9 @@ class ConfigZoneAllowTransferRemove(ZoneCLICommand):
     )
 
     async def call(self, zone, address, **kwargs):
-        data = await self.client.request("/dns/authoritative/config/get", None)
-        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+        config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+            await self.client.request("/dns/authoritative/config/get", None)
+        )
         zone = self.get_zone(config, zone)
         for i, allow_transfer in enumerate(zone.allow_transfer):
             if allow_transfer == address:
@@ -380,8 +392,9 @@ class ConfigZoneRecordAdd(ZoneCLICommand):
 
 async def get_record_name_completions(client, suggestion, **kwargs):
     completions = []
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     if "zone" not in kwargs:
         return completions
     for zone in config.zone:
@@ -400,8 +413,9 @@ async def get_record_name_completions(client, suggestion, **kwargs):
 
 async def get_record_type_completions(client, suggestion, **kwargs):
     completions = []
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     if "zone" not in kwargs:
         return completions
     for zone in config.zone:
@@ -420,8 +434,9 @@ async def get_record_type_completions(client, suggestion, **kwargs):
 
 async def get_record_data_completions(client, suggestion, **kwargs):
     completions = []
-    data = await client.request("/dns/authoritative/config/get", None)
-    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(data)
+    config = authoritative_pb2.AuthoritativeDNSConfig.FromString(
+        await client.request("/dns/authoritative/config/get", None)
+    )
     if "zone" not in kwargs:
         return completions
     for zone in config.zone:
@@ -488,9 +503,8 @@ class ConfigZoneRecordRemove(ZoneCLICommand):
 
 class AuthoritativeDNSCommandSet(CLICommandSet):
     commands = (
-        ConfigShow,
-        ConfigEnable,
-        ConfigDisable,
+        ConfigUpdate,
+        ConfigSet,
         ConfigListenAddressAdd,
         ConfigListenAddressRemove,
         ConfigZoneAdd,

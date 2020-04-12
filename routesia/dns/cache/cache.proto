@@ -59,13 +59,13 @@ message DNSCacheLocalData {
     }
     DNSCacheLocalDataType type = 2;
 
-    // The record time-to-live
-    //
-    uint32 ttl = 3;
-
     // The record data
     //
-    string data = 4;
+    string data = 3;
+
+    // The record time-to-live
+    //
+    uint32 ttl = 4;
 }
 
 

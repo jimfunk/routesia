@@ -183,4 +183,6 @@ class ProtobufEnum(Parameter):
         return self.enum.Value(value)
 
     async def get_completions(self, client, suggestion, **kwargs):
+        if self.completer:
+            return await self.completer(client, suggestion, **kwargs)
         return [key for key in self.enum.keys() if key.startswith(suggestion)]
