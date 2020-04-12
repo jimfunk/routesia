@@ -86,6 +86,14 @@ class DNSCacheLocalConfig:
                                     record_type,
                                     address,
                                 )
+                                for alias in host.aliases:
+                                    s += 'local-data: "%s.%s %s IN %s %s"\n' % (
+                                        alias,
+                                        zone.name,
+                                        zone_ttl,
+                                        record_type,
+                                        address,
+                                    )
                                 break
 
             for local_data in zone.local_data:

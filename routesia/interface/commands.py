@@ -65,7 +65,7 @@ class InterfaceConfigList(CLICommand):
             for interface_object in interfaces.interface:
                 if interface_object.name == name:
                     return interface_object
-            raise CommandError("No such interface: %s" % interface)
+            raise CommandError("No such interface: %s" % name)
         return interfaces
 
 

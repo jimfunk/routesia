@@ -131,8 +131,6 @@ class CLI:
         self.command_tree.register_command_set(command_set)
 
     async def main(self):
-        self.command_tree.dump()
-
         self.loop.create_task(self.client.run())
         await self.client.wait_connect()
 

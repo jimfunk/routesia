@@ -56,6 +56,12 @@ class NSDZoneConfig:
                                 record_type,
                                 address,
                             )
+                            for alias in host.aliases:
+                                s += '%s IN %s %s\n' % (
+                                    alias,
+                                    record_type,
+                                    address,
+                                )
                             break
 
         for record in self.config.record:

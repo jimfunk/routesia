@@ -12,6 +12,10 @@ class Host(Entity):
         self.config = config
 
     @property
+    def aliases(self):
+        return self.config.alias
+
+    @property
     def name(self):
         return self.config.name
 

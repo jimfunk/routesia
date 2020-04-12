@@ -13,6 +13,7 @@ from routesia.dhcp.server.commands import DHCPServerCommandSet
 from routesia.dns.authoritative.commands import AuthoritativeDNSCommandSet
 from routesia.dns.cache.commands import CacheDNSCommandSet
 from routesia.interface.commands import InterfaceCommandSet
+from routesia.ipam.commands import IPAMCommandSet
 
 
 if __name__ == '__main__':
@@ -27,6 +28,7 @@ if __name__ == '__main__':
     cli.register_command_set(ConfigCommandSet)
     cli.register_command_set(DHCPServerCommandSet)
     cli.register_command_set(InterfaceCommandSet)
+    cli.register_command_set(IPAMCommandSet)
 
     ret = 0
 

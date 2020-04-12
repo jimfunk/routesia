@@ -10,13 +10,17 @@ message Host {
     //
     string name = 1;
 
+    // Alias
+    //
+    repeated string alias = 2;
+
     // Hardware address
     //
-    string hardware_address = 2;
+    string hardware_address = 3;
 
     // IP addresses
     //
-    repeated string ip_address = 3;
+    repeated string ip_address = 4;
 }
 
 // Interface module config

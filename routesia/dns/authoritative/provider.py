@@ -24,7 +24,7 @@ class AuthoritativeDNSProvider(Provider):
         self.rpc = rpc
 
     def handle_config_update(self, old, new):
-        pass
+        self.apply()
 
     def apply(self):
         config = self.config.data.dns.authoritative
