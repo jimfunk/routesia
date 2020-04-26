@@ -19,11 +19,19 @@ class MQTT(Provider):
         self.subscribers = {}
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
+        self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
-        self.client.connect(self.host, port=self.port)
+        self.connected = False
 
     def on_connect(self, client, obj, flags, rc):
         print("Connected to broker")
+        self.connected = True
+        for topic in self.subscribers:
+            self.client.subscribe(topic)
+
+    def on_disconnect(self, client, obj, rc):
+        print("Disconnected from broker")
+        self.connected = False
 
     def on_message(self, client, obj, message):
         try:
@@ -35,17 +43,19 @@ class MQTT(Provider):
             logger.exception(e)
             raise
 
-    def subscribe(self, topic, callback, qos=0):
+    def subscribe(self, topic, callback):
         if topic in self.subscribers:
             self.subscribers[topic].append(callback)
         else:
             self.subscribers[topic] = [callback]
-            self.client.subscribe(topic, qos=qos)
+            if self.connected:
+                self.client.subscribe(topic)
 
     def publish(self, topic, **kwargs):
         return self.client.publish(topic, **kwargs)
 
     def startup(self):
+        self.client.connect_async(self.host, port=self.port)
         self.client.loop_start()
 
     def shutdown(self):
