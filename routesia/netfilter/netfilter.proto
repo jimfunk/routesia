@@ -32,19 +32,6 @@ enum Policy {
     DROP = 1;
 }
 
-// Zone match
-//
-message ZoneMatch {
-    // Input zone
-    //
-    repeated string input = 1;
-
-    // Output zone
-    //
-    repeated string output = 2;
-}
-
-
 // IP match
 // TODO: support all the fields:
 // https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes#Matches
@@ -191,42 +178,40 @@ message MetaMatch {
 }
 
 
-// Accept verdict
-//
-message AcceptVerdict {
-}
-
-
-// Drop verdict
-//
-message DropVerdict {
-}
-
-
-// Masquerade verdict
-//
-message MasqueradeVerdict {
-}
-
-
 // Rule
 //
 message Rule {
-    ZoneMatch zone = 1;
-    repeated IPMatch ip = 2;
-    repeated IP6Match ip6 = 3;
-    repeated TCPMatch tcp = 4;
-    repeated UDPMatch udp = 5;
-    repeated ICMPMatch icmp = 6;
-    repeated ICMP6Match icmp6 = 7;
-    repeated CTMatch ct = 8;
-    repeated MetaMatch meta = 9;
+    // Description
+    //
+    string description = 1;
 
-    oneof verdict {
-        AcceptVerdict accept = 100;
-        DropVerdict drop = 101;
-        MasqueradeVerdict masquerade = 102;
+    // Source zones
+    //
+    repeated string source_zone = 2;
+
+    // Destination zones
+    //
+    repeated string destination_zone = 3;
+
+    // Matches
+    //
+    repeated IPMatch ip = 10;
+    repeated IP6Match ip6 = 11;
+    repeated TCPMatch tcp = 12;
+    repeated UDPMatch udp = 13;
+    repeated ICMPMatch icmp = 14;
+    repeated ICMP6Match icmp6 = 15;
+    repeated CTMatch ct = 16;
+    repeated MetaMatch meta = 17;
+
+    // Verdict
+    //
+    enum Verdict {
+        ACCEPT = 0;
+        DROP = 1;
+        MASQUERADE = 2;
     }
+    Verdict verdict = 100;
 }
 
 

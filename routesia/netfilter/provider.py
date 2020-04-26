@@ -8,11 +8,14 @@ import tempfile
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
 from routesia.netfilter.config import NetfilterConfig
+from routesia.netfilter import netfilter_pb2
+from routesia.rpc.provider import RPCProvider
 
 
 class NetfilterProvider(Provider):
-    def __init__(self, config: ConfigProvider):
+    def __init__(self, config: ConfigProvider, rpc: RPCProvider):
         self.config = config
+        self.rpc = rpc
 
     def handle_config_update(self, old, new):
         self.apply()
@@ -33,7 +36,15 @@ class NetfilterProvider(Provider):
         subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])
 
     def startup(self):
+        self.rpc.register("/netfilter/config/get", self.rpc_config_get)
+        self.rpc.register("/netfilter/config/update", self.rpc_config_update)
         self.apply()
 
     def shutdown(self):
         self.flush()
+
+    def rpc_config_get(self, msg: None) -> netfilter_pb2.NetfilterConfig:
+        return self.config.staged_data.netfilter
+
+    def rpc_config_update(self, msg: netfilter_pb2.NetfilterConfig) -> None:
+        self.config.staged_data.netfilter.CopyFrom(msg)

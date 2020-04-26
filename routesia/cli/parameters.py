@@ -31,6 +31,17 @@ class Bool(Parameter):
         return ('true', 'false')
 
 
+class List(Parameter):
+    def __init__(self, parameter, **kwargs):
+        super().__init__(**kwargs)
+        self.parameter = parameter
+
+    def __call__(self, value):
+        if not len(value):
+            return []
+        return [self.parameter(v) for v in value.split(',')]
+
+
 class String(Parameter):
     def __init__(self, min_length=None, max_length=None, regex=None, **kwargs):
         super().__init__(**kwargs)
@@ -50,24 +61,45 @@ class String(Parameter):
 
 
 class IPAddress(Parameter):
+    def __init__(self, version=None, **kwargs):
+        super().__init__(**kwargs)
+        self.version = version
+
     def __call__(self, value):
         if value != '':
-            value = str(ipaddress.ip_address(value))
-        return value
+            value = ipaddress.ip_address(value)
+            if self.version and value.version != self.version:
+                raise ValueError("%s is not an IPv%s address" % (value, self.version))
+
+        return str(value)
 
 
 class IPInterface(Parameter):
+    def __init__(self, version=None, **kwargs):
+        super().__init__(**kwargs)
+        self.version = version
+
     def __call__(self, value):
         if value != '':
-            value = (ipaddress.ip_interface(value))
-        return value
+            value = ipaddress.ip_interface(value)
+            if self.version and value.version != self.version:
+                raise ValueError("%s is not an IPv%s interface" % (value, self.version))
+
+        return str(value)
 
 
 class IPNetwork(Parameter):
+    def __init__(self, version=None, **kwargs):
+        super().__init__(**kwargs)
+        self.version = version
+
     def __call__(self, value):
         if value != '':
-            value = str(ipaddress.ip_network(value))
-        return value
+            value = ipaddress.ip_network(value)
+            if self.version and value.version != self.version:
+                raise ValueError("%s is not an IPv%s network" % (value, self.version))
+
+        return str(value)
 
 
 class HardwareAddress(String):
@@ -173,16 +205,21 @@ class ProtobufEnum(Parameter):
     emnumerated value.
     """
 
-    def __init__(self, enum, **kwargs):
+    def __init__(self, enum, valid_values=None, **kwargs):
         super().__init__(**kwargs)
         self.enum = enum
+        self.valid_values = valid_values
 
     def __call__(self, value):
         if value is None:
             return self.enum.values()[0]
+        if self.valid_values and value not in self.valid_values:
+            raise ValueError("%s is not valid" % value)
         return self.enum.Value(value)
 
     async def get_completions(self, client, suggestion, **kwargs):
         if self.completer:
             return await self.completer(client, suggestion, **kwargs)
+        if self.valid_values:
+            return self.valid_values
         return [key for key in self.enum.keys() if key.startswith(suggestion)]

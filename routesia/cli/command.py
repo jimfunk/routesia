@@ -308,8 +308,13 @@ class CLICommand:
                 sub_msg_args[sub][field] = kwargs[param_name]
                 continue
 
-            if param_name.replace("-", "_") in msg.DESCRIPTOR.fields_by_name:
-                setattr(msg, param_name.replace("-", "_"), kwargs[param_name])
+            msg_param = param_name.replace("-", "_")
+            if msg_param in msg.DESCRIPTOR.fields_by_name:
+                desc = msg.DESCRIPTOR.fields_by_name[msg_param]
+                if desc.label == desc.LABEL_REPEATED:
+                    getattr(msg, msg_param)[:] = kwargs[param_name]
+                else:
+                    setattr(msg, msg_param, kwargs[param_name])
 
         for sub, args in sub_msg_args.items():
             self._update_message_from_args(getattr(msg, sub), **args)

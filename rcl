@@ -14,6 +14,7 @@ from routesia.dns.authoritative.commands import AuthoritativeDNSCommandSet
 from routesia.dns.cache.commands import CacheDNSCommandSet
 from routesia.interface.commands import InterfaceCommandSet
 from routesia.ipam.commands import IPAMCommandSet
+from routesia.netfilter.commands import NetfilterCommandSet
 
 
 if __name__ == '__main__':
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     cli.register_command_set(DHCPServerCommandSet)
     cli.register_command_set(InterfaceCommandSet)
     cli.register_command_set(IPAMCommandSet)
+    cli.register_command_set(NetfilterCommandSet)
 
     ret = 0
 
