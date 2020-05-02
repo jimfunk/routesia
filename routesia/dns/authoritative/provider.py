@@ -23,7 +23,7 @@ class AuthoritativeDNSProvider(Provider):
         self.systemd = systemd
         self.rpc = rpc
 
-    def handle_config_update(self, old, new):
+    def handle_config_update(self, config):
         self.apply()
 
     def apply(self):

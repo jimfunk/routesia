@@ -17,7 +17,7 @@ class NetfilterProvider(Provider):
         self.config = config
         self.rpc = rpc
 
-    def handle_config_update(self, old, new):
+    def handle_config_update(self, config):
         self.apply()
 
     def apply(self):

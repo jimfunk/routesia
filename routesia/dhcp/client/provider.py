@@ -24,7 +24,7 @@ class DHCPClientProvider(Provider):
         self.ipam = ipam
         self.systemd = systemd
 
-    def handle_config_update(self, old, new):
+    def handle_config_update(self, config):
         pass
 
     def apply(self):

@@ -52,7 +52,7 @@ class ConfigProvider(Provider):
         success = True
         for handler in self.change_handlers:
             try:
-                handler()
+                handler(self.data)
             except Exception:
                 logger.exception("Change handler failed (%s)" % handler)
                 success = False

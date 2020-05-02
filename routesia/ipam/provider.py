@@ -30,7 +30,7 @@ class IPAMProvider(Provider):
             for ip in host.ip_addresses:
                 self.hosts_by_ip_address[ip] = host
 
-    def handle_config_update(self, old, new):
+    def handle_config_update(self, config):
         self.update_hosts()
 
     def startup(self):

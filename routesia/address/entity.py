@@ -12,7 +12,8 @@ from routesia.address import address_pb2
 
 class AddressEntity(Entity):
     def __init__(self, ifname, iproute, ifindex=None, config=None):
-        super().__init__(config=config)
+        super().__init__()
+        self.config = config
         self.ifname = ifname
         self.iproute = iproute
         self.ifname = ifname

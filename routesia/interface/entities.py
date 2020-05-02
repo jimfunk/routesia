@@ -11,7 +11,8 @@ from routesia.interface import interface_pb2
 
 class InterfaceEntity(Entity):
     def __init__(self, provider, name, config=None):
-        super().__init__(config=config)
+        super().__init__()
+        self.config = config
         self.provider = provider
         self.name = name
         self.iproute = provider.iproute

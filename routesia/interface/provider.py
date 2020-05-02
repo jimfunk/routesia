@@ -46,7 +46,7 @@ class InterfaceProvider(Provider):
         self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
 
-    def on_config_change(self):
+    def on_config_change(self, config):
         new_interfaces = {}
         for interface in self.config.data.interfaces.interface:
             new_interfaces[interface.name] = interface

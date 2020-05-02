@@ -19,29 +19,33 @@ message RouteNextHop {
 }
 
 message RouteState {
+    // Is present
+    //
+    bool present = 1;
+
     // Table
     //
-    uint32 table_id = 1;
+    uint32 table_id = 2;
 
     // Destination
     //
-    string destination = 2;
+    string destination = 3;
 
     // Protocol
     //
-    uint32 protocol = 3;
+    uint32 protocol = 4;
 
     // Scope
     //
-    uint32 scope = 4;
+    uint32 scope = 5;
 
     // Preferred source
     //
-    string preferred_source = 5;
+    string preferred_source = 6;
 
     // Next hops (gateways)
     //
-    repeated routesia.route.RouteNextHop nexthop = 6;
+    repeated routesia.route.RouteNextHop nexthop = 7;
 }
 
 // Static route configuration

@@ -34,7 +34,7 @@ class DHCPServerProvider(Provider):
         self.systemd = systemd
         self.rpc = rpc
 
-    def handle_config_update(self, old, new):
+    def handle_config_update(self, config):
         pass
 
     def apply(self):

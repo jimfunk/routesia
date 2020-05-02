@@ -44,7 +44,7 @@ class AddressProvider(Provider):
         self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
 
-    def on_config_change(self):
+    def on_config_change(self, config):
         new_addresses = {}
         for address in self.config.data.addresses.address:
             new_addresses[(address.interface, address.ip)] = address
