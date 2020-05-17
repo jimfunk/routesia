@@ -34,7 +34,7 @@ message Config {
 
     // Route module
     //
-    routesia.route.RouteModuleConfig route = 5;
+    routesia.route.RouteTableConfigList route = 5;
 
     // Netfilter module
     //

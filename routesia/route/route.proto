@@ -18,6 +18,40 @@ message RouteNextHop {
     uint32 hops = 3;
 }
 
+// Static route configuration
+//
+message RouteConfig {
+    // Destination
+    //
+    string destination = 1;
+
+    // Next hops (gateways)
+    //
+    repeated routesia.route.RouteNextHop nexthop = 2;
+}
+
+message RouteTableConfig {
+    // Name
+    //
+    string name = 1;
+
+    // ID
+    //
+    uint32 id = 2;
+
+    // Static routes
+    //
+    repeated RouteConfig route = 3;
+}
+
+// Route config list
+//
+message RouteTableConfigList {
+    repeated RouteTableConfig table = 1;
+}
+
+// State of a route
+//
 message RouteState {
     // Is present
     //
@@ -48,34 +82,8 @@ message RouteState {
     repeated routesia.route.RouteNextHop nexthop = 7;
 }
 
-// Static route configuration
+// List of route states
 //
-message RouteConfig {
-    // Destination
-    //
-    string destination = 1;
-
-    // Next hops (gateways)
-    //
-    repeated routesia.route.RouteNextHop nexthop = 2;
-}
-
-message RouteTableConfig {
-    // Name
-    //
-    string name = 1;
-
-    // ID
-    //
-    uint32 id = 2;
-
-    // Static routes
-    //
-    repeated RouteConfig static = 3;
-}
-
-// Route module config
-//
-message RouteModuleConfig {
-    repeated RouteTableConfig table = 1;
+message RouteStateList {
+    repeated RouteState route = 1;
 }

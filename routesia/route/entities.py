@@ -27,7 +27,7 @@ class TableEntity(Entity):
     def apply(self):
         configured_destinations = []
 
-        for route_config in self.config.static:
+        for route_config in self.config.route:
             destination = ip_network(route_config.destination)
             configured_destinations.append(destination)
             if destination not in self.routes:
@@ -41,7 +41,7 @@ class TableEntity(Entity):
     def find_route_config(self, event):
         if not self.config:
             return None
-        for route_config in self.config.static:
+        for route_config in self.config.route:
             if ip_network(route_config.destination) == event.destination:
                 return route_config
         return None
@@ -223,3 +223,7 @@ class RouteEntity(Entity):
 
             self.iproute.iproute.route("replace", **kwargs)
             self.route_args = kwargs
+
+    def to_message(self, message):
+        "Set message parameters from entity state"
+        message.CopyFrom(self.state)
