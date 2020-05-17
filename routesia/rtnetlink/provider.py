@@ -43,6 +43,8 @@ class IPRouteProvider(Provider):
         self.rt_proto = RT_PROTO
         # ifindex to name map
         self.interface_map = {}
+        # Name to ifindex map
+        self.interface_name_map = {}
         self.thread = Thread(
             target=self.event_thread,
             name='IProuteEventThread',
@@ -83,6 +85,7 @@ class IPRouteProvider(Provider):
                                 # Update interface map if necessary
                                 if message['event'] == 'RTM_NEWLINK':
                                     self.interface_map[event.ifindex] = event.ifname
+                                    self.interface_name_map[event.ifname] = event.ifindex
                                 elif message['event'] == 'RTM_DELLINK':
                                     pass
                                     # TODO: Delayed remove in case other events occur
@@ -97,6 +100,7 @@ class IPRouteProvider(Provider):
         for message in self.iproute.get_links():
             event = InterfaceAddEvent(self, message)
             self.interface_map[event.ifindex] = event.ifname
+            self.interface_name_map[event.ifname] = event.ifindex
             self.server.publish_event(event)
 
     def get_addresses(self):

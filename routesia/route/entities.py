@@ -78,7 +78,10 @@ class TableEntity(Entity):
         for route in self.routes.values():
             if route.config and not route.state.present:
                 for nexthop in route.config.nexthop:
-                    if ip_address(nexthop.gateway) in event.destination:
+                    if (
+                        nexthop.gateway
+                        and ip_address(nexthop.gateway) in event.destination
+                    ):
                         route.apply()
 
     def handle_route_remove_event(self, event):
@@ -151,7 +154,10 @@ class RouteEntity(Entity):
         self.apply()
 
     def handle_config_remove(self, config):
-        print("Removed config for route %s in table %s" % (self.destination, self.table.id))
+        print(
+            "Removed config for route %s in table %s"
+            % (self.destination, self.table.id)
+        )
         self.config = None
         if self.route_args:
             self.iproute.iproute.route("delete", **self.route_args)
@@ -189,13 +195,15 @@ class RouteEntity(Entity):
                     if nexthop.gateway:
                         kwargs["gateway"] = nexthop.gateway
                     if nexthop.interface:
-                        if nexthop.interface not in self.iproute.interface_map:
+                        if nexthop.interface not in self.iproute.interface_name_map:
                             print(
                                 "Unknown interface %s in route %s. Not applying."
                                 % (nexthop.interface, self.destination)
                             )
                             return
-                        kwargs["oif"] = self.iproute.interface_map[nexthop["interface"]]
+                        kwargs["oif"] = self.iproute.interface_name_map[
+                            nexthop.interface
+                        ]
                 else:
                     multipath = []
                     for nexthop in self.config.nexthop:
@@ -203,13 +211,13 @@ class RouteEntity(Entity):
                         if nexthop.gateway:
                             nexthop_args["gateway"] = nexthop.gateway
                         if nexthop.interface:
-                            if nexthop.interface not in self.iproute.interface_map:
+                            if nexthop.interface not in self.iproute.interface_name_map:
                                 print(
                                     "Unknown interface %s in multipath route. Skipping."
                                     % nexthop.interface
                                 )
                                 continue
-                            nexthop_args["oif"] = self.iproute.interface_map[
+                            nexthop_args["oif"] = self.iproute.interface_name_map[
                                 nexthop.interface
                             ]
                         multipath.append(nexthop_args)
