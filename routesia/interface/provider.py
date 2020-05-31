@@ -112,6 +112,11 @@ class InterfaceProvider(Provider):
             return self.interfaces[ifname].ifindex
         return None
 
+    def set_dynamic_config(self, ifname, config):
+        "Set dynamic interface config"
+        if ifname in self.interfaces:
+            self.interfaces[ifname].set_dynamic_config(config)
+
     def rpc_list_interfaces(self, msg: None) -> interface_pb2.InterfaceList:
         interfaces = interface_pb2.InterfaceList()
         for entity in self.interfaces.values():

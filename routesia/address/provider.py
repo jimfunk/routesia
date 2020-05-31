@@ -3,6 +3,7 @@ routesia/interface/address/provider.py - Interface address support
 """
 
 from ipaddress import ip_interface
+from pyroute2.netlink.rtnl.ifaddrmsg import IFA_F_NOPREFIXROUTE
 
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
@@ -112,6 +113,32 @@ class AddressProvider(Provider):
         if interface_event.ifname in self.interfaces:
             del self.interfaces[interface_event.ifname]
 
+    def add_dynamic_address(self, interface, address):
+        """
+        Add a dynamic address. Note that a prefix route will NOT be added. The
+        caller is responsible for handling it
+        """
+        key = (interface, str(address))
+        if key not in self.addresses:
+            if interface in self.interfaces:
+                ifindex = self.interfaces[interface].ifindex
+            else:
+                ifindex = None
+
+            print("Adding dynamic address %s to %s" % (address, interface))
+            self.addresses[key] = AddressEntity(
+                interface,
+                self.iproute,
+                ifindex,
+                dynamic=ip_interface(address),
+            )
+
+    def remove_dynamic_address(self, interface, address):
+        key = (interface, str(address))
+        if key in self.addresses:
+            print("Removing dynamic address %s to %s" % (address, interface))
+            self.addresses[key].remove_dynamic()
+
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
@@ -158,7 +185,7 @@ class AddressProvider(Provider):
             if address.interface == msg.interface and ip_interface(
                 address.ip
             ) == ip_interface(msg.ip):
-                raise RPCEntityExists('%s %s' % (msg.interface, msg.ip))
+                raise RPCEntityExists("%s %s" % (msg.interface, msg.ip))
         address = self.config.staged_data.addresses.address.add()
         address.CopyFrom(msg)
         return address

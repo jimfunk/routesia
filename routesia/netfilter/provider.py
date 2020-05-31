@@ -17,7 +17,7 @@ class NetfilterProvider(Provider):
         self.config = config
         self.rpc = rpc
 
-    def handle_config_update(self, config):
+    def on_config_change(self, config):
         self.apply()
 
     def apply(self):
@@ -34,6 +34,9 @@ class NetfilterProvider(Provider):
 
     def flush(self):
         subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])
+
+    def load(self):
+        self.config.register_change_handler(self.on_config_change)
 
     def startup(self):
         self.rpc.register("/netfilter/config/get", self.rpc_config_get)

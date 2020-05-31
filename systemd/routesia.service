@@ -1,0 +1,17 @@
+[Unit]
+Description=Routesia networking service
+After=network-pre.target systemd-sysusers.service systemd-sysctl.service mosquitto.service
+Requires=mosquitto.service
+Before=network.target multi-user.target shutdown.target
+Conflicts=shutdown.target
+Wants=network.target
+
+[Service]
+Type=notify
+Restart=on-failure
+RestartSec=0
+ExecStart=/usr/sbin/routesia
+
+[Install]
+WantedBy=multi-user.target
+Alias=network.service

@@ -23,7 +23,7 @@ class AuthoritativeDNSProvider(Provider):
         self.systemd = systemd
         self.rpc = rpc
 
-    def handle_config_update(self, config):
+    def on_config_change(self, config):
         self.apply()
 
     def apply(self):
@@ -67,6 +67,9 @@ class AuthoritativeDNSProvider(Provider):
 
     def stop(self):
         self.systemd.manager.StopUnit('nsd.service', 'replace')
+
+    def load(self):
+        self.config.register_change_handler(self.on_config_change)
 
     def startup(self):
         self.rpc.register("/dns/authoritative/config/get", self.rpc_config_get)

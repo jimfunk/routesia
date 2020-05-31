@@ -57,29 +57,33 @@ message RouteState {
     //
     bool present = 1;
 
+    // Is dynamic
+    //
+    bool dynamic = 2;
+
     // Table
     //
-    uint32 table_id = 2;
+    uint32 table_id = 3;
 
     // Destination
     //
-    string destination = 3;
+    string destination = 4;
 
     // Protocol
     //
-    uint32 protocol = 4;
+    uint32 protocol = 5;
 
     // Scope
     //
-    uint32 scope = 5;
+    uint32 scope = 6;
 
     // Preferred source
     //
-    string preferred_source = 6;
+    string preferred_source = 7;
 
     // Next hops (gateways)
     //
-    repeated routesia.route.RouteNextHop nexthop = 7;
+    repeated routesia.route.RouteNextHop nexthop = 8;
 }
 
 // List of route states

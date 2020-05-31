@@ -95,6 +95,25 @@ class RouteProvider(Provider):
         for table in self.tables.values():
             table.handle_interface_remove(event)
 
+    def add_dynamic_route(
+        self, destination, gateway=None, interface=None, prefsrc=None, table=None
+    ):
+        table = self.tables.get(table) if table else self.tables[254]
+        if table:
+            print(
+                "Adding dynamic route %s gateway=%s interface=%s prefsrc=%s table=%s"
+                % (destination, gateway, interface, prefsrc, table.id)
+            )
+            table.add_dynamic_route(
+                destination, gateway=gateway, interface=interface, prefsrc=prefsrc
+            )
+
+    def remove_dynamic_route(self, destination, table=None):
+        table = self.tables.get(table) if table else self.tables[254]
+        if table:
+            print("Removing dynamic route %s table=%s" % (destination, table.id))
+            table.remove_dynamic_route(destination)
+
     def startup(self):
         self.rpc.register("/route/list", self.rpc_list_routes)
         self.rpc.register("/route/table/list", self.rpc_list_tables)
@@ -176,7 +195,9 @@ class RouteProvider(Provider):
                 return table
         raise RPCEntityNotFound(str(id))
 
-    def rpc_get_route(self, msg: route_pb2.RouteTableConfig) -> route_pb2.RouteTableConfig:
+    def rpc_get_route(
+        self, msg: route_pb2.RouteTableConfig
+    ) -> route_pb2.RouteTableConfig:
         table = self.get_table(msg.id, msg.name)
 
         destination = ip_network(msg.route[0].destination)

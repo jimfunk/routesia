@@ -16,7 +16,13 @@ build: setup.py $(PYTHON_SOURCES)
 
 install:
 	$(PYTHON) setup.py install
+	mv $(DESTDIR)/usr/bin/routesia $(DESTDIR)/usr/sbin/routesia
+	mv $(DESTDIR)/usr/bin/rcl $(DESTDIR)/usr/sbin/rcl
+	install -d -m 0755 $(DESTDIR)/usr/lib/routesia/
+	mv $(DESTDIR)/usr/bin/routesia-dhcpv4-event $(DESTDIR)/usr/lib/routesia/dhcpv4-event
 	install -D -m 0644 conf/iproute2/routesia_protos.conf $(DESTDIR)/etc/iproute2/rt_protos.d/routesia.conf
+	install -D -m 0644 systemd/routesia.service $(DESTDIR)/usr/lib/systemd/system/routesia.service
+	install -D -m 0644 systemd/routesia-dhcpv4-client@.service $(DESTDIR)/usr/lib/systemd/system/routesia-dhcpv4-client@.service
 
 clean:
 	rm -rf build $(PROTO_MODULES)

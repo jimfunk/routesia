@@ -1,0 +1,10 @@
+[Unit]
+Description=Routesia DHCPv4 client service for %i
+After=routesia.service
+Wants=routesia.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=30
+ExecStart=/sbin/dhclient -4 -d -v -sf /usr/lib/routesia/dhcpv4-event %i

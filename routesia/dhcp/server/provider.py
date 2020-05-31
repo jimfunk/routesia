@@ -34,8 +34,8 @@ class DHCPServerProvider(Provider):
         self.systemd = systemd
         self.rpc = rpc
 
-    def handle_config_update(self, config):
-        pass
+    def on_config_change(self, config):
+        self.apply()
 
     def apply(self):
         config = self.config.data.dhcp.server
@@ -60,6 +60,9 @@ class DHCPServerProvider(Provider):
 
     def stop(self):
         self.systemd.manager.StopUnit("kea.service", "replace")
+
+    def load(self):
+        self.config.register_change_handler(self.on_config_change)
 
     def startup(self):
         self.rpc.register("/dhcp/server/v4/config/get", self.rpc_v4_config_get)

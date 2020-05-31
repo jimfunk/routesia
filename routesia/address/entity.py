@@ -11,12 +11,12 @@ from routesia.address import address_pb2
 
 
 class AddressEntity(Entity):
-    def __init__(self, ifname, iproute, ifindex=None, config=None):
+    def __init__(self, ifname, iproute, ifindex=None, config=None, dynamic=None):
         super().__init__()
-        self.config = config
         self.ifname = ifname
         self.iproute = iproute
-        self.ifname = ifname
+        self.config = config
+        self.dynamic = dynamic
         self.state = address_pb2.Address()
         self.set_ifindex(ifindex)
         self.state.address.interface = self.ifname
@@ -84,20 +84,27 @@ class AddressEntity(Entity):
                     self.addr(
                         "add", index=self.ifindex, mask=ip.network.prefixlen, **args
                     )
+            elif self.dynamic is not None:
+                self.addr(
+                    "add",
+                    index=self.ifindex,
+                    address=str(self.dynamic.ip),
+                    mask=self.dynamic.network.prefixlen,
+                )
 
     def remove(self):
         if self.state.address.ip:
             ip = ip_interface(self.state.address.ip)
-            print(
-                "index: %s, address: %s, mask: %s"
-                % (self.ifindex, str(ip.ip), ip.network.prefixlen)
-            )
             self.addr(
                 "remove",
                 index=self.ifindex,
                 address=str(ip.ip),
                 mask=ip.network.prefixlen,
             )
+
+    def remove_dynamic(self):
+        self.dynamic = None
+        self.remove()
 
     def to_message(self, message):
         "Set message parameters from entity state"

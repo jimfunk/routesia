@@ -5,6 +5,7 @@ routesia/rpc/client.py - Routesia RPC client
 import asyncio
 import logging
 import paho.mqtt.client
+import time
 from uuid import uuid4
 
 from routesia.exceptions import (
@@ -59,6 +60,15 @@ class RPCResponse:
                 )
 
 
+class RPCRequest:
+    "Represents an RPC request"
+
+    def __init__(self, id, message_info, callback=None):
+        self.id = id
+        self.message_info = message_info
+        self.callback = callback
+
+
 class RPCClient:
     def __init__(self, host="localhost", port=1883):
         self.host = host
@@ -81,7 +91,7 @@ class RPCClient:
         self.request_id += 1
         return request_id
 
-    def request(self, topic, message, callback):
+    def request(self, topic, message, callback=None):
         """
         Send an RPC request with topic and protobuf message to the server.
         When the response arrives, callback will be called with the message.
@@ -96,10 +106,10 @@ class RPCClient:
             payload = message.SerializeToString()
         request_id = self.get_request_id()
         topic = "/request/%s/%s/%s" % (self.client_id, request_id, topic.lstrip("/"),)
-        if callback:
-            self.in_flight_requests[request_id] = callback
-        self.mqtt.publish(topic, payload=payload)
-        return request_id
+        message_info = self.mqtt.publish(topic, payload=payload)
+        request = RPCRequest(request_id, message_info, callback)
+        self.in_flight_requests[request.id] = request
+        return request
 
     def on_connect(self, client, obj, flags, rc):
         logger.debug("Connected to broker")
@@ -107,25 +117,40 @@ class RPCClient:
     def on_message(self, client, obj, message):
         _, _, request_id, status = message.topic[9:].split("/", 3)
         request_id = int(request_id)
-        callback = self.in_flight_requests.pop(request_id)
-        if callback:
+        request = self.in_flight_requests.pop(request_id)
+        if request:
             if status == "error":
                 error = rpc_pb2.RPCError.FromString(message.payload)
                 response = RPCResponse(request_id, None, error)
             else:
                 response = RPCResponse(request_id, message.payload, None)
-            try:
-                callback(response)
-            except Exception:
-                logger.exception(
-                    "Caught exception running callback for request ID %s" % request_id
-                )
+            if request.callback:
+                try:
+                    request.callback(response)
+                except Exception:
+                    logger.exception(
+                        "Caught exception running callback for request ID %s"
+                        % request_id
+                    )
         else:
             logger.warn("Got unexpected result for request %s." % request_id)
 
     def run(self):
         self.connect()
         self.mqtt.loop_forever()
+
+    def run_until_complete(self, timeout=30):
+        "Run until all responses have been received or timeout"
+        deadline = time.time() + timeout
+        while self.in_flight_requests:
+            if time.time() >= deadline:
+                logger.error(
+                    "Timed out waiting for %s"
+                    % ", ".join([str(i) for i in self.in_flight_requests.keys()])
+                )
+                break
+            self.mqtt.loop()
+        self.mqtt.disconnect()
 
 
 class AsyncRPCClient(RPCClient):
@@ -167,9 +192,9 @@ class AsyncRPCClient(RPCClient):
         await self.connect_future
 
     async def request(self, topic, message):
-        request_id = super().request(topic, message, self.handle_response)
+        request = super().request(topic, message, self.handle_response)
         future = self.loop.create_future()
-        self.request_futures[request_id] = future
+        self.request_futures[request.id] = future
         response = await future
         response.raise_on_status()
         return response.message

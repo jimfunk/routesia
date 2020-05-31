@@ -19,6 +19,7 @@ class InterfaceEntity(Entity):
         self.ifindex = None
         self.carrier = False
         self.state = interface_pb2.InterfaceLink()
+        self.dynamic_config = None
 
     def update_state(self, event):
         link = event.message
@@ -108,6 +109,10 @@ class InterfaceEntity(Entity):
                 af_spec.append(("AF_INET6", {"attrs": af_inet6}))
             if af_spec:
                 args["IFLA_AF_SPEC"] = {"attrs": af_spec}
+
+        if self.dynamic_config:
+            args.update(self.dynamic_config)
+
         return args
 
     def apply_link_config(self):
@@ -134,6 +139,10 @@ class InterfaceEntity(Entity):
         message.link.CopyFrom(self.state)
         if self.config:
             message.config.CopyFrom(self.config)
+
+    def set_dynamic_config(self, config):
+        self.dynamic_config = config
+        self.apply_link_config()
 
 
 class EthernetInterface(InterfaceEntity):

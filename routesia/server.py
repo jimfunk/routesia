@@ -1,11 +1,12 @@
 from queue import Queue
+import systemd.daemon
 
 from routesia.event import Event
 from routesia.injector import Injector, Provider
 
 
 class Server(Provider):
-    def __init__(self, host='localhost', port=1883):
+    def __init__(self, host="localhost", port=1883):
         self.host = host
         self.port = port
         self.running = False
@@ -32,6 +33,7 @@ class Server(Provider):
 
     def run(self):
         "Main loop for the server thread"
+        systemd.daemon.notify("READY=1")
         while self.running:
             self.handle_event(self.eventqueue.get())
 

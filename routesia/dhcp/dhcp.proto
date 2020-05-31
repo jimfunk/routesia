@@ -3,9 +3,11 @@ syntax = "proto3";
 package routesia.dhcp;
 
 import "routesia/dhcp/server/dhcpserver.proto";
+import "routesia/dhcp/client/dhcpclient.proto";
 
 // DHCP module config
 //
 message DHCPConfig {
     DHCPServerConfig server = 1;
+    DHCPClientConfig client = 2;
 }

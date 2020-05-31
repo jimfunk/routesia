@@ -30,8 +30,11 @@ class IPAMProvider(Provider):
             for ip in host.ip_addresses:
                 self.hosts_by_ip_address[ip] = host
 
-    def handle_config_update(self, config):
+    def on_config_change(self, config):
         self.update_hosts()
+
+    def load(self):
+        self.config.register_change_handler(self.on_config_change)
 
     def startup(self):
         self.rpc.register("/ipam/config/host/list", self.rpc_config_list)
