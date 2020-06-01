@@ -2,6 +2,9 @@
 routesia/interface/entities.py - Interface entities
 """
 
+import errno
+from pyroute2.netlink.exceptions import NetlinkError
+
 from routesia.entity import Entity
 from routesia.exceptions import InvalidConfig
 from routesia.interface import interface_flags
@@ -20,6 +23,10 @@ class InterfaceEntity(Entity):
         self.carrier = False
         self.state = interface_pb2.InterfaceLink()
         self.dynamic_config = None
+
+    @property
+    def dependent_interfaces(self):
+        return []
 
     def update_state(self, event):
         link = event.message
@@ -49,6 +56,12 @@ class InterfaceEntity(Entity):
 
     def startup(self):
         self.apply()
+
+    def on_dependent_interface_add(self):
+        pass
+
+    def on_dependent_interface_remove(self):
+        pass
 
     def shutdown(self):
         self.remove()
@@ -179,15 +192,28 @@ class BridgeInterface(VirtualInterface):
 
 
 class VLANInterface(VirtualInterface):
+    @property
+    def dependent_interfaces(self):
+        return [self.config.vlan.trunk]
+
+    def on_dependent_interface_add(self, interface_event):
+        if not self.ifindex:
+            self.apply()
+
     def create(self):
         if not (self.config.vlan and self.config.vlan.id and self.config.vlan.trunk):
             raise InvalidConfig(
                 "Interface is of type vlan but does not have a VLAN ID or trunk set"
             )
 
+        trunk_ifindex = self.provider.get_ifindex(self.config.vlan.trunk)
+        if not trunk_ifindex:
+            # Trunk interface does not yet exist
+            return
+
         args = {
             "vlan_id": self.config.vlan.id,
-            "link": self.provider.get_ifindex(self.config.vlan.trunk),
+            "link": trunk_ifindex,
         }
 
         vlan_flags = []
@@ -199,7 +225,11 @@ class VLANInterface(VirtualInterface):
         if vlan_flags:
             args["vlan_flags"] = vlan_flags
 
-        self.link("add", ifname=self.ifname, kind="vlan", **args)
+        try:
+            self.link("add", ifname=self.name, kind="vlan", **args)
+        except NetlinkError as e:
+            if e.code != errno.EEXIST:
+                raise
 
 
 class InfinibandInterface(InterfaceEntity):

@@ -87,6 +87,10 @@ interface_optional_parameters = (
     ("bridge.priority", Int32()),
     ("bridge.vlan_filtering", Bool()),
     ("bridge.default_pvid", Int32()),
+    ("vlan.trunk", ConfiguredInterfaceParameter()),
+    ("vlan.id", UInt32(min=1, max=4094)),
+    ("vlan.gvrp", Bool()),
+    ("vlan.mvrp", Bool()),
 )
 
 

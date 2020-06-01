@@ -101,7 +101,7 @@ message VLANInterfaceConfig {
 
   // VLAN ID
   //
-  string id = 2;
+  uint32 id = 2;
 
   // Group VLAN Registration Protocol (GVRP)
   //
