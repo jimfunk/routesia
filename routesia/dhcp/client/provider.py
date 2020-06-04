@@ -45,9 +45,9 @@ class DHCPClientProvider(Provider):
             client_configs[client_config.interface] = client_config
 
         # Remove old ones first
-        for interface in self.v4_clients:
+        for interface in list(self.v4_clients.keys()):
             if interface not in client_configs:
-                self.v4_clients.stop()
+                self.v4_clients[interface].stop()
                 del self.v4_clients[interface]
 
         for interface, client_config in client_configs.items():

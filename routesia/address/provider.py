@@ -2,8 +2,9 @@
 routesia/interface/address/provider.py - Interface address support
 """
 
+import errno
 from ipaddress import ip_interface
-from pyroute2.netlink.rtnl.ifaddrmsg import IFA_F_NOPREFIXROUTE
+from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
@@ -107,7 +108,7 @@ class AddressProvider(Provider):
                 address.set_ifindex(interface_event.ifindex)
 
     def handle_interface_remove(self, interface_event):
-        for address in self.address.values():
+        for address in self.addresses.values():
             if address.ifname == interface_event.ifname:
                 address.set_ifindex(None)
         if interface_event.ifname in self.interfaces:

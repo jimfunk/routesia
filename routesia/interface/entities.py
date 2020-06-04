@@ -166,10 +166,13 @@ class VirtualInterface(InterfaceEntity):
     """
     Base class for virtual interfaces that are created and removed
     """
-
     def remove(self):
         if self.ifindex is not None:
-            self.link("del", ifindex=self.ifindex)
+            try:
+                self.link("del", ifindex=self.ifindex)
+            except NetlinkError as e:
+                if e.code != errno.ENODEV:
+                    raise
 
 
 class BridgeInterface(VirtualInterface):
@@ -194,7 +197,9 @@ class BridgeInterface(VirtualInterface):
 class VLANInterface(VirtualInterface):
     @property
     def dependent_interfaces(self):
-        return [self.config.vlan.trunk]
+        if self.config:
+            return [self.config.vlan.trunk]
+        return []
 
     def on_dependent_interface_add(self, interface_event):
         if not self.ifindex:

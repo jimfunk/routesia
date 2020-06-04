@@ -81,16 +81,24 @@ class AddressEntity(Entity):
                         args["local"] = str(ip.ip)
                     else:
                         args["address"] = str(ip.ip)
-                    self.addr(
-                        "add", index=self.ifindex, mask=ip.network.prefixlen, **args
-                    )
+                    try:
+                        self.addr(
+                            "add", index=self.ifindex, mask=ip.network.prefixlen, **args
+                        )
+                    except NetlinkError as e:
+                        if e.code == errno.ENODEV:
+                            self.set_ifindex(None)
             elif self.dynamic is not None:
-                self.addr(
-                    "add",
-                    index=self.ifindex,
-                    address=str(self.dynamic.ip),
-                    mask=self.dynamic.network.prefixlen,
-                )
+                try:
+                    self.addr(
+                        "add",
+                        index=self.ifindex,
+                        address=str(self.dynamic.ip),
+                        mask=self.dynamic.network.prefixlen,
+                    )
+                except NetlinkError as e:
+                    if e.code == errno.ENODEV:
+                        self.set_ifindex(None)
 
     def remove(self):
         if self.state.address.ip:
