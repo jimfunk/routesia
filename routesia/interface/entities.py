@@ -26,20 +26,27 @@ class InterfaceEntity(Entity):
 
     @property
     def dependent_interfaces(self):
+        if self.config and self.config.link.master:
+            return [self.config.link.master]
         return []
 
     def update_state(self, event):
         link = event.message
         new = self.ifindex is None
         self.ifindex = link["index"]
-        self.carrier = bool(event.attrs["IFLA_CARRIER"])
+        if "IFLA_CARRIER" in event.attrs:
+            self.carrier = bool(event.attrs["IFLA_CARRIER"])
 
         self.state.up = link["flags"] & interface_flags.IFF_UP
         self.state.noarp = link["flags"] & interface_flags.IFF_NOARP
-        self.state.txqueuelen = event.attrs["IFLA_TXQLEN"]
-        self.state.mtu = event.attrs["IFLA_MTU"]
-        self.state.address = event.attrs["IFLA_ADDRESS"]
-        self.state.broadcast = event.attrs["IFLA_BROADCAST"]
+        if "IFLA_TXQLEN" in event.attrs:
+            self.state.txqueuelen = event.attrs["IFLA_TXQLEN"]
+        if "IFLA_MTU" in event.attrs:
+            self.state.mtu = event.attrs["IFLA_MTU"]
+        if "IFLA_ADDRESS" in event.attrs:
+            self.state.address = event.attrs["IFLA_ADDRESS"]
+        if "IFLA_BROADCAST" in event.attrs:
+            self.state.broadcast = event.attrs["IFLA_BROADCAST"]
 
         if "IFLA_AF_SPEC" in event.attrs:
             af_attrs = dict(event.attrs["IFLA_AF_SPEC"]["attrs"])
@@ -57,11 +64,11 @@ class InterfaceEntity(Entity):
     def startup(self):
         self.apply()
 
-    def on_dependent_interface_add(self):
-        pass
+    def on_dependent_interface_add(self, interface_event):
+        self.apply()
 
-    def on_dependent_interface_remove(self):
-        pass
+    def on_dependent_interface_remove(self, interface_event):
+        self.apply()
 
     def shutdown(self):
         self.remove()
@@ -177,13 +184,17 @@ class VirtualInterface(InterfaceEntity):
 
 class BridgeInterface(VirtualInterface):
     def create(self):
-        self.link("add", ifname=self.ifname, kind="bridge")
+        try:
+            self.link("add", ifname=self.name, kind="bridge")
+        except NetlinkError as e:
+            if e.code != errno.EEXIST:
+                raise
 
     def get_link_config_args(self):
         args = super().get_link_config_args()
 
         if self.config and self.config.bridge:
-            for field, value in self.config.bridge:
+            for field, value in self.config.bridge.ListFields():
                 if field.name == "stp":
                     args["br_stp_state"] = value
                 elif field.name == "default_pvid":

@@ -77,6 +77,7 @@ interface_optional_parameters = (
     ("link.mtu", UInt32()),
     ("link.address", String()),
     ("link.broadcast", String()),
+    ("link.master", ConfiguredInterfaceParameter()),
     ("link.addrgenmode", ProtobufEnum(interface_pb2.InterfaceLink.AddrGenMode)),
     ("link.token", String()),
     ("bridge.ageing_time", UInt32()),

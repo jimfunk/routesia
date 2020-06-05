@@ -116,7 +116,7 @@ class DHCPv4Client(Entity):
             self.route_provider.add_dynamic_route(
                 new_network,
                 interface=self.interface,
-                prefsrc=event.new.ip_address,
+                prefsrc=str(ip_interface(event.new.ip_address).ip),
                 table=self.config.table,
             )
 
