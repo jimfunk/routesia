@@ -117,6 +117,7 @@ class DHCPv4Client(Entity):
                 new_network,
                 interface=self.interface,
                 prefsrc=str(ip_interface(event.new.ip_address).ip),
+                scope="link",
                 table=self.config.table,
             )
 

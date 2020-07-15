@@ -96,16 +96,16 @@ class RouteProvider(Provider):
             table.handle_interface_remove(event)
 
     def add_dynamic_route(
-        self, destination, gateway=None, interface=None, prefsrc=None, table=None
+        self, destination, gateway=None, interface=None, prefsrc=None, table=None, scope=None
     ):
         table = self.tables.get(table) if table else self.tables[254]
         if table:
             print(
-                "Adding dynamic route %s gateway=%s interface=%s prefsrc=%s table=%s"
-                % (destination, gateway, interface, prefsrc, table.id)
+                "Adding dynamic route %s gateway=%s interface=%s prefsrc=%s scope=%s table=%s"
+                % (destination, gateway, interface, prefsrc, scope, table.id)
             )
             table.add_dynamic_route(
-                destination, gateway=gateway, interface=interface, prefsrc=prefsrc
+                destination, gateway=gateway, interface=interface, prefsrc=prefsrc, scope=scope
             )
 
     def remove_dynamic_route(self, destination, table=None):

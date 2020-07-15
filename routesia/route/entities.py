@@ -93,7 +93,7 @@ class TableEntity(Entity):
         return False
 
     def add_dynamic_route(
-        self, destination, gateway=None, interface=None, prefsrc=None
+        self, destination, gateway=None, interface=None, prefsrc=None, scope=None
     ):
         if destination in self.routes:
             # Don't overwrite an existing route
@@ -102,7 +102,7 @@ class TableEntity(Entity):
             self.iproute,
             self,
             destination,
-            dynamic={"gateway": gateway, "interface": interface, "prefsrc": prefsrc},
+            dynamic={"gateway": gateway, "interface": interface, "prefsrc": prefsrc, "scope": scope},
         )
 
     def remove_dynamic_route(self, destination):
@@ -309,6 +309,8 @@ class RouteEntity(Entity):
                 kwargs["gateway"] = self.dynamic["gateway"]
             if self.dynamic["prefsrc"]:
                 kwargs["prefsrc"] = self.dynamic["prefsrc"]
+            if self.dynamic["scope"]:
+                kwargs["scope"] = self.dynamic["scope"]
             self.iproute.iproute.route("replace", **kwargs)
             self.route_args = kwargs
 

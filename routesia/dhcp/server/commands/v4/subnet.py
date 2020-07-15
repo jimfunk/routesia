@@ -46,8 +46,8 @@ class SubnetParameter(String):
 class V4ConfigSubnetUpdate(CLICommand):
     command = "dhcp server v4 config subnet update"
     parameters = (
-        ("name", SubnetParameter(required=True)),
-        ("test", String()),
+        ("address", SubnetParameter(required=True)),
+        ("use-ipam", Bool()),
         ("next-server", String()),
     )
 
