@@ -306,7 +306,7 @@ class ConfigZoneAllowTransferAdd(ZoneCLICommand):
     command = "dns authoritative config zone allow-transfer add"
     parameters = (
         ("zone", ZoneParameter(required=True)),
-        ("address", IPAddress(required=True)),
+        ("address", IPNetwork(required=True)),
     )
 
     async def call(self, zone, address, **kwargs):
@@ -345,7 +345,7 @@ class ConfigZoneAllowTransferRemove(ZoneCLICommand):
     command = "dns authoritative config zone allow-transfer remove"
     parameters = (
         ("zone", ZoneParameter(required=True)),
-        ("address", IPAddress(required=True, completer=get_allow_transfer_completions)),
+        ("address", IPNetwork(required=True, completer=get_allow_transfer_completions)),
     )
 
     async def call(self, zone, address, **kwargs):

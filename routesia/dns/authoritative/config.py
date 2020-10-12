@@ -32,7 +32,7 @@ class NSDZoneConfig:
         expire = self.config.expire if self.config.expire else DEFAULT_EXPIRE
         minimum_ttl = self.config.minimum_ttl if self.config.minimum_ttl else DEFAULT_MINIMUM_TTL
 
-        s = '$TTL %s\n' % self.config.ttl if self.config.ttl else DEFAULT_TTL
+        s = '$TTL %s\n' % (self.config.ttl if self.config.ttl else DEFAULT_TTL)
         s += '$ORIGIN %s\n' % domain
         s += '@ IN SOA %s %s. (%s %s %s %s %s)\n' % (
             domain,
