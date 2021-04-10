@@ -1,8 +1,12 @@
 from queue import Queue
+import logging
 import systemd.daemon
 
 from routesia.event import Event
 from routesia.injector import Injector, Provider
+
+
+logger = logging.getLogger(__name__)
 
 
 class Server(Provider):
@@ -51,4 +55,7 @@ class Server(Provider):
         "Handle an event. Only called in the main thread"
         if event.__class__ in self.event_registry:
             for subscriber in self.event_registry[event.__class__]:
-                subscriber(event)
+                try:
+                    subscriber(event)
+                except Exception:
+                    logger.exception("Failure in event handler")

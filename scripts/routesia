@@ -4,9 +4,9 @@
 #
 
 import logging
-import pdb
+import os
 import sys
-import traceback
+from systemd.journal import JournaldLogHandler
 
 from routesia.config.provider import ConfigProvider
 from routesia.dhcp.client.provider import DHCPClientProvider
@@ -21,10 +21,17 @@ from routesia.route.provider import RouteProvider
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.netfilter.provider import NetfilterProvider
 
+
 if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler(sys.stdout)
+
+    if "SYSTEMD_EXEC_PID" in os.environ:
+        handler = JournaldLogHandler()
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+
     handler.setLevel(logging.DEBUG)
     logger.addHandler(handler)
 
@@ -47,9 +54,7 @@ if __name__ == '__main__':
         server.run()
     except KeyboardInterrupt:
         pass
-    except:
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    except Exception:
+        logger.exception("Fatal error")
     finally:
         server.stop()

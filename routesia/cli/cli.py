@@ -141,6 +141,9 @@ class CLI:
         self.loop.create_task(self.client.run())
         await self.client.wait_connect()
 
+        if not os.path.isdir(os.path.dirname(CONFIG_PATH)):
+            os.makedirs(os.path.dirname(CONFIG_PATH), 0o700)
+
         session = PromptSession(
             HTML("<b>>>></b> "),
             completer=RoutesiaCompleter(self.client, self.command_tree),
