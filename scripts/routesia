@@ -5,6 +5,7 @@
 
 import logging
 import os
+import signal
 import sys
 from systemd.journal import JournalHandler
 
@@ -48,11 +49,16 @@ if __name__ == '__main__':
     server.add_provider(DNSCacheProvider)
     server.add_provider(AuthoritativeDNSProvider)
 
+    def signal_handler(signum, frame):
+        logger.info("Received signal %s" % signum)
+        server.stop()
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     server.start()
     try:
         server.run()
-    except KeyboardInterrupt:
-        pass
     except Exception:
         logger.exception("Fatal error")
     finally:

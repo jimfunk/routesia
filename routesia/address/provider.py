@@ -3,6 +3,7 @@ routesia/interface/address/provider.py - Interface address support
 """
 
 from ipaddress import ip_interface
+import logging
 
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
@@ -18,6 +19,9 @@ from routesia.rtnetlink.events import (
     InterfaceRemoveEvent,
 )
 from routesia.server import Server
+
+
+logger = logging.getLogger(__name__)
 
 
 class AddressProvider(Provider):

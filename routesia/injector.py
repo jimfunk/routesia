@@ -4,8 +4,12 @@ routesia/injector.py - Injector for plugins
 
 from collections import OrderedDict
 import inspect
+import logging
 
 from routesia.exceptions import InvalidProvider, ProviderLoadError
+
+
+logger = logging.getLogger(__name__)
 
 
 class Provider:
@@ -70,6 +74,7 @@ class Injector(Provider):
                         loadable = False
                         break
                 if loadable:
+                    logger.debug("Loading %s" % provider.__class__.__name__)
                     self.run(provider.load)
                     loaded.append(provider.__class__)
                     waiting.remove(provider)
@@ -79,9 +84,11 @@ class Injector(Provider):
     def startup(self):
         for provider in self.providers.values():
             if provider != self:
+                logger.debug("Starting up %s" % provider.__class__.__name__)
                 self.run(provider.startup)
 
     def shutdown(self):
         for provider in self.providers.values():
             if provider != self:
+                logger.debug("Shutting down %s" % provider.__class__.__name__)
                 self.run(provider.shutdown)

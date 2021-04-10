@@ -2,6 +2,7 @@
 routesia/rtnetlink/provider.py - IPRoute provider
 """
 
+import logging
 from pyroute2 import IPRoute
 import select
 from threading import Thread
@@ -20,6 +21,9 @@ from routesia.rtnetlink.events import (
     NeighbourRemoveEvent,
     IgnoreMessage,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 RT_PROTO = 52

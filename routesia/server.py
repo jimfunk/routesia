@@ -1,4 +1,4 @@
-from queue import Queue
+from queue import Queue, Empty
 import logging
 import systemd.daemon
 
@@ -33,14 +33,17 @@ class Server(Provider):
             logger.info("Stopping Routesia")
             self.injector.shutdown()
             self.running = False
+            logger.info("Stopped Routesia")
 
     def run(self):
         "Main loop for the server thread"
         systemd.daemon.notify("READY=1")
         logger.info("Starting Routesia")
         while self.running:
-            self.handle_event(self.eventqueue.get())
-        logger.info("Stopped Routesia")
+            try:
+                self.handle_event(self.eventqueue.get(timeout=1))
+            except Empty:
+                pass
 
     def subscribe_event(self, event_class, subscriber):
         """Subscribe to an event. The subscriber must be a callable taking a
