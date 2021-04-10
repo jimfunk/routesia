@@ -26,18 +26,14 @@ class AddressEntity(Entity):
         self.state.address.ip = str(event.ip)
         self.state.address.peer = str(event.peer.ip) if event.peer else ""
         self.state.address.scope = event.scope
-        self.ifindex = event.ifindex
-        if self.ifindex:
-            self.state.state = address_pb2.Address.PRESENT
-        else:
-            self.state.state = address_pb2.Address.INTERFACE_MISSING
-        self.apply()
+        self.state.state = address_pb2.Address.PRESENT
 
     def set_ifindex(self, ifindex):
         self.ifindex = ifindex
         self.apply()
 
     def handle_remove(self):
+        self.state.state = address_pb2.Address.ADDRESS_MISSING
         self.apply()
 
     def on_config_removed(self):
@@ -66,7 +62,7 @@ class AddressEntity(Entity):
         if self.ifindex is None:
             self.state.state = address_pb2.Address.INTERFACE_MISSING
         else:
-            self.state.state = address_pb2.Address.PRESENT
+            self.state.state = address_pb2.Address.ADDRESS_MISSING
             if self.config is not None:
                 if (
                     self.state.address.SerializeToString()

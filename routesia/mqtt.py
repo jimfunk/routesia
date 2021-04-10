@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class MQTT(Provider):
-    def __init__(self, host='localhost', port=1883):
+    def __init__(self, host='localhost', port=1883, client=mqtt.Client):
         super().__init__()
         self.host = host
         self.port = port
         self.subscribers = {}
-        self.client = mqtt.Client()
+        self.client = client()
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message

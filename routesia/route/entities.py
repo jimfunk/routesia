@@ -34,7 +34,8 @@ class TableEntity(Entity):
             destination = ip_network(route_config.destination)
             configured_destinations.append(destination)
             if destination not in self.routes:
-                self.routes[destination] = RouteEntity(self.iproute, self, destination)
+                self.routes[destination] = RouteEntity(
+                    self.iproute, self, destination)
             self.routes[destination].handle_config_change(route_config)
 
         for destination, route in self.routes.items():
@@ -102,7 +103,8 @@ class TableEntity(Entity):
             self.iproute,
             self,
             destination,
-            dynamic={"gateway": gateway, "interface": interface, "prefsrc": prefsrc, "scope": scope},
+            dynamic={"gateway": gateway, "interface": interface,
+                     "prefsrc": prefsrc, "scope": scope},
         )
 
     def remove_dynamic_route(self, destination):
@@ -177,12 +179,14 @@ class RouteEntity(Entity):
             if "RTA_GATEWAY" in event.attrs:
                 nexthop.gateway = event.attrs["RTA_GATEWAY"]
             if "RTA_OIF" in event.attrs:
-                nexthop.interface = self.iproute.interface_map[event.attrs["RTA_OIF"]]
+                nexthop.interface = self.iproute.get_interface_name_by_index(
+                    event.attrs["RTA_OIF"])
         elif "RTA_MULTIPATH" in event.attrs:
             for message in event.attrs["RTA_MULTIPATH"]:
                 attrs = dict(message["attrs"])
                 nexthop = self.state.nexthop.add()
-                nexthop.interface = self.iproute.interface_map[message["oif"]]
+                nexthop.interface = self.iproute.get_interface_name_by_index(
+                    message["oif"])
                 if "RTA_GATEWAY" in attrs:
                     nexthop.gateway = attrs["RTA_GATEWAY"]
 
@@ -190,7 +194,8 @@ class RouteEntity(Entity):
         self.apply()
 
     def handle_remove_event(self):
-        print("Route %s removed from table %s" % (self.destination, self.table.id))
+        print("Route %s removed from table %s" %
+              (self.destination, self.table.id))
         self.state.Clear()
         if self.dynamic:
             self.state.dynamic = True

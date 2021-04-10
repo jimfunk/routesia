@@ -2,9 +2,7 @@
 routesia/interface/address/provider.py - Interface address support
 """
 
-import errno
 from ipaddress import ip_interface
-from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
@@ -48,7 +46,7 @@ class AddressProvider(Provider):
 
     def on_config_change(self, config):
         new_addresses = {}
-        for address in self.config.data.addresses.address:
+        for address in config.addresses.address:
             new_addresses[(address.interface, address.ip)] = address
         new_address_keys = set(new_addresses.keys())
 

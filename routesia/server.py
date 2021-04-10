@@ -6,9 +6,7 @@ from routesia.injector import Injector, Provider
 
 
 class Server(Provider):
-    def __init__(self, host="localhost", port=1883):
-        self.host = host
-        self.port = port
+    def __init__(self):
         self.running = False
 
         self.injector = Injector()
