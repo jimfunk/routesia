@@ -32,6 +32,7 @@ message Address {
   enum AddressState {
     PRESENT = 0;
     INTERFACE_MISSING = 1;
+    ADDRESS_MISSING = 2;
   }  AddressState state = 2;
 
 }

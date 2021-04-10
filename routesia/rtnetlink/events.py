@@ -39,7 +39,7 @@ class AddressEvent(RtnetlinkEvent):
     def __init__(self, iproute, message):
         super().__init__(iproute, message)
         self.ifindex = message["index"]
-        self.ifname = iproute.interface_map[self.ifindex]
+        self.ifname = iproute.get_interface_name_by_index(self.ifindex)
         self.peer = None
         if "IFA_LOCAL" in self.attrs:
             self.ip = ip_interface(

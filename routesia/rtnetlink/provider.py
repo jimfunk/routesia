@@ -6,6 +6,7 @@ from pyroute2 import IPRoute
 import select
 from threading import Thread
 
+from routesia.exceptions import EntityNotFound
 from routesia.injector import Provider
 from routesia.server import Server
 from routesia.rtnetlink.events import (
@@ -120,3 +121,15 @@ class IPRouteProvider(Provider):
             self.server.publish_event(
                 RouteAddEvent(self, message)
             )
+
+    def get_interface_name_by_index(self, index):
+        try:
+            return self.interface_map[index]
+        except KeyError:
+            raise EntityNotFound("Interface does not exist")
+
+    def get_interface_index_by_name(self, name):
+        try:
+            return self.interface_name_map[name]
+        except KeyError:
+            raise EntityNotFound("Interface does not exist")

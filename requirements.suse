@@ -10,5 +10,6 @@ python3-paho-mqtt
 python3-prompt_toolkit
 python3-protobuf
 python3-pyroute2
+python3-pytest
 python3-systemd
 unbound

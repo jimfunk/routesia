@@ -9,6 +9,9 @@ from routesia.exceptions import InvalidProvider, ProviderLoadError
 
 
 class Provider:
+    def __init__(self):
+        pass
+
     def load(self):
         pass
 
