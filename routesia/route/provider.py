@@ -77,7 +77,7 @@ class RouteProvider(Provider):
         table_id = event.message["table"]
         if table_id not in self.tables:
             self.tables[table_id] = TableEntity(
-                table_id, self.iproute, config=self.find_route_config(event)
+                self.iproute, table_id, config=self.find_table_config(event)
             )
         self.tables[table_id].handle_route_add_event(event)
 

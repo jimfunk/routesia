@@ -141,7 +141,11 @@ class TableEntity(Entity):
             if route.config and not route.state.present:
                 for nexthop in route.config.nexthop:
                     if not nexthop.gateway and nexthop.interface == event.ifname:
-                        route.apply()
+                        try:
+                            route.apply()
+                        except Exception as e:
+                            # TODO: This needs to filter on flags instead of attempting and ignoring
+                            print(e)
 
     def handle_interface_remove(self, event):
         self.interfaces.remove(event.ifname)
