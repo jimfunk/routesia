@@ -95,7 +95,7 @@ class IPRouteProvider(Provider):
 
                                 server.publish_event(event)
                             else:
-                                print("Unhandled event %s" % message['event'])
+                                logging.warning("Unhandled event %s" % message['event'])
 
     def get_interfaces(self):
         for message in self.iproute.get_links():

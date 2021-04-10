@@ -124,7 +124,7 @@ class AddressProvider(Provider):
             else:
                 ifindex = None
 
-            print("Adding dynamic address %s to %s" % (address, interface))
+            logger.debug("Adding dynamic address %s to %s" % (address, interface))
             self.addresses[key] = AddressEntity(
                 interface,
                 self.iproute,
@@ -135,7 +135,7 @@ class AddressProvider(Provider):
     def remove_dynamic_address(self, interface, address):
         key = (interface, str(address))
         if key in self.addresses:
-            print("Removing dynamic address %s to %s" % (address, interface))
+            logger.debug("Removing dynamic address %s to %s" % (address, interface))
             self.addresses[key].remove_dynamic()
 
     def load(self):

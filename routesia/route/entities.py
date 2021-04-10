@@ -3,9 +3,13 @@ routesia/route/route.py - Route support
 """
 
 from ipaddress import ip_address, ip_network
+import logging
 
 from routesia.entity import Entity
 from routesia.route.route_pb2 import RouteState
+
+
+logger = logging.getLogger(__name__)
 
 
 PROTO_ID = 52
@@ -34,8 +38,7 @@ class TableEntity(Entity):
             destination = ip_network(route_config.destination)
             configured_destinations.append(destination)
             if destination not in self.routes:
-                self.routes[destination] = RouteEntity(
-                    self.iproute, self, destination)
+                self.routes[destination] = RouteEntity(self.iproute, self, destination)
             self.routes[destination].handle_config_change(route_config)
 
         for destination, route in self.routes.items():
@@ -103,8 +106,12 @@ class TableEntity(Entity):
             self.iproute,
             self,
             destination,
-            dynamic={"gateway": gateway, "interface": interface,
-                     "prefsrc": prefsrc, "scope": scope},
+            dynamic={
+                "gateway": gateway,
+                "interface": interface,
+                "prefsrc": prefsrc,
+                "scope": scope,
+            },
         )
 
     def remove_dynamic_route(self, destination):
@@ -143,11 +150,7 @@ class TableEntity(Entity):
             if route.config and not route.state.present:
                 for nexthop in route.config.nexthop:
                     if not nexthop.gateway and nexthop.interface == event.ifname:
-                        try:
-                            route.apply()
-                        except Exception as e:
-                            # TODO: This needs to filter on flags instead of attempting and ignoring
-                            print(e)
+                        route.apply()
 
     def handle_interface_remove(self, event):
         self.interfaces.remove(event.ifname)
@@ -184,29 +187,32 @@ class RouteEntity(Entity):
                 nexthop.gateway = event.attrs["RTA_GATEWAY"]
             if "RTA_OIF" in event.attrs:
                 nexthop.interface = self.iproute.get_interface_name_by_index(
-                    event.attrs["RTA_OIF"])
+                    event.attrs["RTA_OIF"]
+                )
         elif "RTA_MULTIPATH" in event.attrs:
             for message in event.attrs["RTA_MULTIPATH"]:
                 attrs = dict(message["attrs"])
                 nexthop = self.state.nexthop.add()
                 nexthop.interface = self.iproute.get_interface_name_by_index(
-                    message["oif"])
+                    message["oif"]
+                )
                 if "RTA_GATEWAY" in attrs:
                     nexthop.gateway = attrs["RTA_GATEWAY"]
 
-        print("Route %s added in table %s" % (self.destination, self.table.id))
+        logging.debug("Route %s added in table %s" % (self.destination, self.table.id))
         self.apply()
 
     def handle_remove_event(self):
-        print("Route %s removed from table %s" %
-              (self.destination, self.table.id))
+        logging.debug(
+            "Route %s removed from table %s" % (self.destination, self.table.id)
+        )
         self.state.Clear()
         if self.dynamic:
             self.state.dynamic = True
         self.apply()
 
     def handle_config_change(self, config):
-        print("New route config in table %s:\n%s" % (self.table.id, config))
+        logging.debug("New route config in table %s:\n%s" % (self.table.id, config))
         self.config = config
         self.apply()
 
@@ -216,7 +222,7 @@ class RouteEntity(Entity):
             self.route_args = None
 
     def handle_config_remove(self, config):
-        print(
+        logging.debug(
             "Removed config for route %s in table %s"
             % (self.destination, self.table.id)
         )
@@ -225,7 +231,7 @@ class RouteEntity(Entity):
 
     def handle_dynamic_remove(self):
         if self.dynamic:
-            print(
+            logging.debug(
                 "Removed dynamic route %s in table %s"
                 % (self.destination, self.table.id)
             )
@@ -269,7 +275,7 @@ class RouteEntity(Entity):
                             kwargs["gateway"] = nexthop.gateway
                         if nexthop.interface:
                             if nexthop.interface not in self.iproute.interface_name_map:
-                                print(
+                                logging.warning(
                                     "Unknown interface %s in route %s. Not applying."
                                     % (nexthop.interface, self.destination)
                                 )
@@ -284,8 +290,11 @@ class RouteEntity(Entity):
                             if nexthop.gateway:
                                 nexthop_args["gateway"] = nexthop.gateway
                             if nexthop.interface:
-                                if nexthop.interface not in self.iproute.interface_name_map:
-                                    print(
+                                if (
+                                    nexthop.interface
+                                    not in self.iproute.interface_name_map
+                                ):
+                                    logging.warning(
                                         "Unknown interface %s in multipath route. Skipping."
                                         % nexthop.interface
                                     )
@@ -295,7 +304,7 @@ class RouteEntity(Entity):
                                 ]
                             multipath.append(nexthop_args)
                         if not multipath:
-                            print(
+                            logging.warning(
                                 "No valid multipath nexthops in route %s. Not applying."
                                 % self.destination
                             )

@@ -24,13 +24,13 @@ class MQTT(Provider):
         self.connected = False
 
     def on_connect(self, client, obj, flags, rc):
-        print("Connected to broker")
+        logger.info("Connected to MQTT broker")
         self.connected = True
         for topic in self.subscribers:
             self.client.subscribe(topic)
 
     def on_disconnect(self, client, obj, rc):
-        print("Disconnected from broker")
+        logger.info("Disconnected from MQTT broker")
         self.connected = False
 
     def on_message(self, client, obj, message):

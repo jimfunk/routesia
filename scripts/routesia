@@ -6,7 +6,7 @@
 import logging
 import os
 import sys
-from systemd.journal import JournaldLogHandler
+from systemd.journal import JournalHandler
 
 from routesia.config.provider import ConfigProvider
 from routesia.dhcp.client.provider import DHCPClientProvider
@@ -27,8 +27,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     if "SYSTEMD_EXEC_PID" in os.environ:
-        handler = JournaldLogHandler()
-        handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        handler = JournalHandler()
     else:
         handler = logging.StreamHandler(sys.stdout)
 

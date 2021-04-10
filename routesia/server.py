@@ -30,14 +30,17 @@ class Server(Provider):
 
     def stop(self):
         if self.running:
+            logger.info("Stopping Routesia")
             self.injector.shutdown()
             self.running = False
 
     def run(self):
         "Main loop for the server thread"
         systemd.daemon.notify("READY=1")
+        logger.info("Starting Routesia")
         while self.running:
             self.handle_event(self.eventqueue.get())
+        logger.info("Stopped Routesia")
 
     def subscribe_event(self, event_class, subscriber):
         """Subscribe to an event. The subscriber must be a callable taking a

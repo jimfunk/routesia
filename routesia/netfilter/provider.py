@@ -2,6 +2,7 @@
 routesia/interface/provider.py - Netfilter provider
 """
 
+import logging
 import subprocess
 import tempfile
 
@@ -10,6 +11,9 @@ from routesia.injector import Provider
 from routesia.netfilter.config import NetfilterConfig
 from routesia.netfilter import netfilter_pb2
 from routesia.rpc.provider import RPCProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 class NetfilterProvider(Provider):
@@ -28,9 +32,9 @@ class NetfilterProvider(Provider):
         try:
             subprocess.run(['/usr/sbin/nft', '--file', temp.name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
         except subprocess.CalledProcessError as e:
-            print(e.stdout.decode('utf8'))
-            print(e)
-            print(config)
+            logger.error(e.stdout.decode('utf8'))
+            logger.error(e)
+            logger.error(config)
 
     def flush(self):
         subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])

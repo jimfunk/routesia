@@ -3,6 +3,7 @@ routesia/route/provider.py - Route support
 """
 
 from ipaddress import ip_network
+import logging
 
 from routesia.config.provider import ConfigProvider
 from routesia.exceptions import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
@@ -18,6 +19,10 @@ from routesia.rtnetlink.events import (
 )
 from routesia.route.entities import TableEntity
 from routesia.route import route_pb2
+
+
+logger = logging.getLogger(__name__)
+
 
 DEFAULT_TABLES = {
     253: "default",
@@ -100,7 +105,7 @@ class RouteProvider(Provider):
     ):
         table = self.tables.get(table) if table else self.tables[254]
         if table:
-            print(
+            logging.debug(
                 "Adding dynamic route %s gateway=%s interface=%s prefsrc=%s scope=%s table=%s"
                 % (destination, gateway, interface, prefsrc, scope, table.id)
             )
@@ -111,7 +116,7 @@ class RouteProvider(Provider):
     def remove_dynamic_route(self, destination, table=None):
         table = self.tables.get(table) if table else self.tables[254]
         if table:
-            print("Removing dynamic route %s table=%s" % (destination, table.id))
+            logging.debug("Removing dynamic route %s table=%s" % (destination, table.id))
             table.remove_dynamic_route(destination)
 
     def startup(self):

@@ -2,6 +2,7 @@
 routesia/dns/authoritative/provider.py - Authoritative DNS using NS2
 """
 
+import logging
 import os
 import shutil
 import subprocess
@@ -14,6 +15,9 @@ from routesia.injector import Provider
 from routesia.ipam.provider import IPAMProvider
 from routesia.rpc.provider import RPCProvider
 from routesia.systemd.provider import SystemdProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthoritativeDNSProvider(Provider):
@@ -62,7 +66,7 @@ class AuthoritativeDNSProvider(Provider):
                 # subprocess.run([NSD_CONTROL_SETUP], check_returncode=True)
                 subprocess.run([NSD_CONTROL_SETUP])
             except subprocess.CalledProcessError:
-                print("nsd-control-setup failed")
+                logger.error("nsd-control-setup failed")
         self.systemd.manager.ReloadOrRestartUnit('nsd.service', 'replace')
 
     def stop(self):
