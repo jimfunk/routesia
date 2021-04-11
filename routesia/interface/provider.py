@@ -31,7 +31,7 @@ INTERFACE_TYPE_CONFIG_MAP = {
     # (interface_types.ARPHRD_TUNNEL, None): ,
     # (interface_types.ARPHRD_TUNNEL6, None): ,
     (interface_types.ARPHRD_LOOPBACK, None): interface_pb2.LOOPBACK,
-    # (interface_types.ARPHRD_SIT, None): ,
+    (interface_types.ARPHRD_SIT, None): interface_pb2.SIT,
     # (interface_types.ARPHRD_IPGRE, None): ,
     # (interface_types.ARPHRD_IEEE80211, None): ,
 }
@@ -63,7 +63,7 @@ class InterfaceProvider(Provider):
         new_interface_names = set(new_interfaces.keys())
 
         # Remove interfaces that no longer have a config
-        for interface in self.interfaces.values():
+        for interface in list(self.interfaces.values()):
             if interface.config and interface.name not in new_interface_names:
                 interface.on_config_removed()
                 for dependent_interface in interface.dependent_interfaces:
@@ -85,6 +85,7 @@ class InterfaceProvider(Provider):
                 entity_class = INTERFACE_CONFIG_TYPE_ENTITY_MAP[interface.type]
                 entity = entity_class(self, ifname, config=interface)
                 self.interfaces[ifname] = entity
+                entity.startup()
 
     def handle_interface_add(self, interface_event):
         map_type = (interface_event.iftype, interface_event.kind)

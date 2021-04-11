@@ -3,6 +3,7 @@ routesia/interface/entities.py - Interface entities
 """
 
 import errno
+import ipaddress
 from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.entity import Entity
@@ -265,7 +266,35 @@ class LoopbackInterface(InterfaceEntity):
 
 
 class SITInterface(VirtualInterface):
-    pass
+    def create(self):
+        if not self.config.sit.remote:
+            raise InvalidConfig("SIT interface requires remote address")
+
+        if not self.config.sit.local:
+            raise InvalidConfig("SIT interface requires local address")
+
+        remote = ipaddress.ip_address(self.config.sit.remote)
+        local = ipaddress.ip_address(self.config.sit.local)
+
+        if remote.version != 4:
+            raise InvalidConfig("SIT interface remote address must be IPv4")
+
+        if local.version != 4:
+            raise InvalidConfig("SIT interface local address must be IPv4")
+
+        ttl = self.config.sit.ttl if self.config.sit.ttl else 255
+
+        args = {
+            "sit_remote": str(remote),
+            "sit_local": str(local),
+            "sit_ttl": ttl,
+        }
+
+        try:
+            self.link("add", ifname=self.name, kind="sit", **args)
+        except NetlinkError as e:
+            if e.code != errno.EEXIST:
+                raise
 
 
 class GREInterface(VirtualInterface):
@@ -286,7 +315,7 @@ INTERFACE_TYPE_ENTITY_MAP = {
     # (interface_types.ARPHRD_TUNNEL, None): IPIPInterface,
     # (interface_types.ARPHRD_TUNNEL6, None): IPIP6Interface,
     (interface_types.ARPHRD_LOOPBACK, None): LoopbackInterface,
-    # (interface_types.ARPHRD_SIT, None): SITInterface,
+    (interface_types.ARPHRD_SIT, None): SITInterface,
     # (interface_types.ARPHRD_IPGRE, None): GREInterface,
     # (interface_types.ARPHRD_IEEE80211, None): WiFiInterface,
 }
@@ -301,7 +330,7 @@ INTERFACE_CONFIG_TYPE_ENTITY_MAP = {
     # interface_pb2.IPIP: IPIPInterface,
     # interface_pb2.IPIP6: IPIP6Interface,
     interface_pb2.LOOPBACK: LoopbackInterface,
-    # interface_pb2.SIT: SITInterface,
+    interface_pb2.SIT: SITInterface,
     # interface_pb2.GRE: GREInterface,
     # interface_pb2.WIFI: WiFiInterface,
 }

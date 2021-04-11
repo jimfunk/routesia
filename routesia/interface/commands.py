@@ -2,7 +2,7 @@
 routesia/interface/commands.py - Routesia interface commands
 """
 from routesia.cli.command import CLICommand, CLICommandSet
-from routesia.cli.parameters import String, Bool, UInt32, Int32, ProtobufEnum
+from routesia.cli.parameters import IPAddress, String, Bool, UInt32, Int32, ProtobufEnum
 from routesia.exceptions import CommandError
 from routesia.interface import interface_pb2
 
@@ -92,6 +92,9 @@ interface_optional_parameters = (
     ("vlan.id", UInt32(min=1, max=4094)),
     ("vlan.gvrp", Bool()),
     ("vlan.mvrp", Bool()),
+    ("sit.remote", IPAddress(version=4)),
+    ("sit.local", IPAddress(version=4)),
+    ("sit.ttl", UInt32(min=1, max=255)),
 )
 
 

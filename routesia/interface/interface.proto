@@ -10,6 +10,7 @@ enum InterfaceType {
   ETHERNET = 2;
   BRIDGE = 3;
   VLAN = 4;
+  SIT = 5;
 }
 
 message InterfaceLink {
@@ -112,6 +113,23 @@ message VLANInterfaceConfig {
   bool mvrp = 4;
 }
 
+
+// SIT configuration
+//
+message SITInterfaceConfig {
+    // Remote address
+    //
+    string remote = 1;
+
+    // Local address
+    //
+    string local = 2;
+
+    // TTL
+    //
+    uint32 ttl = 3;
+}
+
 // Interface module config
 //
 message InterfaceConfig {
@@ -131,6 +149,7 @@ message InterfaceConfig {
   //
   BridgeInterfaceConfig bridge = 100;
   VLANInterfaceConfig vlan = 101;
+  SITInterfaceConfig sit = 102;
 }
 
 // List of interface configurations
