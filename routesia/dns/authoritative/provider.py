@@ -67,10 +67,10 @@ class AuthoritativeDNSProvider(Provider):
                 subprocess.run([NSD_CONTROL_SETUP])
             except subprocess.CalledProcessError:
                 logger.error("nsd-control-setup failed")
-        self.systemd.manager.ReloadOrRestartUnit('nsd.service', 'replace')
+        self.systemd.start('nsd.service')
 
     def stop(self):
-        self.systemd.manager.StopUnit('nsd.service', 'replace')
+        self.systemd.stop('nsd.service')
 
     def load(self):
         self.config.register_change_handler(self.on_config_change)

@@ -1,8 +1,0 @@
-#
-# Routesia config
-#
-
-# Interfaces that should get configured with subnets from DHCPv6 prefix
-# delegation
-#
-PREFIX_DELEGATED_INTERFACES="eth0"

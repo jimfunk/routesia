@@ -4,17 +4,23 @@ PYTHON_SOURCES := $(shell find routesia* -type f -name '*.py')
 
 PYTHON = python3
 
-all: proto build
+all: build
 
 proto: $(PROTO_MODULES)
 
 %_pb2.py: %.proto
 	protoc -I. --python_out=. $<
 
-build: setup.py $(PYTHON_SOURCES)
+build: setup.py $(PYTHON_SOURCES) proto
 	$(PYTHON) setup.py build
 
-install:
+test: proto
+	pytest $(ARGS)
+
+coverage: proto
+	pytest --cov=routesia $(ARGS)
+
+install: proto
 	$(PYTHON) setup.py install
 	mv $(DESTDIR)/usr/bin/routesia $(DESTDIR)/usr/sbin/routesia
 	mv $(DESTDIR)/usr/bin/rcl $(DESTDIR)/usr/sbin/rcl
@@ -27,4 +33,4 @@ install:
 clean:
 	rm -rf build $(PROTO_MODULES)
 
-.PHONY: clean build proto install
+.PHONY: clean build proto install test

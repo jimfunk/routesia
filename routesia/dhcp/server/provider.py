@@ -56,10 +56,10 @@ class DHCPServerProvider(Provider):
         self.start()
 
     def start(self):
-        self.systemd.manager.ReloadOrRestartUnit("kea.service", "replace")
+        self.systemd.start("kea.service")
 
     def stop(self):
-        self.systemd.manager.StopUnit("kea.service", "replace")
+        self.systemd.stop("kea.service")
 
     def load(self):
         self.config.register_change_handler(self.on_config_change)

@@ -63,10 +63,10 @@ class DNSCacheProvider(Provider):
         self.start()
 
     def start(self):
-        self.systemd.manager.ReloadOrRestartUnit("unbound.service", "replace")
+        self.systemd.start("unbound.service")
 
     def stop(self):
-        self.systemd.manager.StopUnit("unbound.service", "replace")
+        self.systemd.stop("unbound.service")
 
     def load(self):
         self.config.register_change_handler(self.on_config_change)
