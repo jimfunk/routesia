@@ -450,6 +450,114 @@ class ConfigInputRuleIPMatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigInputRuleIPMatchSourceAdd(CLICommand):
+    command = "netfilter config input rule ip-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("source", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIPMatchSourceRemove(CLICommand):
+    command = "netfilter config input rule ip-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("source", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIPMatchDestinationAdd(CLICommand):
+    command = "netfilter config input rule ip-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("destination", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIPMatchDestinationRemove(CLICommand):
+    command = "netfilter config input rule ip-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("destination", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIPMatchProtocolAdd(CLICommand):
+    command = "netfilter config input rule ip-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIPMatchProtocolRemove(CLICommand):
+    command = "netfilter config input rule ip-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip[match]
+        match.protocol.remove(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigInputRuleIP6MatchAdd(CLICommand):
     command = "netfilter config input rule ip6-match add"
     parameters = (
@@ -545,6 +653,114 @@ class ConfigInputRuleIP6MatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigInputRuleIP6MatchSourceAdd(CLICommand):
+    command = "netfilter config input rule ip6-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("source", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIP6MatchSourceRemove(CLICommand):
+    command = "netfilter config input rule ip6-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("source", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIP6MatchDestinationAdd(CLICommand):
+    command = "netfilter config input rule ip6-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("destination", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIP6MatchDestinationRemove(CLICommand):
+    command = "netfilter config input rule ip6-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("destination", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIP6MatchProtocolAdd(CLICommand):
+    command = "netfilter config input rule ip6-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleIP6MatchProtocolRemove(CLICommand):
+    command = "netfilter config input rule ip6-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ip6_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ip6[match]
+        match.protocol.remove(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigInputRuleTCPMatchAdd(CLICommand):
     command = "netfilter config input rule tcp-match add"
     parameters = (
@@ -633,6 +849,78 @@ class ConfigInputRuleTCPMatchRemove(CLICommand):
         )
         rule = config.input.rule[rule]
         del rule.tcp[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleTCPMatchSourceAdd(CLICommand):
+    command = "netfilter config input rule tcp-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_tcp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.tcp[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleTCPMatchSourceRemove(CLICommand):
+    command = "netfilter config input rule tcp-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_tcp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.tcp[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleTCPMatchDestinationAdd(CLICommand):
+    command = "netfilter config input rule tcp-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_tcp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.tcp[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleTCPMatchDestinationRemove(CLICommand):
+    command = "netfilter config input rule tcp-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_tcp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.tcp[match]
+        match.destination.remove(destination)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -727,6 +1015,78 @@ class ConfigInputRuleUDPMatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigInputRuleUDPMatchSourceAdd(CLICommand):
+    command = "netfilter config input rule udp-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_udp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.udp[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleUDPMatchSourceRemove(CLICommand):
+    command = "netfilter config input rule udp-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_udp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.udp[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleUDPMatchDestinationAdd(CLICommand):
+    command = "netfilter config input rule udp-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_udp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.udp[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleUDPMatchDestinationRemove(CLICommand):
+    command = "netfilter config input rule udp-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_udp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.udp[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigInputRuleICMPMatchAdd(CLICommand):
     command = "netfilter config input rule icmp-match add"
     parameters = (
@@ -815,6 +1175,78 @@ class ConfigInputRuleICMPMatchRemove(CLICommand):
         )
         rule = config.input.rule[rule]
         del rule.icmp[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMPMatchTypeAdd(CLICommand):
+    command = "netfilter config input rule icmp-match type add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp[match]
+        match.type.append(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMPMatchTypeRemove(CLICommand):
+    command = "netfilter config input rule icmp-match type remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp[match]
+        match.type.remove(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMPMatchCodeAdd(CLICommand):
+    command = "netfilter config input rule icmp-match code add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp[match]
+        match.code.append(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMPMatchCodeRemove(CLICommand):
+    command = "netfilter config input rule icmp-match code remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp[match]
+        match.code.remove(code)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -909,6 +1341,78 @@ class ConfigInputRuleICMP6MatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigInputRuleICMP6MatchTypeAdd(CLICommand):
+    command = "netfilter config input rule icmp6-match type add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp6_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp6[match]
+        match.type.append(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMP6MatchTypeRemove(CLICommand):
+    command = "netfilter config input rule icmp6-match type remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp6_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp6[match]
+        match.type.remove(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMP6MatchCodeAdd(CLICommand):
+    command = "netfilter config input rule icmp6-match code add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp6_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp6[match]
+        match.code.append(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleICMP6MatchCodeRemove(CLICommand):
+    command = "netfilter config input rule icmp6-match code remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp6_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp6[match]
+        match.code.remove(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigInputRuleCTMatchAdd(CLICommand):
     command = "netfilter config input rule ct-match add"
     parameters = (
@@ -993,6 +1497,42 @@ class ConfigInputRuleCTMatchRemove(CLICommand):
         )
         rule = config.input.rule[rule]
         del rule.ct[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleCTMatchStateAdd(CLICommand):
+    command = "netfilter config input rule ct-match state add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ct_match_completions)),
+        ("state", String(required=True)),
+    )
+
+    async def call(self, rule, match, state, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ct[match]
+        match.state.append(state)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleCTMatchStateRemove(CLICommand):
+    command = "netfilter config input rule ct-match state remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_ct_match_completions)),
+        ("state", String(required=True)),
+    )
+
+    async def call(self, rule, match, state, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.ct[match]
+        match.state.remove(state)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -1084,6 +1624,78 @@ class ConfigInputRuleMetaMatchRemove(CLICommand):
         )
         rule = config.input.rule[rule]
         del rule.meta[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleMetaMatchInputInterfaceAdd(CLICommand):
+    command = "netfilter config input rule meta-match input-interface add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.meta[match]
+        match.input_interface.append(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleMetaMatchInputInterfaceRemove(CLICommand):
+    command = "netfilter config input rule meta-match input-interface remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.meta[match]
+        match.input_interface.remove(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleMetaMatchProtocolAdd(CLICommand):
+    command = "netfilter config input rule meta-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_meta_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.meta[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigInputRuleMetaMatchProtocolRemove(CLICommand):
+    command = "netfilter config input rule meta-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_meta_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.meta[match]
+        match.protocol.remove(protocol)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -1381,6 +1993,114 @@ class ConfigForwardRuleIPMatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigForwardRuleIPMatchSourceAdd(CLICommand):
+    command = "netfilter config forward rule ip-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("source", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIPMatchSourceRemove(CLICommand):
+    command = "netfilter config forward rule ip-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("source", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIPMatchDestinationAdd(CLICommand):
+    command = "netfilter config forward rule ip-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("destination", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIPMatchDestinationRemove(CLICommand):
+    command = "netfilter config forward rule ip-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("destination", IPNetwork(required=True, version=4)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIPMatchProtocolAdd(CLICommand):
+    command = "netfilter config forward rule ip-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIPMatchProtocolRemove(CLICommand):
+    command = "netfilter config forward rule ip-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip[match]
+        match.protocol.remove(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigForwardRuleIP6MatchAdd(CLICommand):
     command = "netfilter config forward rule ip6-match add"
     parameters = (
@@ -1476,6 +2196,114 @@ class ConfigForwardRuleIP6MatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigForwardRuleIP6MatchSourceAdd(CLICommand):
+    command = "netfilter config forward rule ip6-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("source", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIP6MatchSourceRemove(CLICommand):
+    command = "netfilter config forward rule ip6-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("source", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIP6MatchDestinationAdd(CLICommand):
+    command = "netfilter config forward rule ip6-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("destination", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIP6MatchDestinationRemove(CLICommand):
+    command = "netfilter config forward rule ip6-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("destination", IPNetwork(required=True, version=6)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIP6MatchProtocolAdd(CLICommand):
+    command = "netfilter config forward rule ip6-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleIP6MatchProtocolRemove(CLICommand):
+    command = "netfilter config forward rule ip6-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ip6_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ip6[match]
+        match.protocol.remove(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigForwardRuleTCPMatchAdd(CLICommand):
     command = "netfilter config forward rule tcp-match add"
     parameters = (
@@ -1564,6 +2392,78 @@ class ConfigForwardRuleTCPMatchRemove(CLICommand):
         )
         rule = config.forward.rule[rule]
         del rule.tcp[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleTCPMatchSourceAdd(CLICommand):
+    command = "netfilter config forward rule tcp-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_tcp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.tcp[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleTCPMatchSourceRemove(CLICommand):
+    command = "netfilter config forward rule tcp-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_tcp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.tcp[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleTCPMatchDestinationAdd(CLICommand):
+    command = "netfilter config forward rule tcp-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_tcp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.tcp[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleTCPMatchDestinationRemove(CLICommand):
+    command = "netfilter config forward rule tcp-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_tcp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.tcp[match]
+        match.destination.remove(destination)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -1658,6 +2558,78 @@ class ConfigForwardRuleUDPMatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigForwardRuleUDPMatchSourceAdd(CLICommand):
+    command = "netfilter config forward rule udp-match source add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_udp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.udp[match]
+        match.source.append(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleUDPMatchSourceRemove(CLICommand):
+    command = "netfilter config forward rule udp-match source remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_udp_match_completions)),
+        ("source", String(required=True)),
+    )
+
+    async def call(self, rule, match, source, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.udp[match]
+        match.source.remove(source)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleUDPMatchDestinationAdd(CLICommand):
+    command = "netfilter config forward rule udp-match destination add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_udp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.udp[match]
+        match.destination.append(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleUDPMatchDestinationRemove(CLICommand):
+    command = "netfilter config forward rule udp-match destination remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_udp_match_completions)),
+        ("destination", String(required=True)),
+    )
+
+    async def call(self, rule, match, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.udp[match]
+        match.destination.remove(destination)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigForwardRuleICMPMatchAdd(CLICommand):
     command = "netfilter config forward rule icmp-match add"
     parameters = (
@@ -1746,6 +2718,78 @@ class ConfigForwardRuleICMPMatchRemove(CLICommand):
         )
         rule = config.forward.rule[rule]
         del rule.icmp[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMPMatchTypeAdd(CLICommand):
+    command = "netfilter config forward rule icmp-match type add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp[match]
+        match.type.append(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMPMatchTypeRemove(CLICommand):
+    command = "netfilter config forward rule icmp-match type remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp[match]
+        match.type.remove(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMPMatchCodeAdd(CLICommand):
+    command = "netfilter config forward rule icmp-match code add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp[match]
+        match.code.append(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMPMatchCodeRemove(CLICommand):
+    command = "netfilter config forward rule icmp-match code remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp[match]
+        match.code.remove(code)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -1840,6 +2884,78 @@ class ConfigForwardRuleICMP6MatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigForwardRuleICMP6MatchTypeAdd(CLICommand):
+    command = "netfilter config input rule icmp6-match type add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_input_rule_completions)),
+        ("match", UInt32(required=True, completer=get_input_rule_icmp6_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.input.rule[rule]
+        match = rule.icmp6[match]
+        match.type.append(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMP6MatchTypeRemove(CLICommand):
+    command = "netfilter config forward rule icmp6-match type remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp6_match_completions)),
+        ("type", String(required=True)),
+    )
+
+    async def call(self, rule, match, type, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp6[match]
+        match.type.remove(type)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMP6MatchCodeAdd(CLICommand):
+    command = "netfilter config forward rule icmp6-match code add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp6_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp6[match]
+        match.code.append(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleICMP6MatchCodeRemove(CLICommand):
+    command = "netfilter config forward rule icmp6-match code remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_icmp6_match_completions)),
+        ("code", String(required=True)),
+    )
+
+    async def call(self, rule, match, code, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.icmp6[match]
+        match.code.remove(code)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigForwardRuleCTMatchAdd(CLICommand):
     command = "netfilter config forward rule ct-match add"
     parameters = (
@@ -1924,6 +3040,42 @@ class ConfigForwardRuleCTMatchRemove(CLICommand):
         )
         rule = config.forward.rule[rule]
         del rule.ct[match]
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleCTMatchStateAdd(CLICommand):
+    command = "netfilter config forward rule ct-match state add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ct_match_completions)),
+        ("state", String(required=True)),
+    )
+
+    async def call(self, rule, match, state, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ct[match]
+        match.state.append(state)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleCTMatchStateRemove(CLICommand):
+    command = "netfilter config forward rule ct-match state remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_ct_match_completions)),
+        ("state", String(required=True)),
+    )
+
+    async def call(self, rule, match, state, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.ct[match]
+        match.state.remove(state)
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -2022,6 +3174,114 @@ class ConfigForwardRuleMetaMatchRemove(CLICommand):
         await self.client.request("/netfilter/config/update", config)
 
 
+class ConfigForwardRuleMetaMatchInputInterfaceAdd(CLICommand):
+    command = "netfilter config forward rule meta-match input-interface add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.forward_interface.append(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleMetaMatchInputInterfaceRemove(CLICommand):
+    command = "netfilter config forward rule meta-match input-interface remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.forward_interface.remove(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleMetaMatchOutputInterfaceAdd(CLICommand):
+    command = "netfilter config forward rule meta-match output-interface add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.forward_interface.append(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleMetaMatchOutputInterfaceRemove(CLICommand):
+    command = "netfilter config forward rule meta-match output-interface remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("interface", String(required=True)),
+    )
+
+    async def call(self, rule, match, interface, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.forward_interface.remove(interface)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleMetaMatchProtocolAdd(CLICommand):
+    command = "netfilter config forward rule meta-match protocol add"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.protocol.append(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigForwardRuleMetaMatchProtocolRemove(CLICommand):
+    command = "netfilter config forward rule meta-match protocol remove"
+    parameters = (
+        ("rule", UInt32(required=True, completer=get_forward_rule_completions)),
+        ("match", UInt32(required=True, completer=get_forward_rule_meta_match_completions)),
+        ("protocol", String(required=True)),
+    )
+
+    async def call(self, rule, match, protocol, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        rule = config.forward.rule[rule]
+        match = rule.meta[match]
+        match.protocol.remove(protocol)
+        await self.client.request("/netfilter/config/update", config)
+
+
 class NetfilterCommandSet(CLICommandSet):
     commands = (
         ConfigShow,
@@ -2042,34 +3302,68 @@ class NetfilterCommandSet(CLICommandSet):
         ConfigInputRuleIPMatchList,
         ConfigInputRuleIPMatchUpdate,
         ConfigInputRuleIPMatchRemove,
+        ConfigInputRuleIPMatchSourceAdd,
+        ConfigInputRuleIPMatchSourceRemove,
+        ConfigInputRuleIPMatchDestinationAdd,
+        ConfigInputRuleIPMatchDestinationRemove,
+        ConfigInputRuleIPMatchProtocolAdd,
+        ConfigInputRuleIPMatchProtocolRemove,
         ConfigInputRuleIP6MatchAdd,
         ConfigInputRuleIP6MatchList,
         ConfigInputRuleIP6MatchUpdate,
         ConfigInputRuleIP6MatchRemove,
+        ConfigInputRuleIP6MatchSourceAdd,
+        ConfigInputRuleIP6MatchSourceRemove,
+        ConfigInputRuleIP6MatchDestinationAdd,
+        ConfigInputRuleIP6MatchDestinationRemove,
+        ConfigInputRuleIP6MatchProtocolAdd,
+        ConfigInputRuleIP6MatchProtocolRemove,
         ConfigInputRuleTCPMatchAdd,
         ConfigInputRuleTCPMatchList,
         ConfigInputRuleTCPMatchUpdate,
         ConfigInputRuleTCPMatchRemove,
+        ConfigInputRuleTCPMatchSourceAdd,
+        ConfigInputRuleTCPMatchSourceRemove,
+        ConfigInputRuleTCPMatchDestinationAdd,
+        ConfigInputRuleTCPMatchDestinationRemove,
         ConfigInputRuleUDPMatchAdd,
         ConfigInputRuleUDPMatchList,
         ConfigInputRuleUDPMatchUpdate,
         ConfigInputRuleUDPMatchRemove,
+        ConfigInputRuleUDPMatchSourceAdd,
+        ConfigInputRuleUDPMatchSourceRemove,
+        ConfigInputRuleUDPMatchDestinationAdd,
+        ConfigInputRuleUDPMatchDestinationRemove,
         ConfigInputRuleICMPMatchAdd,
         ConfigInputRuleICMPMatchList,
         ConfigInputRuleICMPMatchUpdate,
         ConfigInputRuleICMPMatchRemove,
+        ConfigInputRuleICMPMatchTypeAdd,
+        ConfigInputRuleICMPMatchTypeRemove,
+        ConfigInputRuleICMPMatchCodeAdd,
+        ConfigInputRuleICMPMatchCodeRemove,
         ConfigInputRuleICMP6MatchAdd,
         ConfigInputRuleICMP6MatchList,
         ConfigInputRuleICMP6MatchUpdate,
         ConfigInputRuleICMP6MatchRemove,
+        ConfigInputRuleICMP6MatchTypeAdd,
+        ConfigInputRuleICMP6MatchTypeRemove,
+        ConfigInputRuleICMP6MatchCodeAdd,
+        ConfigInputRuleICMP6MatchCodeRemove,
         ConfigInputRuleCTMatchAdd,
         ConfigInputRuleCTMatchList,
         ConfigInputRuleCTMatchUpdate,
         ConfigInputRuleCTMatchRemove,
+        ConfigInputRuleCTMatchStateAdd,
+        ConfigInputRuleCTMatchStateRemove,
         ConfigInputRuleMetaMatchAdd,
         ConfigInputRuleMetaMatchList,
         ConfigInputRuleMetaMatchUpdate,
         ConfigInputRuleMetaMatchRemove,
+        ConfigInputRuleMetaMatchInputInterfaceAdd,
+        ConfigInputRuleMetaMatchInputInterfaceRemove,
+        ConfigInputRuleMetaMatchProtocolAdd,
+        ConfigInputRuleMetaMatchProtocolRemove,
         ConfigForwardPolicy,
         ConfigForwardRuleList,
         ConfigForwardRuleAdd,
@@ -2083,32 +3377,68 @@ class NetfilterCommandSet(CLICommandSet):
         ConfigForwardRuleIPMatchList,
         ConfigForwardRuleIPMatchUpdate,
         ConfigForwardRuleIPMatchRemove,
+        ConfigForwardRuleIPMatchSourceAdd,
+        ConfigForwardRuleIPMatchSourceRemove,
+        ConfigForwardRuleIPMatchDestinationAdd,
+        ConfigForwardRuleIPMatchDestinationRemove,
+        ConfigForwardRuleIPMatchProtocolAdd,
+        ConfigForwardRuleIPMatchProtocolRemove,
         ConfigForwardRuleIP6MatchAdd,
         ConfigForwardRuleIP6MatchList,
         ConfigForwardRuleIP6MatchUpdate,
         ConfigForwardRuleIP6MatchRemove,
+        ConfigForwardRuleIP6MatchSourceAdd,
+        ConfigForwardRuleIP6MatchSourceRemove,
+        ConfigForwardRuleIP6MatchDestinationAdd,
+        ConfigForwardRuleIP6MatchDestinationRemove,
+        ConfigForwardRuleIP6MatchProtocolAdd,
+        ConfigForwardRuleIP6MatchProtocolRemove,
         ConfigForwardRuleTCPMatchAdd,
         ConfigForwardRuleTCPMatchList,
         ConfigForwardRuleTCPMatchUpdate,
         ConfigForwardRuleTCPMatchRemove,
+        ConfigForwardRuleTCPMatchSourceAdd,
+        ConfigForwardRuleTCPMatchSourceRemove,
+        ConfigForwardRuleTCPMatchDestinationAdd,
+        ConfigForwardRuleTCPMatchDestinationRemove,
         ConfigForwardRuleUDPMatchAdd,
         ConfigForwardRuleUDPMatchList,
         ConfigForwardRuleUDPMatchUpdate,
         ConfigForwardRuleUDPMatchRemove,
+        ConfigForwardRuleUDPMatchSourceAdd,
+        ConfigForwardRuleUDPMatchSourceRemove,
+        ConfigForwardRuleUDPMatchDestinationAdd,
+        ConfigForwardRuleUDPMatchDestinationRemove,
         ConfigForwardRuleICMPMatchAdd,
         ConfigForwardRuleICMPMatchList,
         ConfigForwardRuleICMPMatchUpdate,
         ConfigForwardRuleICMPMatchRemove,
+        ConfigForwardRuleICMPMatchTypeAdd,
+        ConfigForwardRuleICMPMatchTypeRemove,
+        ConfigForwardRuleICMPMatchCodeAdd,
+        ConfigForwardRuleICMPMatchCodeRemove,
         ConfigForwardRuleICMP6MatchAdd,
         ConfigForwardRuleICMP6MatchList,
         ConfigForwardRuleICMP6MatchUpdate,
         ConfigForwardRuleICMP6MatchRemove,
+        ConfigForwardRuleICMP6MatchTypeAdd,
+        ConfigForwardRuleICMP6MatchTypeRemove,
+        ConfigForwardRuleICMP6MatchCodeAdd,
+        ConfigForwardRuleICMP6MatchCodeRemove,
         ConfigForwardRuleCTMatchAdd,
         ConfigForwardRuleCTMatchList,
         ConfigForwardRuleCTMatchUpdate,
         ConfigForwardRuleCTMatchRemove,
+        ConfigForwardRuleCTMatchStateAdd,
+        ConfigForwardRuleCTMatchStateRemove,
         ConfigForwardRuleMetaMatchAdd,
         ConfigForwardRuleMetaMatchList,
         ConfigForwardRuleMetaMatchUpdate,
         ConfigForwardRuleMetaMatchRemove,
+        ConfigForwardRuleMetaMatchInputInterfaceAdd,
+        ConfigForwardRuleMetaMatchInputInterfaceRemove,
+        ConfigForwardRuleMetaMatchOutputInterfaceAdd,
+        ConfigForwardRuleMetaMatchOutputInterfaceRemove,
+        ConfigForwardRuleMetaMatchProtocolAdd,
+        ConfigForwardRuleMetaMatchProtocolRemove,
     )
