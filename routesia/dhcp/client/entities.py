@@ -207,8 +207,8 @@ class DHCPv4Client(Entity):
 
     def start(self):
         logger.info("Starting DHCPv4 client on %s" % self.interface)
-        self.systemd.manager.ReloadOrRestartUnit(self.unit, "replace")
+        self.systemd.start(self.unit)
 
     def stop(self):
         logger.info("Stopping DHCPv4 client on %s" % self.interface)
-        self.systemd.manager.StopUnit(self.unit, "replace")
+        self.systemd.stop(self.unit)

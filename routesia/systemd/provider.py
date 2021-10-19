@@ -11,3 +11,9 @@ class SystemdProvider(Provider):
         self.bus = dbus.SystemBus()
         self.systemd1 = self.bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
         self.manager = dbus.Interface(self.systemd1, 'org.freedesktop.systemd1.Manager')
+
+    def start(self, unit):
+        self.manager.ReloadOrRestartUnit(unit, "replace")
+
+    def stop(self, unit):
+        self.manager.ReloadOrRestartUnit(unit, "replace")
