@@ -11,6 +11,7 @@ enum InterfaceType {
   BRIDGE = 3;
   VLAN = 4;
   SIT = 5;
+  VXLAN = 6;
 }
 
 message InterfaceLink {
@@ -130,6 +131,58 @@ message SITInterfaceConfig {
     uint32 ttl = 3;
 }
 
+// VXLAN endpoint configuration
+//
+message VXLANEndpointConfig {
+    // Remote address
+    //
+    string remote = 1;
+
+    // Remote port
+    //
+    uint32 port = 2;
+
+    // Remote VNI
+    //
+    uint32 vni = 3;
+}
+
+// VXLAN configuration
+//
+message VXLANInterfaceConfig {
+    // Port
+    //
+    uint32 port = 1;
+
+    // Multicast group address
+    //
+    string group = 2;
+
+    // Remote address
+    //
+    string remote = 3;
+
+    // Local address
+    //
+    string local = 4;
+
+    // Interface
+    //
+    string interface = 5;
+
+    // TTL
+    //
+    uint32 ttl = 6;
+
+    // VNI
+    //
+    uint32 vni = 7;
+
+    // Endpoints
+    //
+    repeated VXLANEndpointConfig endpoint = 9;
+}
+
 // Interface module config
 //
 message InterfaceConfig {
@@ -150,6 +203,7 @@ message InterfaceConfig {
   BridgeInterfaceConfig bridge = 100;
   VLANInterfaceConfig vlan = 101;
   SITInterfaceConfig sit = 102;
+  VXLANInterfaceConfig vxlan = 103;
 }
 
 // List of interface configurations

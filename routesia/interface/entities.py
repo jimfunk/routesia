@@ -249,6 +249,62 @@ class VLANInterface(VirtualInterface):
                 raise
 
 
+class VXLANInterface(VirtualInterface):
+    @property
+    def dependent_interfaces(self):
+        if self.config and self.config.vxlan.interface:
+            return [self.config.vxlan.interface]
+        return []
+
+    def on_dependent_interface_add(self, interface_event):
+        if not self.ifindex:
+            self.apply()
+
+    def create(self):
+        if self.config.vxlan.remote and self.config.vxlan.group:
+            raise InvalidConfig(
+                "VXLAN cannot have a remote and a group address"
+            )
+
+        args = {}
+
+        if self.config.vxlan.interface:
+            interface_ifindex = self.provider.get_ifindex(self.config.vxlan.interface)
+            if not interface_ifindex:
+                # Base interface does not yet exist
+                return
+            args["vxlan_link"] = interface_ifindex
+
+        if self.config.vxlan.port:
+            args["vxlan_port"] = self.config.vxlan.port
+
+        if self.config.vxlan.group:
+            args["vxlan_group"] = self.config.vxlan.group
+
+        if self.config.vxlan.remote:
+            args["vxlan_remote"] = self.config.vxlan.remote
+
+        if self.config.vxlan.local:
+            args["vxlan_local"] = self.config.vxlan.local
+
+        if self.config.vxlan.ttl:
+            args["vxlan_ttl"] = self.config.vxlan.ttl
+
+        if self.config.vxlan.vni:
+            args["vxlan_vni"] = self.config.vxlan.vni
+
+        try:
+            self.link("add", ifname=self.name, kind="vxlan", **args)
+        except NetlinkError as e:
+            if e.code != errno.EEXIST:
+                raise
+
+        self.update_endpoints()
+
+    def update_endpoints(self):
+        pass
+
+
 class InfinibandInterface(InterfaceEntity):
     pass
 
@@ -311,6 +367,7 @@ INTERFACE_TYPE_ENTITY_MAP = {
     (interface_types.ARPHRD_ETHER, None): EthernetInterface,
     (interface_types.ARPHRD_ETHER, "bridge"): BridgeInterface,
     (interface_types.ARPHRD_ETHER, "vlan"): VLANInterface,
+    (interface_types.ARPHRD_ETHER, "vxlan"): VXLANInterface,
     # (interface_types.ARPHRD_INFINIBAND, None): InfinibandInterface,
     # (interface_types.ARPHRD_TUNNEL, None): IPIPInterface,
     # (interface_types.ARPHRD_TUNNEL6, None): IPIP6Interface,
@@ -326,6 +383,7 @@ INTERFACE_CONFIG_TYPE_ENTITY_MAP = {
     interface_pb2.ETHERNET: EthernetInterface,
     interface_pb2.BRIDGE: BridgeInterface,
     interface_pb2.VLAN: VLANInterface,
+    interface_pb2.VXLAN: VXLANInterface,
     # interface_pb2.INFINIBAND: InfinibandInterface,
     # interface_pb2.IPIP: IPIPInterface,
     # interface_pb2.IPIP6: IPIP6Interface,

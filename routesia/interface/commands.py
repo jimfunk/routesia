@@ -2,7 +2,16 @@
 routesia/interface/commands.py - Routesia interface commands
 """
 from routesia.cli.command import CLICommand, CLICommandSet
-from routesia.cli.parameters import IPAddress, String, Bool, UInt32, Int32, ProtobufEnum
+from routesia.cli.parameters import (
+    Bool,
+    Int32,
+    IPAddress,
+    ProtobufEnum,
+    String,
+    UInt16,
+    UInt32,
+    UInt8,
+)
 from routesia.exceptions import CommandError
 from routesia.interface import interface_pb2
 
@@ -94,7 +103,24 @@ interface_optional_parameters = (
     ("vlan.mvrp", Bool()),
     ("sit.remote", IPAddress(version=4)),
     ("sit.local", IPAddress(version=4)),
-    ("sit.ttl", UInt32(min=1, max=255)),
+    ("sit.ttl", UInt8(min=1)),
+    ("vxlan.port", UInt16()),
+    ("vxlan.group", IPAddress(version=4)),
+    ("vxlan.remote", IPAddress(version=4)),
+    ("vxlan.local", IPAddress(version=4)),
+    ("vxlan.interface", ConfiguredInterfaceParameter()),
+    ("vxlan.ttl", UInt8(min=1)),
+    ("vxlan.vni", UInt32(max=16777215)),
+    ("vxlan.endpoints", List(
+        Compound(
+            (
+                ("address", IPAddress()),
+                ("port", UInt16()),
+                ("vni", UInt32(max=16777215)),
+            ),
+            separator=";",
+        )
+    )),
 )
 
 
@@ -135,9 +161,7 @@ class InterfaceConfigUpdate(CLICommand):
 
 class InterfaceConfigDelete(CLICommand):
     command = "interface config delete"
-    parameters = (
-        ("name", ConfiguredInterfaceParameter(required=True)),
-    )
+    parameters = (("name", ConfiguredInterfaceParameter(required=True)),)
 
     async def call(self, name, **kwargs):
         interface = interface_pb2.InterfaceConfig()

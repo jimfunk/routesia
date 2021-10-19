@@ -23,12 +23,12 @@ class Parameter:
 class Bool(Parameter):
     def __call__(self, value):
         value = value.lower()
-        if value in ('1', 'true', 't', 'yes'):
+        if value in ("1", "true", "t", "yes"):
             return True
         return False
 
     async def get_completions(self, client, suggestion, **kwargs):
-        return ('true', 'false')
+        return ("true", "false")
 
 
 class List(Parameter):
@@ -39,7 +39,26 @@ class List(Parameter):
     def __call__(self, value):
         if not len(value):
             return []
-        return [self.parameter(v) for v in value.split(',')]
+        return [self.parameter(v) for v in value.split(",")]
+
+
+class Compound(Parameter):
+    def __init__(self, parameters, separator=":", **kwargs):
+        super().__init__(**kwargs)
+        self.parameters = parameters
+        self.separator = separator
+
+    def __call__(self, value):
+        if not len(value):
+            return []
+
+        compound_value = {}
+
+        for index, value in enumerate(value.split(self.separator)):
+            name, parameter = self.parameters[index]
+            compound_value[name] = parameter(value)
+
+        return compound_value
 
 
 class String(Parameter):
@@ -66,7 +85,7 @@ class IPAddress(Parameter):
         self.version = version
 
     def __call__(self, value):
-        if value != '':
+        if value != "":
             value = ipaddress.ip_address(value)
             if self.version and value.version != self.version:
                 raise ValueError("%s is not an IPv%s address" % (value, self.version))
@@ -80,7 +99,7 @@ class IPInterface(Parameter):
         self.version = version
 
     def __call__(self, value):
-        if value != '':
+        if value != "":
             value = ipaddress.ip_interface(value)
             if self.version and value.version != self.version:
                 raise ValueError("%s is not an IPv%s interface" % (value, self.version))
@@ -94,7 +113,7 @@ class IPNetwork(Parameter):
         self.version = version
 
     def __call__(self, value):
-        if value != '':
+        if value != "":
             value = ipaddress.ip_network(value)
             if self.version and value.version != self.version:
                 raise ValueError("%s is not an IPv%s network" % (value, self.version))
@@ -104,99 +123,62 @@ class IPNetwork(Parameter):
 
 class HardwareAddress(String):
     def __init__(self, **kwargs):
-        super().__init__(regex=r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', **kwargs)
+        super().__init__(regex=r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", **kwargs)
 
 
-class Int16(Parameter):
+class Int(Parameter):
+    def __init__(self, min, max, **kwargs):
+        super().__init__(**kwargs)
+        self.min = min
+        self.max = max
+
+    def __call__(self, value):
+        i = int(value)
+        if i < self.min:
+            raise ValueError("Must be >= %s" % self.min)
+        if i > self.max:
+            raise ValueError("Must be <= %s" % self.max)
+        return i
+
+
+class Int8(Int):
+    def __init__(self, min=-128, max=127, **kwargs):
+        super().__init__(min, max, **kwargs)
+
+
+class Int16(Int):
     def __init__(self, min=-32768, max=32767, **kwargs):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+        super().__init__(min, max, **kwargs)
 
 
-class Int32(Parameter):
+class Int32(Int):
     def __init__(self, min=-2147483648, max=2147483647, **kwargs):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+        super().__init__(min, max, **kwargs)
 
 
-class Int64:
-    def __init__(
-        self, min=-9223372036854775808, max=9223372036854775807, **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+class Int64(Int):
+    def __init__(self, min=-9223372036854775808, max=9223372036854775807, **kwargs):
+        super().__init__(min, max, **kwargs)
 
 
-class UInt16(Parameter):
+class UInt8(Int):
     def __init__(self, min=0, max=65535, **kwargs):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+        super().__init__(min, max, **kwargs)
 
 
-class UInt32(Parameter):
+class UInt16(Int):
+    def __init__(self, min=0, max=65535, **kwargs):
+        super().__init__(min, max, **kwargs)
+
+
+class UInt32(Int):
     def __init__(self, min=0, max=4294967295, **kwargs):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+        super().__init__(min, max, **kwargs)
 
 
-class UInt64:
+class UInt64(Int):
     def __init__(self, min=0, max=18446744073709551615, **kwargs):
-        super().__init__(**kwargs)
-        self.min = min
-        self.max = max
-
-    def __call__(self, value):
-        i = int(value)
-        if i < self.min:
-            raise ValueError("Must be > %s" % self.min)
-        if i > self.max:
-            raise ValueError("Must be > %s" % self.max)
-        return i
+        super().__init__(min, max, **kwargs)
 
 
 class ProtobufEnum(Parameter):
