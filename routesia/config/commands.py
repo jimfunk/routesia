@@ -67,6 +67,13 @@ class Diff(Show):
         )
 
 
+class Drop(CLICommand):
+    command = "config drop"
+
+    async def call(self, **kwargs):
+        await self.client.request("/config/staged/drop", None)
+
+
 class Commit(CLICommand):
     command = "config commit"
 
@@ -80,5 +87,6 @@ class ConfigCommandSet(CLICommandSet):
         ShowRunning,
         ShowStaged,
         Diff,
+        Drop,
         Commit,
     )

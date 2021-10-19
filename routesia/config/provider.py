@@ -92,6 +92,9 @@ class ConfigProvider(Provider):
     def rpc_get_staged(self, msg: None) -> Config:
         return self.staged_data
 
+    def rpc_drop_staged(self, msg: None) -> Config:
+        self.staged_data.CopyFrom(self.data)
+
     def rpc_commit(self, msg: None) -> CommitResult:
         result = CommitResult()
 
@@ -128,4 +131,5 @@ class ConfigProvider(Provider):
         #
         self.rpc.register("/config/running/get", self.rpc_get_running)
         self.rpc.register("/config/staged/get", self.rpc_get_staged)
+        self.rpc.register("/config/staged/drop", self.rpc_drop_staged)
         self.rpc.register("/config/staged/commit", self.rpc_commit)
