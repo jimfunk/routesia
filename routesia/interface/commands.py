@@ -4,8 +4,10 @@ routesia/interface/commands.py - Routesia interface commands
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import (
     Bool,
+    Compound,
     Int32,
     IPAddress,
+    List,
     ProtobufEnum,
     String,
     UInt16,
