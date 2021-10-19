@@ -24,8 +24,8 @@ class ConfigProvider(Provider):
         self.data = Config()
         self.staged_data = Config()
 
-        self.init_config_handlers = set()
-        self.change_handlers = set()
+        self.init_config_handlers = []
+        self.change_handlers = []
 
     @property
     def config_file(self):
@@ -43,10 +43,10 @@ class ConfigProvider(Provider):
         return latest
 
     def register_init_config_handler(self, handler):
-        self.init_config_handlers.add(handler)
+        self.init_config_handlers.append(handler)
 
     def register_change_handler(self, handler):
-        self.change_handlers.add(handler)
+        self.change_handlers.append(handler)
 
     def call_change_handlers(self):
         success = True
