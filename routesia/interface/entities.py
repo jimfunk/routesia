@@ -4,6 +4,7 @@ routesia/interface/entities.py - Interface entities
 
 import errno
 import ipaddress
+import logging
 from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.entity import Entity
@@ -11,6 +12,9 @@ from routesia.exceptions import InvalidConfig
 from routesia.interface import interface_flags
 from routesia.interface import interface_types
 from routesia.interface import interface_pb2
+
+
+logger = logging.getLogger("interface")
 
 
 class InterfaceEntity(Entity):
@@ -137,8 +141,12 @@ class InterfaceEntity(Entity):
         return args
 
     def apply_link_config(self):
+        if not self.provider.running:
+            return
+
         args = self.get_link_config_args()
         if args:
+            logger.info("Applying link config to %s: %s" % (self.name, args))
             self.link("set", **args)
 
     def apply(self, new=False):

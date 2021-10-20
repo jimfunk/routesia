@@ -64,4 +64,4 @@ class Server(Provider):
                 try:
                     subscriber(event)
                 except Exception:
-                    logger.exception("Failure in event handler")
+                    logger.exception("Failure in event handler for %s" % event)
