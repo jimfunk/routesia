@@ -2,7 +2,7 @@
 routesia/dns/authoritative/config.py - NS2 config
 """
 
-from ipaddress import ip_network
+from ipaddress import ip_address, ip_network
 import time
 
 
@@ -77,8 +77,9 @@ class NSDZoneConfig:
 
 
 class NSDConfig:
-    def __init__(self, config):
+    def __init__(self, config, addresses):
         self.config = config
+        self.addresses = addresses
 
     def generate(self):
         s = 'server:\n'
@@ -86,10 +87,11 @@ class NSDConfig:
         s += '  server-count: %s\n' % (self.config.servers if self.config.servers else 1)
 
         for listen_address in self.config.listen_address:
-            value = listen_address.address
-            if listen_address.port:
-                value += '@%s' % listen_address.port
-            s += '  ip-address: %s\n' % value
+            if ip_address(listen_address.address) in self.addresses:
+                value = listen_address.address
+                if listen_address.port:
+                    value += '@%s' % listen_address.port
+                s += '  ip-address: %s\n' % value
 
         s += '  username: _nsd\n'
         s += '  zonesdir: %s\n' % ZONE_DIR

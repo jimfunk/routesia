@@ -13,6 +13,8 @@ from routesia.exceptions import RPCInvalidParameters, RPCEntityExists, RPCEntity
 from routesia.injector import Provider
 from routesia.ipam.provider import IPAMProvider
 from routesia.rpc.provider import RPCProvider
+from routesia.rtnetlink.events import InterfaceAddEvent, InterfaceRemoveEvent
+from routesia.server import Server
 from routesia.systemd.provider import SystemdProvider
 
 
@@ -24,18 +26,42 @@ DHCP4_LEASE_DB = "/var/lib/kea/dhcp4.leases"
 class DHCPServerProvider(Provider):
     def __init__(
         self,
+        server: Server,
         config: ConfigProvider,
         ipam: IPAMProvider,
         systemd: SystemdProvider,
         rpc: RPCProvider,
     ):
+        self.server = server
         self.config = config
         self.ipam = ipam
         self.systemd = systemd
         self.rpc = rpc
 
+        self.interfaces = set()
+
+        self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
+        self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+
     def on_config_change(self, config):
         self.apply()
+
+    def is_configured_interface(self, interface):
+        "Return True if interface is configured for DHCP"
+        for configured_interface in self.config.data.dhcp.server.v4.interface:
+            if configured_interface == interface:
+                return True
+        return False
+
+    def handle_interface_add(self, interface_event):
+        self.interfaces.add(interface_event.ifname)
+        if self.is_configured_interface(interface_event.ifname):
+            self.apply()
+
+    def handle_interface_remove(self, interface_event):
+        self.interfaces.remove(interface_event.ifname)
+        if self.is_configured_interface(interface_event.ifname):
+            self.apply()
 
     def apply(self):
         config = self.config.data.dhcp.server
@@ -44,7 +70,7 @@ class DHCPServerProvider(Provider):
             self.stop()
             return
 
-        dhcp4_config = DHCP4Config(config, self.ipam)
+        dhcp4_config = DHCP4Config(config, self.ipam, self.interfaces)
 
         temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
         json.dump(dhcp4_config.generate(), temp, indent=2)

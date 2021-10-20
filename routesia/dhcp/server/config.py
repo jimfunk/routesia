@@ -11,9 +11,10 @@ DHCP4_LEASE_DB = '/var/lib/kea/dhcp4.leases'
 
 
 class DHCP4Config:
-    def __init__(self, config, ipam):
+    def __init__(self, config, ipam, interfaces):
         self.config = config
         self.ipam = ipam
+        self.interfaces = interfaces
 
     def generate_option_definitions(self, config):
         option_definitions = []
@@ -110,9 +111,14 @@ class DHCP4Config:
         return data
 
     def generate_dhcp4(self, config):
+        available_interfaces = []
+        for interface in config.interface:
+            interface = str(interface)
+            if interface in self.interfaces:
+                available_interfaces.append(interface)
         data = {
             'interfaces-config': {
-                'interfaces': [str(i) for i in config.interface],
+                'interfaces': available_interfaces,
             },
             'control-socket': {
                 'socket-type': 'unix',

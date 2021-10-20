@@ -19,8 +19,8 @@ class ZoneParameter(String):
         return completions
 
 
-class ConfigUpdate(CLICommand):
-    command = "dns authoritative config update"
+class ConfigShow(CLICommand):
+    command = "dns authoritative config show"
 
     async def call(self, name=None) -> authoritative_pb2.AuthoritativeDNSConfig:
         data = await self.client.request("/dns/authoritative/config/get", None)
@@ -503,7 +503,7 @@ class ConfigZoneRecordRemove(ZoneCLICommand):
 
 class AuthoritativeDNSCommandSet(CLICommandSet):
     commands = (
-        ConfigUpdate,
+        ConfigShow,
         ConfigSet,
         ConfigListenAddressAdd,
         ConfigListenAddressRemove,

@@ -2,6 +2,7 @@
 routesia/dns/cache/provider.py - DNS caching with Unbound
 """
 
+from ipaddress import ip_address
 import shutil
 import tempfile
 
@@ -16,24 +17,50 @@ from routesia.dns.cache import cache_pb2
 from routesia.injector import Provider
 from routesia.ipam.provider import IPAMProvider
 from routesia.rpc.provider import RPCProvider
+from routesia.rtnetlink.events import AddressAddEvent, AddressRemoveEvent
+from routesia.server import Server
 from routesia.systemd.provider import SystemdProvider
 
 
 class DNSCacheProvider(Provider):
     def __init__(
         self,
+        server: Server,
         config: ConfigProvider,
         ipam: IPAMProvider,
         systemd: SystemdProvider,
         rpc: RPCProvider,
     ):
+        self.server = server
         self.config = config
         self.ipam = ipam
         self.systemd = systemd
         self.rpc = rpc
 
+        self.addresses = set()
+
+        self.server.subscribe_event(AddressAddEvent, self.handle_address_add)
+        self.server.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
+
     def on_config_change(self, config):
         self.apply()
+
+    def has_listen_address(self, address):
+        "Return True if address is a configured listen address"
+        for listen_address in self.config.data.dns.cache.listen_address:
+            if ip_address(listen_address.address) == address:
+                return True
+        return False
+
+    def handle_address_add(self, address_event):
+        self.addresses.add(address_event.ip.ip)
+        if self.has_listen_address(address_event.ip.ip):
+            self.apply()
+
+    def handle_address_remove(self, address_event):
+        self.addresses.remove(address_event.ip.ip)
+        if self.has_listen_address(address_event.ip.ip):
+            self.apply()
 
     def apply(self):
         config = self.config.data.dns.cache
@@ -42,7 +69,7 @@ class DNSCacheProvider(Provider):
             self.stop()
             return
 
-        local_config = DNSCacheLocalConfig(config, self.ipam)
+        local_config = DNSCacheLocalConfig(config, self.ipam, self.addresses)
 
         temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
         temp.write(local_config.generate())

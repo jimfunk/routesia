@@ -2,7 +2,7 @@
 routesia/dns/cache/config.py - Unbound config
 """
 
-from ipaddress import ip_network
+from ipaddress import ip_address, ip_network
 
 from routesia.dns.cache import cache_pb2
 
@@ -49,15 +49,17 @@ class DNSCacheLocalConfig:
         cache_pb2.DNSCacheLocalData.TXT: 'TXT',
     }
 
-    def __init__(self, config, ipam):
+    def __init__(self, config, ipam, addresses):
         self.config = config
         self.ipam = ipam
+        self.addresses = addresses
 
     def generate_interfaces(self):
         s = ''
         for listen_address in self.config.listen_address:
-            port = listen_address.port if listen_address.port else 53
-            s += 'interface: %s@%s\n' % (listen_address.address, port)
+            if ip_address(listen_address.address) in self.addresses:
+                port = listen_address.port if listen_address.port else 53
+                s += 'interface: %s@%s\n' % (listen_address.address, port)
         return s
 
     def generate_access_control_rules(self):
