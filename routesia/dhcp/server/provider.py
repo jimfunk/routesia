@@ -121,6 +121,8 @@ class DHCPServerProvider(Provider):
         self.rpc.register("/dhcp/server/v4/config/subnet/reservation/add", self.rpc_v4_config_subnet_reservation_add)
         self.rpc.register("/dhcp/server/v4/config/subnet/reservation/update", self.rpc_v4_config_subnet_reservation_update)
         self.rpc.register("/dhcp/server/v4/config/subnet/reservation/delete", self.rpc_v4_config_subnet_reservation_delete)
+        self.rpc.register("/dhcp/server/v4/config/subnet/relay_address/add", self.rpc_v4_config_subnet_relay_address_add)
+        self.rpc.register("/dhcp/server/v4/config/subnet/relay_address/delete", self.rpc_v4_config_subnet_relay_address_delete)
         self.apply()
 
     def shutdown(self):
@@ -601,3 +603,39 @@ class DHCPServerProvider(Provider):
         for i, reservation in enumerate(subnet.reservation):
             if reservation.hardware_address == msg.reservation[0].hardware_address:
                 del subnet.reservation[i]
+
+    def rpc_v4_config_subnet_relay_address_add(self, msg: dhcpserver_pb2.DHCPv4Subnet) -> None:
+        if not msg.address:
+            raise RPCInvalidParameters("address not specified")
+        if not msg.relay_address:
+            raise RPCInvalidParameters("relay_address not specified")
+
+        subnet = None
+        for sn in self.config.staged_data.dhcp.server.v4.subnet:
+            if sn.address == msg.address:
+                subnet = sn
+        if not subnet:
+            raise RPCEntityNotFound(msg.address)
+
+        for relay_address in subnet.relay_address:
+            if relay_address == msg.relay_address[0]:
+                raise RPCEntityExists('%s' % msg.relay_address[0])
+        subnet.relay_address.append(msg.relay_address[0])
+
+    def rpc_v4_config_subnet_relay_address_delete(self, msg: dhcpserver_pb2.DHCPv4Subnet) -> None:
+        if not msg.address:
+            raise RPCInvalidParameters("address not specified")
+        if not msg.relay_address:
+            raise RPCInvalidParameters("relay_address not specified")
+
+        subnet = None
+        for sn in self.config.staged_data.dhcp.server.v4.subnet:
+            if sn.address == msg.address:
+                subnet = sn
+        if not subnet:
+            raise RPCEntityNotFound(msg.address)
+
+        for i, relay_address in enumerate(subnet.relay_address):
+            if relay_address == msg.relay_address[0]:
+                del subnet.relay_address[i]
+                break

@@ -414,3 +414,54 @@ class V4ConfigSubnetReservationDelete(CLICommand):
         await self.client.request(
             "/dhcp/server/v4/config/subnet/reservation/delete", subnet
         )
+
+
+async def relay_address_completer(client, suggestion, **kwargs):
+    data = await client.request("/dhcp/server/v4/config/get", None)
+    config = dhcpserver_pb2.DHCPv4Server.FromString(data)
+    completions = []
+    subnet_address = kwargs.get("subnet", None)
+    subnet = None
+
+    if not subnet_address:
+        return []
+
+    for sn in config.subnet:
+        if sn.address == subnet_address:
+            subnet = sn
+            break
+    else:
+        return []
+
+    for relay_address in subnet.relay_address:
+        if relay_address.startswith(suggestion):
+            completions.append(relay_address)
+    return completions
+
+
+class V4ConfigSubnetRelayAddressAdd(CLICommand):
+    command = "dhcp server v4 config subnet relay-address add"
+    parameters = (
+        ("subnet", SubnetParameter(required=True)),
+        ("relay-address", IPAddress(required=True)),
+    )
+
+    async def call(self, **kwargs):
+        subnet = dhcpserver_pb2.DHCPv4Subnet()
+        subnet.address = kwargs["subnet"]
+        subnet.relay_address.append(kwargs["relay-address"])
+        await self.client.request("/dhcp/server/v4/config/subnet/relay_address/add", subnet)
+
+
+class V4ConfigSubnetRelayAddressDelete(CLICommand):
+    command = "dhcp server v4 config subnet relay-address delete"
+    parameters = (
+        ("subnet", SubnetParameter(required=True)),
+        ("relay-address", IPAddress(required=True, completer=relay_address_completer)),
+    )
+
+    async def call(self, **kwargs):
+        subnet = dhcpserver_pb2.DHCPv4Subnet()
+        subnet.address = kwargs["subnet"]
+        subnet.relay_address.append(kwargs["relay-address"])
+        await self.client.request("/dhcp/server/v4/config/subnet/relay_address/delete", subnet)

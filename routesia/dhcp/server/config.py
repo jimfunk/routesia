@@ -108,6 +108,14 @@ class DHCP4Config:
             )
         data['reservations'] = reservations
 
+        relay_addresses = []
+        for relay_address in config.relay_address:
+            relay_addresses.append(relay_address)
+        if relay_addresses:
+            data['relay'] = {
+                'ip-addresses': relay_addresses,
+            }
+
         return data
 
     def generate_dhcp4(self, config):

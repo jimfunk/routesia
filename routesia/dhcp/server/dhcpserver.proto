@@ -110,6 +110,10 @@ message DHCPv4Subnet {
     // Reservations
     //
     repeated Reservation reservation = 6;
+
+    // Relay addresses
+    //
+    repeated string relay_address = 7;
 }
 
 

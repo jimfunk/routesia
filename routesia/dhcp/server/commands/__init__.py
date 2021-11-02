@@ -49,4 +49,6 @@ class DHCPServerCommandSet(CLICommandSet):
         subnet.V4ConfigSubnetReservationAdd,
         subnet.V4ConfigSubnetReservationUpdate,
         subnet.V4ConfigSubnetReservationDelete,
+        subnet.V4ConfigSubnetRelayAddressAdd,
+        subnet.V4ConfigSubnetRelayAddressDelete,
     )
