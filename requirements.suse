@@ -1,6 +1,7 @@
 bird
 dhcp-client
 kea
+kea-hooks
 mosquitto
 nftables
 nsd

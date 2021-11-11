@@ -4,6 +4,7 @@ routesia/dhcp/provider.py - DHCP support using ISC Kea
 
 import json
 import shutil
+import socket
 import tempfile
 
 from routesia.config.provider import ConfigProvider
@@ -21,6 +22,8 @@ from routesia.systemd.provider import SystemdProvider
 DHCP4_CONF = "/etc/kea/kea-dhcp4.conf"
 DHCP4_CONTROL_SOCK = "/tmp/kea-dhcp4-ctrl.sock"
 DHCP4_LEASE_DB = "/var/lib/kea/dhcp4.leases"
+
+SERVER_CHUNK_SIZE = 65535
 
 
 class DHCPServerProvider(Provider):
@@ -91,6 +94,7 @@ class DHCPServerProvider(Provider):
         self.config.register_change_handler(self.on_config_change)
 
     def startup(self):
+        self.rpc.register("/dhcp/server/v4/subnet/leases", self.rpc_v4_subnet_leases)
         self.rpc.register("/dhcp/server/v4/config/get", self.rpc_v4_config_get)
         self.rpc.register("/dhcp/server/v4/config/interface/add", self.rpc_v4_config_interface_add)
         self.rpc.register("/dhcp/server/v4/config/interface/delete", self.rpc_v4_config_interface_delete)
@@ -127,6 +131,44 @@ class DHCPServerProvider(Provider):
 
     def shutdown(self):
         self.stop()
+
+    def server_command(self, command, **arguments):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(DHCP4_CONTROL_SOCK)
+        req = {
+            "command": command,
+            "arguments": arguments,
+        }
+        sock.send(json.dumps(req).encode("utf8"))
+        data = b""
+        while True:
+            chunk = sock.recv(SERVER_CHUNK_SIZE)
+            data += chunk
+            if len(chunk) < SERVER_CHUNK_SIZE:
+                break
+        return json.loads(data)
+
+    def rpc_v4_subnet_leases(self, msg: dhcpserver_pb2.DHCPv4Subnet) -> dhcpserver_pb2.DHCPv4LeaseList:
+        if not msg.address:
+            raise RPCInvalidParameters("address not specified")
+
+        for idx, subnet in enumerate(self.config.staged_data.dhcp.server.v4.subnet):
+            if subnet.address == msg.address:
+                break
+        else:
+            raise RPCEntityNotFound(msg.address)
+
+        data = self.server_command("lease4-get-all", subnets=[idx + 1])
+        leases = dhcpserver_pb2.DHCPv4LeaseList()
+        for lease_data in data["arguments"]["leases"]:
+            lease = leases.lease.add()
+            lease.hardware_address = lease_data["hw-address"]
+            lease.ip_address = lease_data["ip-address"]
+            lease.valid_lifetime = lease_data["valid-lft"]
+            lease.client_last_transmission_time = lease_data["cltt"]
+            lease.hostname = lease_data["hostname"]
+            lease.state = lease_data["state"]
+        return leases
 
     def rpc_v4_config_get(self, msg: None) -> dhcpserver_pb2.DHCPv4Server:
         return self.config.staged_data.dhcp.server.v4

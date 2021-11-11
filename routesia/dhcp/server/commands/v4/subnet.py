@@ -67,12 +67,23 @@ class V4ConfigSubnetUpdate(CLICommand):
 
 class V4ConfigSubnetDelete(CLICommand):
     command = "dhcp server v4 config subnet delete"
-    parameters = (("name", SubnetParameter(required=True)),)
+    parameters = (("address", SubnetParameter(required=True)),)
 
     async def call(self, address, **kwargs):
         subnet = dhcpserver_pb2.DHCPv4Subnet()
         subnet.address = address
         await self.client.request("/dhcp/server/v4/config/subnet/delete", subnet)
+
+
+class V4SubnetLeases(CLICommand):
+    command = "dhcp server v4 subnet leases"
+    parameters = (("address", SubnetParameter(required=True)),)
+
+    async def call(self, address, **kwargs):
+        subnet = dhcpserver_pb2.DHCPv4Subnet()
+        subnet.address = address
+        data = await self.client.request("/dhcp/server/v4/subnet/leases", subnet)
+        return dhcpserver_pb2.DHCPv4LeaseList.FromString(data)
 
 
 class Pool(String):

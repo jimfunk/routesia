@@ -35,6 +35,7 @@ class DHCPServerCommandSet(CLICommandSet):
         client_class.V4ConfigClientClassOptionAdd,
         client_class.V4ConfigClientClassOptionUpdate,
         client_class.V4ConfigClientClassOptionDelete,
+        subnet.V4SubnetLeases,
         subnet.V4ConfigSubnetList,
         subnet.V4ConfigSubnetAdd,
         subnet.V4ConfigSubnetUpdate,

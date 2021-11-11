@@ -163,3 +163,41 @@ message DHCPv4Server {
 message DHCPServerConfig {
     DHCPv4Server v4 = 1;
 }
+
+
+// DHCPv4 lease entry
+//
+message DHCPv4Lease {
+    // Hardware address (hw-address)
+    //
+    string hardware_address = 1;
+
+    // IP address (ip-address)
+    //
+    string ip_address = 2;
+
+    // Valid lifetime (valid-lft)
+    //
+    uint32 valid_lifetime = 3;
+
+    // Client last transmission time (cltt)
+    //
+    uint64 client_last_transmission_time = 4;
+
+    // Client hostname (hostname)
+    //
+    string hostname = 5;
+
+    // Lease state (state)
+    //
+    enum DHCPv4LeaseState {
+        DEFAULT = 0;
+        DECLINED = 1;
+        EXPIRED_RECLAIMED = 2;
+    }
+    DHCPv4LeaseState state = 6;
+}
+
+// List of DHCPv4 leases
+//
+message DHCPv4LeaseList { repeated DHCPv4Lease lease = 1; }

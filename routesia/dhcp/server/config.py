@@ -137,6 +137,11 @@ class DHCP4Config:
                 'persist': True,
                 'name': DHCP4_LEASE_DB,
             },
+            'hooks-libraries': [
+                {
+                    "library": "/usr/lib64/kea/hooks/libdhcp_lease_cmds.so",
+                }
+            ]
         }
         if config.renew_timer:
             data['renew-timer'] = config.renew_timer
