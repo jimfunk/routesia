@@ -221,7 +221,7 @@ class RouteEntity(Entity):
             self.iproute.iproute.route("delete", **self.route_args)
             self.route_args = None
 
-    def handle_config_remove(self, config):
+    def handle_config_remove(self):
         logging.debug(
             "Removed config for route %s in table %s"
             % (self.destination, self.table.id)
