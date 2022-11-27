@@ -52,7 +52,7 @@ class ConfiguredInterfaceParameter(String):
 
 class InterfaceShow(CLICommand):
     command = "interface show"
-    parameters = (("name", InterfaceParameter()),)
+    parameters = (("interface", InterfaceParameter()),)
 
     async def call(self, interface=None):
         data = await self.client.request("/interface/list", None)
