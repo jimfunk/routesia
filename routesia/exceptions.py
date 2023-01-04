@@ -49,3 +49,7 @@ class RPCEntityExists(RPCException):
 
 class CommandError(RoutesiaException):
     pass
+
+
+class NftablesException(RoutesiaException):
+    pass

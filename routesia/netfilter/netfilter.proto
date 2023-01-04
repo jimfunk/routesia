@@ -15,6 +15,42 @@ message Zone {
     repeated string interface = 2;
 }
 
+enum IPForwardProtocol {
+    TCP = 0;
+    UDP = 1;
+    SCTP = 2;
+}
+
+
+// IP forward port map
+//
+message IPForwardPortMap {
+    // Protocol
+    //
+    IPForwardProtocol protocol = 1;
+
+    // Original port
+    //
+    string port = 2;
+
+    // Destination port
+    //
+    string destination_port = 3;
+}
+
+
+// IP forwarding rule
+//
+message IPForward {
+    // Destination IP
+    //
+    string destination = 1;
+
+    // Port map
+    //
+    repeated IPForwardPortMap port_map = 2;
+}
+
 
 // Masquerade configuration
 //
@@ -22,6 +58,8 @@ message Masquerade {
     // Interface name
     //
     string interface = 1;
+
+    repeated IPForward ip_forward = 2;
 }
 
 
@@ -209,7 +247,6 @@ message Rule {
     enum Verdict {
         ACCEPT = 0;
         DROP = 1;
-        MASQUERADE = 2;
     }
     Verdict verdict = 100;
 }
@@ -244,8 +281,13 @@ message Forward {
 // Netfilter module config
 //
 message NetfilterConfig {
-    repeated Zone zone = 1;
-    repeated Masquerade masquerade = 2;
-    Input input = 3;
-    Forward forward = 4;
+    /**
+     * Enable netfilter
+     */
+    bool enabled = 1;
+
+    repeated Zone zone = 2;
+    repeated Masquerade masquerade = 3;
+    Input input = 4;
+    Forward forward = 5;
 }

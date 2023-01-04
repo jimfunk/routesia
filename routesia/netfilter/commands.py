@@ -30,6 +30,28 @@ class ConfigShow(CLICommand):
         )
 
 
+class ConfigEnable(CLICommand):
+    command = "netfilter config enable"
+
+    async def call(self, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        config.enabled = True
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigDisable(CLICommand):
+    command = "netfilter config disable"
+
+    async def call(self, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+        config.enabled = False
+        await self.client.request("/netfilter/config/update", config)
+
+
 class ConfigZoneAdd(CLICommand):
     command = "netfilter config zone add"
     parameters = (("name", String(required=True)),)
@@ -209,6 +231,170 @@ class ConfigMasqueradeRemove(CLICommand):
             if masquerade.interface == interface:
                 del config.masquerade[i]
                 break
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigMasqueradeIPForwardAdd(CLICommand):
+    command = "netfilter config masquerade ip-forward add"
+    parameters = (
+        (
+            "interface",
+            InterfaceParameter(
+                required=True, completer=get_masquerade_interface_completions
+            )
+        ),
+        ("destination", IPAddress(required=True, version=4)),
+    )
+
+    async def call(self, interface, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface:
+                ip_forward = masquerade.ip_forward.add()
+                ip_forward.destination = destination
+
+        await self.client.request("/netfilter/config/update", config)
+
+
+async def get_masquerade_ipforward_completions(client, suggestion, **kwargs):
+    completions = []
+    config = netfilter_pb2.NetfilterConfig.FromString(
+        await client.request("/netfilter/config/get", None)
+    )
+
+    if "interface" not in kwargs:
+        return completions
+
+    for masquerade in config.masquerade:
+        if masquerade.interface == kwargs["interface"]:
+            break
+    else:
+        return completions
+
+    for ip_forward in masquerade.ip_forward:
+        completions.append(ip_forward.destination)
+
+    return completions
+
+
+class ConfigMasqueradeIPForwardRemove(CLICommand):
+    command = "netfilter config masquerade ip-forward remove"
+    parameters = (
+        (
+            "interface",
+            InterfaceParameter(
+                required=True, completer=get_masquerade_interface_completions
+            )
+        ),
+        ("destination", IPAddress(required=True, version=4, completer=get_masquerade_ipforward_completions)),
+    )
+
+    async def call(self, interface, destination, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface:
+                for i, ip_forward in enumerate(masquerade.ip_forward):
+                    if ip_forward.destination == destination:
+                        del masquerade.ip_forward[i]
+                        break
+
+        await self.client.request("/netfilter/config/update", config)
+
+
+class ConfigMasqueradeIPForwardPortAdd(CLICommand):
+    command = "netfilter config masquerade ip-forward-port add"
+    parameters = (
+        (
+            "interface",
+            InterfaceParameter(
+                required=True, completer=get_masquerade_interface_completions
+            )
+        ),
+        ("destination", IPAddress(required=True, version=4, completer=get_masquerade_ipforward_completions)),
+        ("protocol", ProtobufEnum(netfilter_pb2.IPForwardProtocol, required=True)),
+        ("port", String(required=True)),
+        ("destination_port", String()),
+    )
+
+    async def call(self, interface, destination, protocol, port, destination_port=None, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface:
+                for ip_forward in masquerade.ip_forward:
+                    if ip_forward.destination == destination:
+                        port_map = ip_forward.port_map.add()
+                        port_map.port = port
+                        port_map.protocol = protocol
+                        if destination_port:
+                            port_map.destination_port = destination_port
+
+        await self.client.request("/netfilter/config/update", config)
+
+
+async def get_masquerade_ipforward_port_completions(client, suggestion, **kwargs):
+    completions = []
+    config = netfilter_pb2.NetfilterConfig.FromString(
+        await client.request("/netfilter/config/get", None)
+    )
+
+    if "interface" not in kwargs:
+        return completions
+
+    if "destination" not in kwargs:
+        return completions
+
+    if "protocol" not in kwargs:
+        return completions
+
+    for masquerade in config.masquerade:
+        if masquerade.interface == kwargs["interface"]:
+            for ip_forward in masquerade.ip_forward:
+                if ip_forward.destination == kwargs["destination"]:
+                    for port_map in ip_forward.port_map:
+                        if port_map.protocol == kwargs["protocol"]:
+                            completions.append(port_map.port)
+                    return completions
+    else:
+        return completions
+
+
+class ConfigMasqueradeIPForwardPortRemove(CLICommand):
+    command = "netfilter config masquerade ip-forward-port remove"
+    parameters = (
+        (
+            "interface",
+            InterfaceParameter(
+                required=True, completer=get_masquerade_interface_completions
+            )
+        ),
+        ("destination", IPAddress(required=True, version=4, completer=get_masquerade_ipforward_completions)),
+        ("protocol", ProtobufEnum(netfilter_pb2.IPForwardProtocol, required=True)),
+        ("port", String(required=True, completer=get_masquerade_ipforward_port_completions)),
+    )
+
+    async def call(self, interface, destination, protocol, port, **kwargs):
+        config = netfilter_pb2.NetfilterConfig.FromString(
+            await self.client.request("/netfilter/config/get", None)
+        )
+
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface:
+                for ip_forward in masquerade.ip_forward:
+                    if ip_forward.destination == destination:
+                        for i, port_map in enumerate(ip_forward.port_map):
+                            if port_map.protocol == protocol and port_map.port == port:
+                                del ip_forward.port_map[i]
+                                break
+
         await self.client.request("/netfilter/config/update", config)
 
 
@@ -3285,12 +3471,18 @@ class ConfigForwardRuleMetaMatchProtocolRemove(CLICommand):
 class NetfilterCommandSet(CLICommandSet):
     commands = (
         ConfigShow,
+        ConfigEnable,
+        ConfigDisable,
         ConfigZoneAdd,
         ConfigZoneRemove,
         ConfigZoneInterfaceAdd,
         ConfigZoneInterfaceRemove,
         ConfigMasqueradeAdd,
         ConfigMasqueradeRemove,
+        ConfigMasqueradeIPForwardAdd,
+        ConfigMasqueradeIPForwardRemove,
+        ConfigMasqueradeIPForwardPortAdd,
+        ConfigMasqueradeIPForwardPortRemove,
         ConfigInputPolicy,
         ConfigInputRuleList,
         ConfigInputRuleAdd,

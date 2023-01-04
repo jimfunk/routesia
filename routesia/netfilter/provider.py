@@ -3,12 +3,11 @@ routesia/interface/provider.py - Netfilter provider
 """
 
 import logging
-import subprocess
-import tempfile
 
 from routesia.config.provider import ConfigProvider
 from routesia.injector import Provider
 from routesia.netfilter.config import NetfilterConfig
+from routesia.netfilter.nftables import Nftables
 from routesia.netfilter import netfilter_pb2
 from routesia.rpc.provider import RPCProvider
 
@@ -20,24 +19,27 @@ class NetfilterProvider(Provider):
     def __init__(self, config: ConfigProvider, rpc: RPCProvider):
         self.config = config
         self.rpc = rpc
+        self.nft = Nftables()
+        self.applied = False
 
     def on_config_change(self, config):
         self.apply()
 
     def apply(self):
+        if not self.config.data.netfilter.enabled:
+            if self.applied:
+                # Just disabled
+                self.flush()
+            return
+
+        logger.info("Applying nftables")
         config = NetfilterConfig(self.config.data.netfilter)
-        temp = tempfile.NamedTemporaryFile()
-        temp.write(str(config).encode('utf8'))
-        temp.flush()
-        try:
-            subprocess.run(['/usr/sbin/nft', '--file', temp.name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(e.stdout.decode('utf8'))
-            logger.error(e)
-            logger.error(config)
+        self.nft.cmd(str(config))
+        self.applied = True
 
     def flush(self):
-        subprocess.run(['/usr/sbin/nft', 'flush', 'ruleset'])
+        logger.info("Flushing nftables")
+        self.nft.cmd("flush ruleset")
 
     def load(self):
         self.config.register_change_handler(self.on_config_change)

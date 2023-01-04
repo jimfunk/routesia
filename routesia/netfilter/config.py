@@ -2,7 +2,11 @@
 routesia/interface/config.py - Netfilter config
 """
 
+import logging
+
 from routesia.netfilter import netfilter_pb2
+
+logger = logging.getLogger("netfilter")
 
 
 class Zone:
@@ -17,7 +21,6 @@ class Rule:
     verdict_map = {
         netfilter_pb2.Rule.Verdict.Value("ACCEPT"): "accept",
         netfilter_pb2.Rule.Verdict.Value("DROP"): "drop",
-        netfilter_pb2.Rule.Verdict.Value("MASQUERADE"): "masquerade",
     }
 
     def __init__(self, config, zones):
@@ -33,9 +36,10 @@ class Rule:
     def make_rule_match(self, match_type, parameter, values, negate):
         s = ""
         if values:
+            values = [str(value) for value in values]
             s += "%s %s " % (match_type, parameter)
             if negate:
-                s = "!= "
+                s += "!= "
             if len(values) > 1:
                 s += "{"
             s += ", ".join(values)
@@ -111,10 +115,10 @@ class Rule:
 
         for match in self.config.icmp6:
             s += self.make_rule_match(
-                "icmp6", "type", self.get_value_set(match.type), match.negate
+                "icmpv6", "type", self.get_value_set(match.type), match.negate
             )
             s += self.make_rule_match(
-                "icmp6", "code", self.get_value_set(match.code), match.negate
+                "icmpv6", "code", self.get_value_set(match.code), match.negate
             )
 
         for match in self.config.ct:
@@ -141,7 +145,52 @@ class Rule:
 
         s += self.verdict_map[self.config.verdict]
 
+        if self.config.description:
+            s += ' comment "%s"' % self.config.description
+
         return s
+
+
+class MasqueradeRule:
+    def __init__(self, config):
+        self.config = config
+
+    def __str__(self):
+        return f'meta oifname "{self.config.interface}" masquerade'
+
+
+class PortForwardRule:
+    def __init__(self, interface, config):
+        self.interface = interface
+        self.config = config
+
+    def __str__(self):
+        rules = []
+
+        if self.config.port_map:
+            udp_ports = {}
+            tcp_ports = {}
+            sctp_ports = {}
+            for port_map in self.config.port_map:
+                if port_map.protocol == netfilter_pb2.IPForwardProtocol.TCP:
+                    tcp_ports[port_map.port] = port_map.destination_port if port_map.destination_port else port_map.port
+                if port_map.protocol == netfilter_pb2.IPForwardProtocol.UDP:
+                    udp_ports[port_map.port] = port_map.destination_port if port_map.destination_port else port_map.port
+                if port_map.protocol == netfilter_pb2.IPForwardProtocol.SCTP:
+                    sctp_ports[port_map.port] = port_map.destination_port if port_map.destination_port else port_map.port
+            if udp_ports:
+                map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in udp_ports.items()])
+                rules.append(f'iifname "{self.interface}" ip protocol udp dnat ip addr . port to udp dport map {{ {map} }}')
+            if tcp_ports:
+                map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in tcp_ports.items()])
+                rules.append(f'iifname "{self.interface}" ip protocol tcp dnat ip addr . port to tcp dport map {{ {map} }}')
+            if sctp_ports:
+                map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in sctp_ports.items()])
+                rules.append(f'iifname "{self.interface}" ip protocol sctp dnat ip addr . port to sctp dport map {{ {map} }}')
+        else:
+            rules.append(f'iifname "{self.interface}" dnat to {self.config.destination}')
+
+        return "\n".join(rules)
 
 
 class Chain:
@@ -193,7 +242,7 @@ class NetfilterConfig:
     def __init__(self, config):
         self.config = config
         self.zones = {}
-        self.masquerade_interfaces = set()
+        self.masquerade_interfaces = {}
         self.tables = {}
         self.load()
 
@@ -207,10 +256,7 @@ class NetfilterConfig:
         for zone_config in self.config.zone:
             self.zones[zone_config.name] = Zone(zone_config)
 
-        for masquerade_config in self.config.masquerade:
-            self.masquerade_interfaces.add(masquerade_config.interface)
-
-        if self.masquerade_interfaces:
+        if self.config.masquerade:
             nat_table = Table("nat", "ip")
             self.tables[("ip", "nat")] = nat_table
 
@@ -219,15 +265,13 @@ class NetfilterConfig:
             postrouting = Chain("postrouting", "nat", "postrouting", 100, "accept")
             nat_table.add_chain(postrouting)
 
-            for interface_name in self.masquerade_interfaces:
-                rule = netfilter_pb2.Rule()
-                meta = rule.meta.add()
-                meta.output_interface.append(interface_name)
-                rule.verdict = netfilter_pb2.Rule.Verdict.Value("MASQUERADE")
-                postrouting.add_rule(Rule(rule, self.zones))
+            for masquerade in self.config.masquerade:
+                postrouting.add_rule(MasqueradeRule(masquerade))
+
+                for ip_forward in masquerade.ip_forward:
+                    prerouting.add_rule(PortForwardRule(masquerade.interface, ip_forward))
 
         filter_table = Table("filter", "inet")
-        self.tables[("inet", "filter")] = filter_table
 
         input_policy = (
             "drop" if self.config.input.policy == netfilter_pb2.DROP else "accept"
@@ -244,3 +288,5 @@ class NetfilterConfig:
         for rule_config in self.config.forward.rule:
             forward_chain.add_rule(Rule(rule_config, self.zones))
         filter_table.add_chain(forward_chain)
+
+        self.tables[("inet", "filter")] = filter_table

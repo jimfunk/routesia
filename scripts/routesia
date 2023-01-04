@@ -27,7 +27,7 @@ if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    if "SYSTEMD_EXEC_PID" in os.environ:
+    if "JOURNAL_STREAM" in os.environ:
         handler = JournalHandler()
     else:
         handler = logging.StreamHandler(sys.stdout)

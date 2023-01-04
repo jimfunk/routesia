@@ -110,7 +110,7 @@ class RoutesiaCompleter(Completer):
 
         for candidate in await self.command_tree.get_completions(args, suggestion):
             if isinstance(candidate, Completion):
-                if candidate.text.startswith(suggestion):
+                if str(candidate.text).startswith(suggestion):
                     yield Completion(
                         candidate.text,
                         display=candidate.display,
