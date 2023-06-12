@@ -7,13 +7,34 @@ from routesia.exceptions import CommandError
 from routesia.ipam import ipam_pb2
 
 
-class IPAMConfigHostList(CLICommand):
-    command = "ipam config host list"
+class IPAMHostList(CLICommand):
+    command = "ipam host list"
 
     async def call(self, **kwargs):
         return ipam_pb2.IPAMConfig.FromString(
             await self.client.request("/ipam/config/host/list", None)
         )
+
+
+class HostCommand(CLICommand):
+    async def get_host(self, name):
+        config = ipam_pb2.IPAMConfig.FromString(
+            await self.client.request("/ipam/config/host/list", None)
+        )
+        for host in config.host:
+            if host.name == name:
+                return host
+        raise CommandError("Host %s not found" % name)
+
+
+async def get_host_completions(client, suggestion, **kwargs):
+    completions = []
+    config = ipam_pb2.IPAMConfig.FromString(
+        await client.request("/ipam/config/host/list", None)
+    )
+    for host in config.host:
+        completions.append(host.name)
+    return completions
 
 
 class IPAMConfigHostAdd(CLICommand):
@@ -56,27 +77,6 @@ class IPAMConfigHostRemove(CLICommand):
         await self.client.request("/ipam/config/host/remove", host)
 
 
-class HostCommand(CLICommand):
-    async def get_host(self, name):
-        config = ipam_pb2.IPAMConfig.FromString(
-            await self.client.request("/ipam/config/host/list", None)
-        )
-        for host in config.host:
-            if host.name == name:
-                return host
-        raise CommandError("Host %s not found" % name)
-
-
-async def get_host_completions(client, suggestion, **kwargs):
-    completions = []
-    config = ipam_pb2.IPAMConfig.FromString(
-        await client.request("/ipam/config/host/list", None)
-    )
-    for host in config.host:
-        completions.append(host.name)
-    return completions
-
-
 async def get_host_alias_completions(client, suggestion, **kwargs):
     completions = []
     if "host" not in kwargs:
@@ -109,6 +109,16 @@ async def get_host_address_completions(client, suggestion, **kwargs):
     for ip_address in host.ip_address:
         completions.append(ip_address)
     return completions
+
+
+class IPAMHostShow(HostCommand):
+    command = "ipam host show"
+    parameters = (
+        ("host", String(required=True, completer=get_host_completions)),
+    )
+
+    async def call(self, host, **kwargs):
+        return await self.get_host(host)
 
 
 class IPAMConfigHostAliasAdd(HostCommand):
@@ -177,7 +187,8 @@ class IPAMConfigHostAddressRemove(HostCommand):
 
 class IPAMCommandSet(CLICommandSet):
     commands = (
-        IPAMConfigHostList,
+        IPAMHostList,
+        IPAMHostShow,
         IPAMConfigHostAdd,
         IPAMConfigHostUpdate,
         IPAMConfigHostRemove,
