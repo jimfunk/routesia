@@ -160,12 +160,13 @@ class CLI:
                 except EOFError:
                     break
                 else:
-                    text = text.strip()
-                    if text:
-                        try:
-                            await self.command_tree.handle(shlex.split(text))
-                        except CommandError as e:
-                            print(e, file=sys.stderr)
+                    for line in text.splitlines():
+                        line = line.strip()
+                        if line:
+                            try:
+                                await self.command_tree.handle(shlex.split(line))
+                            except CommandError as e:
+                                print(e, file=sys.stderr)
 
     async def get_command_result(self, cmd):
         self.loop.create_task(self.client.run())
