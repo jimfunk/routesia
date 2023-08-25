@@ -130,8 +130,8 @@ class IPAMConfigHostAliasAdd(HostCommand):
 
     async def call(self, host, alias, **kwargs):
         host = await self.get_host(host)
-        for alias_name in host.alias:
-            if alias_name == alias:
+        for alias in host.alias:
+            if alias == alias:
                 raise CommandError("Alias %s already exists for host %s" % (alias, host))
         host.alias.append(alias)
         await self.client.request("/ipam/config/host/update", host)
@@ -146,8 +146,8 @@ class IPAMConfigHostAliasRemove(HostCommand):
 
     async def call(self, host, alias, **kwargs):
         host = await self.get_host(host)
-        for i, alias_name in enumerate(host.alias_name):
-            if alias_name == alias:
+        for i, alias in enumerate(host.alias):
+            if alias == alias:
                 del host.alias[i]
                 break
         await self.client.request("/ipam/config/host/update", host)
