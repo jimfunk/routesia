@@ -3,10 +3,10 @@ routesia/dhcp/client/commands.py - Routesia DHCP client commands
 """
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import String, UInt32
-from routesia.dhcp.client import dhcpclient_pb2
 from routesia.exceptions import CommandError
 from routesia.interface.commands import ConfiguredInterfaceParameter
 from routesia.route.commands import get_config_table_completions
+from routesia.schema.v1 import dhcpclient_pb2
 
 
 async def get_v4_interface_completions(client, suggestion, **kwargs):

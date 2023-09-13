@@ -1,27 +1,21 @@
-"""
-tests/test_mqtt.py
-"""
-
-from paho.mqtt.client import MQTTMessage
+from routesia.mqtt import MQTTEvent
 
 
-def test_subscribe_on_connect(mqtt):
-    def fn():
-        pass
+async def test_handler(mqtt, mqttbroker, service):
+    events = []
+    future = service.main_loop.create_future()
 
-    mqtt.subscribe("foo/bar", fn)
-    mqtt.on_connect(mqtt.client, None, None, None)
-    assert "foo/bar" in mqtt.client.subscriptions
+    async def handler(event):
+        events.append(event)
+        future.set_result(True)
 
+    mqtt.subscribe("foo", handler)
 
-def test_on_message(mqtt):
-    calls = []
+    mqttbroker.publish("foobar", "baz")
+    mqttbroker.publish("foo", "bar")
 
-    def fn(msg):
-        calls.append(msg)
-
-    mqtt.subscribe("foo/bar", fn)
-    testmsg = MQTTMessage(topic=b"foo/bar")
-    mqtt.on_message(mqtt.client, None, testmsg)
-
-    assert testmsg in calls
+    await future
+    assert len(events) == 1
+    assert isinstance(events[0], MQTTEvent)
+    assert events[0].topic == "foo"
+    assert events[0].payload == "bar"

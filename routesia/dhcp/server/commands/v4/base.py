@@ -4,9 +4,8 @@ routesia/dhcp/server/commands.v4.base.py - Routesia DHCPv4 base server commands
 from routesia.cli.command import CLICommand
 from routesia.cli.parameters import Bool, IPAddress, String, UInt32
 from routesia.exceptions import CommandError
-from routesia.dhcp.server import dhcpserver_pb2
-from routesia.interface import interface_pb2
 from routesia.interface.commands import ConfiguredInterfaceParameter
+from routesia.schema.v1 import dhcpserver_pb2
 
 
 class DHCPInterfaceParameter(String):

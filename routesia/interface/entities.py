@@ -7,17 +7,16 @@ import ipaddress
 import logging
 from pyroute2.netlink.exceptions import NetlinkError
 
-from routesia.entity import Entity
-from routesia.exceptions import InvalidConfig
+from routesia.config.provider import InvalidConfig
 from routesia.interface import interface_flags
 from routesia.interface import interface_types
-from routesia.interface import interface_pb2
+from routesia.schema.v1 import interface_pb2
 
 
 logger = logging.getLogger("interface")
 
 
-class InterfaceEntity(Entity):
+class InterfaceEntity:
     def __init__(self, provider, name, config=None):
         super().__init__()
         self.config = config
@@ -62,21 +61,21 @@ class InterfaceEntity(Entity):
 
         self.apply(new)
 
+    def start(self):
+        self.apply()
+
+    def stop(self):
+        self.remove()
+
     def on_interface_remove(self):
         self.state.Clear()
         self.ifindex = None
-
-    def startup(self):
-        self.apply()
 
     def on_dependent_interface_add(self, interface_event):
         self.apply()
 
     def on_dependent_interface_remove(self, interface_event):
         self.apply()
-
-    def shutdown(self):
-        self.remove()
 
     def on_config_change(self, config):
         old_config = self.config
@@ -156,7 +155,6 @@ class InterfaceEntity(Entity):
                 self.apply_link_config()
             if new:
                 self.flush_addresses()
-        super().apply()
 
     def flush_addresses(self):
         if self.ifindex is not None:

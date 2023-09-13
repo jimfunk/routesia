@@ -1,80 +1,72 @@
 from routesia.netfilter.config import NetfilterConfig
-from routesia.netfilter import netfilter_pb2
+from routesia.schema.v1 import netfilter_pb2
 
 
-def test_input_policy(nftables):
+def test_input_policy(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
     config.input.policy = netfilter_pb2.ACCEPT
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "inet",
-            "handle": 1,
-            "hook": "input",
-            "name": "input",
-            "policy": "accept",
-            "prio": 0,
-            "table": "filter",
-            "type": "filter",
-        }
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"] == {
+        "family": "inet",
+        "handle": any_integer,
+        "hook": "input",
+        "name": "input",
+        "policy": "accept",
+        "prio": 0,
+        "table": "filter",
+        "type": "filter",
+        "rules": [],
     }
 
     config.input.policy = netfilter_pb2.DROP
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "inet",
-            "handle": 1,
-            "hook": "input",
-            "name": "input",
-            "policy": "drop",
-            "prio": 0,
-            "table": "filter",
-            "type": "filter",
-        }
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"] == {
+        "family": "inet",
+        "handle": any_integer,
+        "hook": "input",
+        "name": "input",
+        "policy": "drop",
+        "prio": 0,
+        "table": "filter",
+        "type": "filter",
+        "rules": [],
     }
 
 
-def test_forward_policy(nftables):
+def test_forward_policy(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
     config.forward.policy = netfilter_pb2.ACCEPT
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "chain": {
-            "family": "inet",
-            "handle": 2,
-            "hook": "forward",
-            "name": "forward",
-            "policy": "accept",
-            "prio": 0,
-            "table": "filter",
-            "type": "filter",
-        }
-    } in ruleset["nftables"]
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["forward"] == {
+        "family": "inet",
+        "handle": any_integer,
+        "hook": "forward",
+        "name": "forward",
+        "policy": "accept",
+        "prio": 0,
+        "table": "filter",
+        "type": "filter",
+        "rules": [],
+    }
 
     config.forward.policy = netfilter_pb2.DROP
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "chain": {
-            "family": "inet",
-            "handle": 2,
-            "hook": "forward",
-            "name": "forward",
-            "policy": "drop",
-            "prio": 0,
-            "table": "filter",
-            "type": "filter",
-        }
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["forward"] == {
+        "family": "inet",
+        "handle": any_integer,
+        "hook": "forward",
+        "name": "forward",
+        "policy": "drop",
+        "prio": 0,
+        "table": "filter",
+        "type": "filter",
+        "rules": [],
     }
 
 
-def test_ip_protocol_match(nftables):
+def test_ip_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -84,10 +76,8 @@ def test_ip_protocol_match(nftables):
     ip.protocol.append("41")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Protocol match",
             "expr": [
@@ -108,13 +98,12 @@ def test_ip_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
-
-def test_ip_multi_protocol_match(nftables):
+def test_ip_multi_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -125,9 +114,8 @@ def test_ip_multi_protocol_match(nftables):
     ip.protocol.append("17")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-protocol match",
             "expr": [
@@ -153,13 +141,13 @@ def test_ip_multi_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_source_match(nftables):
+def test_ip_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -169,9 +157,8 @@ def test_ip_source_match(nftables):
     ip.source.append("10.1.1.1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Source match",
             "expr": [
@@ -192,13 +179,13 @@ def test_ip_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_multi_source_match(nftables):
+def test_ip_multi_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -209,9 +196,8 @@ def test_ip_multi_source_match(nftables):
     ip.source.append("10.2.2.2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-source match",
             "expr": [
@@ -237,13 +223,13 @@ def test_ip_multi_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_destination_match(nftables):
+def test_ip_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -253,9 +239,8 @@ def test_ip_destination_match(nftables):
     ip.destination.append("10.1.1.1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Destination match",
             "expr": [
@@ -276,13 +261,13 @@ def test_ip_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_multi_destination_match(nftables):
+def test_ip_multi_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -293,9 +278,8 @@ def test_ip_multi_destination_match(nftables):
     ip.destination.append("10.2.2.2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-destination match",
             "expr": [
@@ -321,13 +305,13 @@ def test_ip_multi_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_compound_match(nftables):
+def test_ip_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -339,9 +323,8 @@ def test_ip_compound_match(nftables):
     ip.destination.append("10.2.2.2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -386,13 +369,13 @@ def test_ip_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip_negated_compound_match(nftables):
+def test_ip_negated_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -405,9 +388,8 @@ def test_ip_negated_compound_match(nftables):
     ip.destination.append("10.2.2.2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -452,13 +434,13 @@ def test_ip_negated_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_protocol_match(nftables):
+def test_ip6_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -468,10 +450,8 @@ def test_ip6_protocol_match(nftables):
     ip6.protocol.append("41")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Protocol match",
             "expr": [
@@ -492,13 +472,13 @@ def test_ip6_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_multi_protocol_match(nftables):
+def test_ip6_multi_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -509,9 +489,8 @@ def test_ip6_multi_protocol_match(nftables):
     ip6.protocol.append("17")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-protocol match",
             "expr": [
@@ -537,13 +516,13 @@ def test_ip6_multi_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_source_match(nftables):
+def test_ip6_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -553,9 +532,8 @@ def test_ip6_source_match(nftables):
     ip6.source.append("2001:db8:1::1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Source match",
             "expr": [
@@ -576,13 +554,13 @@ def test_ip6_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_multi_source_match(nftables):
+def test_ip6_multi_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -593,9 +571,8 @@ def test_ip6_multi_source_match(nftables):
     ip6.source.append("2001:db8:2::2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-source match",
             "expr": [
@@ -621,13 +598,13 @@ def test_ip6_multi_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_destination_match(nftables):
+def test_ip6_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -637,9 +614,8 @@ def test_ip6_destination_match(nftables):
     ip6.destination.append("2001:db8:1::1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Destination match",
             "expr": [
@@ -660,13 +636,13 @@ def test_ip6_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_multi_destination_match(nftables):
+def test_ip6_multi_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -677,9 +653,8 @@ def test_ip6_multi_destination_match(nftables):
     ip6.destination.append("2001:db8:2::2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-destination match",
             "expr": [
@@ -705,13 +680,13 @@ def test_ip6_multi_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_compound_match(nftables):
+def test_ip6_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -723,9 +698,8 @@ def test_ip6_compound_match(nftables):
     ip6.destination.append("2001:db8:2::2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -770,13 +744,13 @@ def test_ip6_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ip6_negated_compound_match(nftables):
+def test_ip6_negated_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -789,9 +763,8 @@ def test_ip6_negated_compound_match(nftables):
     ip6.destination.append("2001:db8:2::2")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -836,13 +809,13 @@ def test_ip6_negated_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_source_match(nftables):
+def test_tcp_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -852,9 +825,8 @@ def test_tcp_source_match(nftables):
     tcp.source.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "TCP source match",
             "expr": [
@@ -875,13 +847,13 @@ def test_tcp_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_multi_source_match(nftables):
+def test_tcp_multi_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -892,9 +864,8 @@ def test_tcp_multi_source_match(nftables):
     tcp.source.append("443")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-source match",
             "expr": [
@@ -920,13 +891,13 @@ def test_tcp_multi_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_destination_match(nftables):
+def test_tcp_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -936,9 +907,8 @@ def test_tcp_destination_match(nftables):
     tcp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "TCP destination match",
             "expr": [
@@ -959,13 +929,13 @@ def test_tcp_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_multi_destination_match(nftables):
+def test_tcp_multi_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -976,9 +946,8 @@ def test_tcp_multi_destination_match(nftables):
     tcp.destination.append("443")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-destination match",
             "expr": [
@@ -1004,13 +973,13 @@ def test_tcp_multi_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_compound_match(nftables):
+def test_tcp_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1021,9 +990,8 @@ def test_tcp_compound_match(nftables):
     tcp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -1056,13 +1024,13 @@ def test_tcp_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_tcp_negated_compound_match(nftables):
+def test_tcp_negated_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1074,9 +1042,8 @@ def test_tcp_negated_compound_match(nftables):
     tcp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -1109,13 +1076,13 @@ def test_tcp_negated_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_source_match(nftables):
+def test_udp_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1125,9 +1092,8 @@ def test_udp_source_match(nftables):
     udp.source.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "UDP source match",
             "expr": [
@@ -1148,13 +1114,13 @@ def test_udp_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_multi_source_match(nftables):
+def test_udp_multi_source_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1165,9 +1131,8 @@ def test_udp_multi_source_match(nftables):
     udp.source.append("443")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-source match",
             "expr": [
@@ -1193,13 +1158,13 @@ def test_udp_multi_source_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_destination_match(nftables):
+def test_udp_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1209,9 +1174,8 @@ def test_udp_destination_match(nftables):
     udp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "TCP destination match",
             "expr": [
@@ -1232,13 +1196,13 @@ def test_udp_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_multi_destination_match(nftables):
+def test_udp_multi_destination_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1249,9 +1213,8 @@ def test_udp_multi_destination_match(nftables):
     udp.destination.append("443")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-destination match",
             "expr": [
@@ -1277,13 +1240,13 @@ def test_udp_multi_destination_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_compound_match(nftables):
+def test_udp_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1294,9 +1257,8 @@ def test_udp_compound_match(nftables):
     udp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -1329,13 +1291,13 @@ def test_udp_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_udp_negated_compound_match(nftables):
+def test_udp_negated_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1347,9 +1309,8 @@ def test_udp_negated_compound_match(nftables):
     udp.destination.append("80")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -1382,13 +1343,13 @@ def test_udp_negated_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp_type_match(nftables):
+def test_icmp_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1398,9 +1359,8 @@ def test_icmp_type_match(nftables):
     icmp.type.append("echo-request")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP type match",
             "expr": [
@@ -1421,13 +1381,13 @@ def test_icmp_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp_negated_type_match(nftables):
+def test_icmp_negated_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1438,9 +1398,8 @@ def test_icmp_negated_type_match(nftables):
     icmp.negate = True
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP negated type match",
             "expr": [
@@ -1461,13 +1420,13 @@ def test_icmp_negated_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp_multi_type_match(nftables):
+def test_icmp_multi_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1478,9 +1437,8 @@ def test_icmp_multi_type_match(nftables):
     icmp.type.append("echo-reply")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-type match",
             "expr": [
@@ -1506,13 +1464,13 @@ def test_icmp_multi_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp_code_match(nftables):
+def test_icmp_code_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1522,9 +1480,8 @@ def test_icmp_code_match(nftables):
     icmp.code.append(111)
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP code match",
             "expr": [
@@ -1545,13 +1502,13 @@ def test_icmp_code_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp_multi_code_match(nftables):
+def test_icmp_multi_code_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1562,9 +1519,8 @@ def test_icmp_multi_code_match(nftables):
     icmp.code.append(123)
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-code match",
             "expr": [
@@ -1590,13 +1546,13 @@ def test_icmp_multi_code_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp6_type_match(nftables):
+def test_icmp6_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1606,9 +1562,8 @@ def test_icmp6_type_match(nftables):
     icmp6.type.append("echo-request")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP6 type match",
             "expr": [
@@ -1629,13 +1584,13 @@ def test_icmp6_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp6_negated_type_match(nftables):
+def test_icmp6_negated_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1646,9 +1601,8 @@ def test_icmp6_negated_type_match(nftables):
     icmp6.negate = True
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP6 negated type match",
             "expr": [
@@ -1669,13 +1623,13 @@ def test_icmp6_negated_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp6_multi_type_match(nftables):
+def test_icmp6_multi_type_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1686,9 +1640,8 @@ def test_icmp6_multi_type_match(nftables):
     icmp6.type.append("echo-reply")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-type match",
             "expr": [
@@ -1714,13 +1667,13 @@ def test_icmp6_multi_type_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_icmp6_code_match(nftables):
+def test_icmp6_code_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1730,9 +1683,8 @@ def test_icmp6_code_match(nftables):
     icmp6.code.append(111)
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "ICMP6 code match",
             "expr": [
@@ -1753,13 +1705,13 @@ def test_icmp6_code_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ct_state_match(nftables):
+def test_ct_state_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1769,9 +1721,8 @@ def test_ct_state_match(nftables):
     ct.state.append("established")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "CT state match",
             "expr": [
@@ -1791,13 +1742,13 @@ def test_ct_state_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ct_negated_state_match(nftables):
+def test_ct_negated_state_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1808,9 +1759,8 @@ def test_ct_negated_state_match(nftables):
     ct.negate = True
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "CT negated state match",
             "expr": [
@@ -1830,13 +1780,13 @@ def test_ct_negated_state_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_ct_multi_state_match(nftables):
+def test_ct_multi_state_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1847,9 +1797,8 @@ def test_ct_multi_state_match(nftables):
     ct.state.append("related")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-state match",
             "expr": [
@@ -1874,13 +1823,13 @@ def test_ct_multi_state_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_protocol_match(nftables):
+def test_meta_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1890,10 +1839,8 @@ def test_meta_protocol_match(nftables):
     meta.protocol.append("ip")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Protocol match",
             "expr": [
@@ -1913,13 +1860,13 @@ def test_meta_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_multi_protocol_match(nftables):
+def test_meta_multi_protocol_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1930,9 +1877,8 @@ def test_meta_multi_protocol_match(nftables):
     meta.protocol.append("ip6")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-protocol match",
             "expr": [
@@ -1957,13 +1903,13 @@ def test_meta_multi_protocol_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_input_interface_match(nftables):
+def test_meta_input_interface_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -1973,9 +1919,8 @@ def test_meta_input_interface_match(nftables):
     meta.input_interface.append("eth0")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Input interface match",
             "expr": [
@@ -1995,13 +1940,13 @@ def test_meta_input_interface_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_multi_input_interface_match(nftables):
+def test_meta_multi_input_interface_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2012,9 +1957,8 @@ def test_meta_multi_input_interface_match(nftables):
     meta.input_interface.append("eth1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-input_interface match",
             "expr": [
@@ -2039,13 +1983,13 @@ def test_meta_multi_input_interface_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_output_interface_match(nftables):
+def test_meta_output_interface_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2055,9 +1999,8 @@ def test_meta_output_interface_match(nftables):
     meta.output_interface.append("eth0")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Input interface match",
             "expr": [
@@ -2077,13 +2020,13 @@ def test_meta_output_interface_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_multi_output_interface_match(nftables):
+def test_meta_multi_output_interface_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2094,9 +2037,8 @@ def test_meta_multi_output_interface_match(nftables):
     meta.output_interface.append("eth1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Multi-output_interface match",
             "expr": [
@@ -2121,13 +2063,13 @@ def test_meta_multi_output_interface_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 4,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_compound_match(nftables):
+def test_meta_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2139,9 +2081,8 @@ def test_meta_compound_match(nftables):
     meta.output_interface.append("eth1")
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -2183,13 +2124,13 @@ def test_meta_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_meta_negated_compound_match(nftables):
+def test_meta_negated_compound_match(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2202,9 +2143,8 @@ def test_meta_negated_compound_match(nftables):
     meta.negate = True
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][3] == {
-        "rule": {
+    assert nftables.get_ruleset()["inet"]["filter"]["chains"]["input"]["rules"] == [
+        {
             "chain": "input",
             "comment": "Compound match",
             "expr": [
@@ -2246,13 +2186,13 @@ def test_meta_negated_compound_match(nftables):
                 }
             ],
             "family": "inet",
-            "handle": 3,
+            "handle": any_integer,
             "table": "filter"
         }
-    }
+    ]
 
 
-def test_masquerade(nftables):
+def test_masquerade(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2260,65 +2200,61 @@ def test_masquerade(nftables):
     masquerade.interface = "eth0"
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][1] == {
-        "table": {
-            "family": "ip",
-            "handle": 1,
-            "name": "nat",
-        },
-    }
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "ip",
-            "handle": 1,
-            "hook": "prerouting",
-            "name": "prerouting",
-            "policy": "accept",
-            "prio": 0,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][3] == {
-        "chain": {
-            "family": "ip",
-            "handle": 2,
-            "hook": "postrouting",
-            "name": "postrouting",
-            "policy": "accept",
-            "prio": 100,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][4] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
+    assert nftables.get_ruleset()["ip"]["nat"] == {
+        "family": "ip",
+        "handle": 1,
+        "name": "nat",
+        "chains": {
+            "postrouting": {
+                "family": "ip",
+                "table": "nat",
+                "type": "nat",
+                "handle": any_integer,
+                "hook": "postrouting",
+                "name": "postrouting",
+                "policy": "accept",
+                "prio": 100,
+                "rules": [
+                    {
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat",
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                }
                             },
-                        },
-                        "op": "==",
-                        "right": "eth0",
+                            {
+                                "masquerade": None,
+                            }
+                        ],
                     },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 3,
-            "table": "nat"
-        }
+                ],
+            },
+            "prerouting": {
+                "family": "ip",
+                "handle": any_integer,
+                "hook": "prerouting",
+                "name": "prerouting",
+                "policy": "accept",
+                "prio": 0,
+                "table": "nat",
+                "type": "nat",
+                "rules": [],
+            }
+        },
     }
 
 
-def test_masquerade_multiple_interfaces(nftables):
+def test_masquerade_multiple_interfaces(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2328,89 +2264,83 @@ def test_masquerade_multiple_interfaces(nftables):
     masquerade.interface = "eth1"
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][1] == {
-        "table": {
-            "family": "ip",
-            "handle": 1,
-            "name": "nat",
-        },
-    }
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "ip",
-            "handle": 1,
-            "hook": "prerouting",
-            "name": "prerouting",
-            "policy": "accept",
-            "prio": 0,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][3] == {
-        "chain": {
-            "family": "ip",
-            "handle": 2,
-            "hook": "postrouting",
-            "name": "postrouting",
-            "policy": "accept",
-            "prio": 100,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][4] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
+    assert nftables.get_ruleset()["ip"]["nat"] == {
+        "family": "ip",
+        "handle": 1,
+        "name": "nat",
+        "chains": {
+            "postrouting": {
+                "family": "ip",
+                "table": "nat",
+                "type": "nat",
+                "handle": any_integer,
+                "hook": "postrouting",
+                "name": "postrouting",
+                "policy": "accept",
+                "prio": 100,
+                "rules": [
+                    {
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat",
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                }
                             },
-                        },
-                        "op": "==",
-                        "right": "eth0",
+                            {
+                                "masquerade": None,
+                            }
+                        ],
                     },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 3,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][5] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
+                    {
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth1",
+                                },
                             },
-                        },
-                        "op": "==",
-                        "right": "eth1",
+                            {
+                                "masquerade": None,
+                            }
+                        ],
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat"
                     },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 4,
-            "table": "nat"
-        }
+                ],
+            },
+            "prerouting": {
+                "family": "ip",
+                "handle": any_integer,
+                "hook": "prerouting",
+                "name": "prerouting",
+                "policy": "accept",
+                "prio": 0,
+                "table": "nat",
+                "type": "nat",
+                "rules": [],
+            }
+        },
     }
 
 
-def test_masquerade_with_ip_forward(nftables):
+def test_masquerade_with_ip_forward(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2424,115 +2354,109 @@ def test_masquerade_with_ip_forward(nftables):
     port_map.destination_port = "80"
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][1] == {
-        "table": {
-            "family": "ip",
-            "handle": 1,
-            "name": "nat",
-        },
-    }
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "ip",
-            "handle": 1,
-            "hook": "prerouting",
-            "name": "prerouting",
-            "policy": "accept",
-            "prio": 0,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][3] == {
-        "rule": {
-            "chain": "prerouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "iifname",
+    assert nftables.get_ruleset()["ip"]["nat"] == {
+        "family": "ip",
+        "handle": 1,
+        "name": "nat",
+        "chains": {
+            "postrouting": {
+                "family": "ip",
+                "table": "nat",
+                "type": "nat",
+                "handle": any_integer,
+                "hook": "postrouting",
+                "name": "postrouting",
+                "policy": "accept",
+                "prio": 100,
+                "rules": [
+                    {
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat",
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                }
                             },
-                        },
-                        "op": "==",
-                        "right": "eth0",
+                            {
+                                "masquerade": None,
+                            }
+                        ],
                     },
-                },
-                {
-                    "dnat": {
-                        "addr": {
-                            "map": {
-                                "data": {
-                                    "set": [
-                                        [
-                                            8080,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.2",
-                                                    80,
+                ],
+            },
+            "prerouting": {
+                "family": "ip",
+                "handle": any_integer,
+                "hook": "prerouting",
+                "name": "prerouting",
+                "policy": "accept",
+                "prio": 0,
+                "table": "nat",
+                "type": "nat",
+                "rules": [
+                    {
+                        "chain": "prerouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "iifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                },
+                            },
+                            {
+                                "dnat": {
+                                    "addr": {
+                                        "map": {
+                                            "data": {
+                                                "set": [
+                                                    [
+                                                        8080,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.2",
+                                                                80,
+                                                            ],
+                                                        },
+                                                    ],
                                                 ],
                                             },
-                                        ],
-                                    ],
-                                },
-                                "key": {
-                                    "payload": {
-                                        "protocol": "tcp",
-                                        "field": "dport",
+                                            "key": {
+                                                "payload": {
+                                                    "protocol": "tcp",
+                                                    "field": "dport",
+                                                },
+                                            },
+                                        },
                                     },
+                                    "family": "ip",
                                 },
-                            },
-                        },
+                            }
+                        ],
                         "family": "ip",
-                        "type_flags": "concat",
-                    },
-                }
-            ],
-            "family": "ip",
-            "handle": 4,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][4] == {
-        "chain": {
-            "family": "ip",
-            "handle": 2,
-            "hook": "postrouting",
-            "name": "postrouting",
-            "policy": "accept",
-            "prio": 100,
-            "table": "nat",
-            "type": "nat",
+                        "handle": any_integer,
+                        "table": "nat"
+                    }
+                ],
+            }
         },
     }
-    assert ruleset["nftables"][5] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 5,
-            "table": "nat"
-        }
-    }
 
 
-def test_masquerade_with_multiple_port_maps(nftables):
+def test_masquerade_with_multiple_port_maps(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2550,124 +2474,118 @@ def test_masquerade_with_multiple_port_maps(nftables):
     port_map.destination_port = "443"
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    assert ruleset["nftables"][1] == {
-        "table": {
-            "family": "ip",
-            "handle": 1,
-            "name": "nat",
-        },
-    }
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "ip",
-            "handle": 1,
-            "hook": "prerouting",
-            "name": "prerouting",
-            "policy": "accept",
-            "prio": 0,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][3] == {
-        "rule": {
-            "chain": "prerouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "iifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "dnat": {
-                        "addr": {
-                            "map": {
-                                "data": {
-                                    "set": [
-                                        [
-                                            8080,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.2",
-                                                    80,
-                                                ],
-                                            },
-                                        ],
-                                        [
-                                            8443,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.2",
-                                                    443,
-                                                ],
-                                            },
-                                        ],
-                                    ],
-                                },
-                                "key": {
-                                    "payload": {
-                                        "protocol": "tcp",
-                                        "field": "dport",
-                                    },
-                                },
-                            },
-                        },
+    assert nftables.get_ruleset()["ip"]["nat"] == {
+        "family": "ip",
+        "handle": 1,
+        "name": "nat",
+        "chains": {
+            "postrouting": {
+                "family": "ip",
+                "table": "nat",
+                "type": "nat",
+                "handle": any_integer,
+                "hook": "postrouting",
+                "name": "postrouting",
+                "policy": "accept",
+                "prio": 100,
+                "rules": [
+                    {
                         "family": "ip",
-                        "type_flags": "concat",
+                        "handle": any_integer,
+                        "table": "nat",
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                }
+                            },
+                            {
+                                "masquerade": None,
+                            }
+                        ],
                     },
-                }
-            ],
-            "family": "ip",
-            "handle": 4,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][4] == {
-        "chain": {
-            "family": "ip",
-            "handle": 2,
-            "hook": "postrouting",
-            "name": "postrouting",
-            "policy": "accept",
-            "prio": 100,
-            "table": "nat",
-            "type": "nat",
+                ],
+            },
+            "prerouting": {
+                "family": "ip",
+                "handle": any_integer,
+                "hook": "prerouting",
+                "name": "prerouting",
+                "policy": "accept",
+                "prio": 0,
+                "table": "nat",
+                "type": "nat",
+                "rules": [
+                    {
+                        "chain": "prerouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "iifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                },
+                            },
+                            {
+                                "dnat": {
+                                    "addr": {
+                                        "map": {
+                                            "data": {
+                                                "set": [
+                                                    [
+                                                        8080,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.2",
+                                                                80,
+                                                            ],
+                                                        },
+                                                    ],
+                                                    [
+                                                        8443,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.2",
+                                                                443,
+                                                            ],
+                                                        },
+                                                    ],
+                                                ],
+                                            },
+                                            "key": {
+                                                "payload": {
+                                                    "protocol": "tcp",
+                                                    "field": "dport",
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "family": "ip",
+                                },
+                            }
+                        ],
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat"
+                    }
+                ],
+            }
         },
     }
-    assert ruleset["nftables"][5] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 5,
-            "table": "nat"
-        }
-    }
 
 
-def test_masquerade_with_multiple_ip_forwards(nftables):
+def test_masquerade_with_multiple_ip_forwards(nftables, any_integer):
     config = netfilter_pb2.NetfilterConfig()
     config.enabled = True
 
@@ -2694,220 +2612,206 @@ def test_masquerade_with_multiple_ip_forwards(nftables):
     port_map.destination_port = "53"
 
     nftables.cmd(str(NetfilterConfig(config)))
-    ruleset = nftables.cmd("list ruleset")
-    from pprint import pprint
-    pprint(ruleset)
-    assert ruleset["nftables"][1] == {
-        "table": {
-            "family": "ip",
-            "handle": 1,
-            "name": "nat",
-        },
-    }
-    assert ruleset["nftables"][2] == {
-        "chain": {
-            "family": "ip",
-            "handle": 1,
-            "hook": "prerouting",
-            "name": "prerouting",
-            "policy": "accept",
-            "prio": 0,
-            "table": "nat",
-            "type": "nat",
-        },
-    }
-    assert ruleset["nftables"][3] == {
-        "rule": {
-            "chain": "prerouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "iifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "dnat": {
-                        "addr": {
-                            "map": {
-                                "data": {
-                                    "set": [
-                                        [
-                                            8080,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.2",
-                                                    80,
-                                                ],
-                                            },
-                                        ],
-                                        [
-                                            8443,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.2",
-                                                    443,
-                                                ],
-                                            },
-                                        ],
-                                    ],
-                                },
-                                "key": {
-                                    "payload": {
-                                        "protocol": "tcp",
-                                        "field": "dport",
-                                    },
-                                },
-                            },
-                        },
+    assert nftables.get_ruleset()["ip"]["nat"] == {
+        "family": "ip",
+        "handle": 1,
+        "name": "nat",
+        "chains": {
+            "postrouting": {
+                "family": "ip",
+                "table": "nat",
+                "type": "nat",
+                "handle": any_integer,
+                "hook": "postrouting",
+                "name": "postrouting",
+                "policy": "accept",
+                "prio": 100,
+                "rules": [
+                    {
                         "family": "ip",
-                        "type_flags": "concat",
-                    },
-                }
-            ],
-            "family": "ip",
-            "handle": 6,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][4] == {
-        "rule": {
-            "chain": "prerouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "iifname",
+                        "handle": any_integer,
+                        "table": "nat",
+                        "chain": "postrouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "oifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                }
                             },
-                        },
-                        "op": "==",
-                        "right": "eth0",
+                            {
+                                "masquerade": None,
+                            }
+                        ],
                     },
-                },
-                {
-                    "dnat": {
-                        "addr": {
-                            "map": {
-                                "data": {
-                                    "set": [
-                                        [
-                                            8053,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.3",
-                                                    53,
+                ],
+            },
+            "prerouting": {
+                "family": "ip",
+                "handle": any_integer,
+                "hook": "prerouting",
+                "name": "prerouting",
+                "policy": "accept",
+                "prio": 0,
+                "table": "nat",
+                "type": "nat",
+                "rules": [
+                    {
+                        "chain": "prerouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "iifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
+                                },
+                            },
+                            {
+                                "dnat": {
+                                    "addr": {
+                                        "map": {
+                                            "data": {
+                                                "set": [
+                                                    [
+                                                        8080,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.2",
+                                                                80,
+                                                            ],
+                                                        },
+                                                    ],
+                                                    [
+                                                        8443,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.2",
+                                                                443,
+                                                            ],
+                                                        },
+                                                    ],
                                                 ],
                                             },
-                                        ],
-                                    ],
-                                },
-                                "key": {
-                                    "payload": {
-                                        "protocol": "udp",
-                                        "field": "dport",
+                                            "key": {
+                                                "payload": {
+                                                    "protocol": "tcp",
+                                                    "field": "dport",
+                                                },
+                                            },
+                                        },
                                     },
+                                    "family": "ip",
+                                },
+                            }
+                        ],
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat"
+                    },
+                    {
+                        "chain": "prerouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "iifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
                                 },
                             },
-                        },
-                        "family": "ip",
-                        "type_flags": "concat",
-                    },
-                }
-            ],
-            "family": "ip",
-            "handle": 7,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][5] == {
-        "rule": {
-            "chain": "prerouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "iifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "dnat": {
-                        "addr": {
-                            "map": {
-                                "data": {
-                                    "set": [
-                                        [
-                                            22,
-                                            {
-                                                "concat": [
-                                                    "10.1.1.3",
-                                                    22,
+                            {
+                                "dnat": {
+                                    "addr": {
+                                        "map": {
+                                            "data": {
+                                                "set": [
+                                                    [
+                                                        8053,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.3",
+                                                                53,
+                                                            ],
+                                                        },
+                                                    ],
                                                 ],
                                             },
-                                        ],
-                                    ],
-                                },
-                                "key": {
-                                    "payload": {
-                                        "protocol": "tcp",
-                                        "field": "dport",
+                                            "key": {
+                                                "payload": {
+                                                    "protocol": "udp",
+                                                    "field": "dport",
+                                                },
+                                            },
+                                        },
                                     },
+                                    "family": "ip",
+                                },
+                            }
+                        ],
+                        "family": "ip",
+                        "handle": any_integer,
+                        "table": "nat"
+                    },
+                    {
+                        "chain": "prerouting",
+                        "expr": [
+                            {
+                                "match": {
+                                    "left": {
+                                        "meta": {
+                                            "key": "iifname",
+                                        },
+                                    },
+                                    "op": "==",
+                                    "right": "eth0",
                                 },
                             },
-                        },
+                            {
+                                "dnat": {
+                                    "addr": {
+                                        "map": {
+                                            "data": {
+                                                "set": [
+                                                    [
+                                                        22,
+                                                        {
+                                                            "concat": [
+                                                                "10.1.1.3",
+                                                                22,
+                                                            ],
+                                                        },
+                                                    ],
+                                                ],
+                                            },
+                                            "key": {
+                                                "payload": {
+                                                    "protocol": "tcp",
+                                                    "field": "dport",
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "family": "ip",
+                                },
+                            }
+                        ],
                         "family": "ip",
-                        "type_flags": "concat",
+                        "handle": any_integer,
+                        "table": "nat"
                     },
-                }
-            ],
-            "family": "ip",
-            "handle": 8,
-            "table": "nat"
-        }
-    }
-    assert ruleset["nftables"][6] == {
-        "chain": {
-            "family": "ip",
-            "handle": 2,
-            "hook": "postrouting",
-            "name": "postrouting",
-            "policy": "accept",
-            "prio": 100,
-            "table": "nat",
-            "type": "nat",
+                ],
+            }
         },
-    }
-    assert ruleset["nftables"][7] == {
-        "rule": {
-            "chain": "postrouting",
-            "expr": [
-                {
-                    "match": {
-                        "left": {
-                            "meta": {
-                                "key": "oifname",
-                            },
-                        },
-                        "op": "==",
-                        "right": "eth0",
-                    },
-                },
-                {
-                    "masquerade": None,
-                }
-            ],
-            "family": "ip",
-            "handle": 9,
-            "table": "nat"
-        }
     }

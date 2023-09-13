@@ -7,7 +7,7 @@ from prompt_toolkit.completion import Completion
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import IPNetwork, IPAddress, String, UInt32
 from routesia.interface.commands import ConfiguredInterfaceParameter
-from routesia.route import route_pb2
+from routesia.schema.v1 import route_pb2
 
 
 DEFAULT_TABLE = 254

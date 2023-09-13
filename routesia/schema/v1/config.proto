@@ -2,13 +2,13 @@
 
 package routesia.config;
 
-import "routesia/address/address.proto";
-import "routesia/dhcp/dhcp.proto";
-import "routesia/dns/dns.proto";
-import "routesia/interface/interface.proto";
-import "routesia/ipam/ipam.proto";
-import "routesia/netfilter/netfilter.proto";
-import "routesia/route/route.proto";
+import "routesia/schema/v1/address.proto";
+import "routesia/schema/v1/dhcp.proto";
+import "routesia/schema/v1/dns.proto";
+import "routesia/schema/v1/interface.proto";
+import "routesia/schema/v1/ipam.proto";
+import "routesia/schema/v1/netfilter.proto";
+import "routesia/schema/v1/route.proto";
 
 
 message Config {

@@ -3,7 +3,7 @@ tests/conftrst.py - Routesia test fixtures
 """
 
 import asyncio
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from ctypes import (
     CDLL,
     CFUNCTYPE,
@@ -16,32 +16,48 @@ from ctypes import (
 import errno
 import functools
 import inspect
-import ipaddress
+import json
+import logging
 import os
-import pyroute2
+from paho.mqtt.client import MQTTMessage, topic_matches_sub
+import pty
 import pytest
+import subprocess
+import queue
+import threading
 import uuid
 
 from routesia.address.provider import AddressProvider
+from routesia.cli import CLI
 from routesia.config.provider import ConfigProvider
-from routesia.exceptions import EntityNotFound
-from routesia.rpc.provider import RPCProvider
 from routesia.mqtt import MQTT
 from routesia.netfilter.nftables import Nftables
-from routesia.rtnetlink.events import (
-    AddressAddEvent,
-    AddressRemoveEvent,
-    InterfaceAddEvent,
-    InterfaceRemoveEvent,
-)
-from routesia.server import Server
+from routesia.rpc import RPC
+from routesia.rpcclient import RPCClient
+from routesia.rtnetlink.provider import IPRouteProvider
+from routesia.schema.registry import SchemaRegistry
+from routesia.service import Service
 
+
+collect_ignore = ["test_pb2.py"]
 
 libc = CDLL("libc.so.6")
 
 CLONE_NEWNET = 0x40000000
 MS_BIND = 4096
 MNT_DETACH = 2
+
+
+logger = logging.getLogger("conftest")
+
+
+def pytest_configure(config):
+    if config.option.log_debug:
+        config.option.log_cli_level = "DEBUG"
+
+
+def pytest_addoption(parser):
+    parser.addoption("--log-debug", action="store_true", help="Enable debug logging")
 
 
 def create_namespace(name):
@@ -103,147 +119,125 @@ def netns_context(name):
             pass
 
 
-def wrap_async_test(test_fn):
-    @functools.wraps(test_fn)
-    def async_test(*args, **kwargs):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(test_fn(*args, **kwargs))
+class IPError(Exception):
+    pass
 
-    return async_test
+
+class IP:
+    """
+    Interface to the IP command
+    """
+    def _ip(self, *args, **kwargs):
+        """
+        Call ip with arguments.
+
+        ``args`` are passed as positional arguments, followed by ``kwargs``,
+        which are unpacked and passed as positional arguments.
+        """
+        cmd = ["ip", "--json"]
+        for arg in args:
+            cmd.append(str(arg))
+        for key, value in kwargs.items():
+            cmd.append(key)
+            cmd.append(str(value))
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            raise IPError(f"Failed to execute {cmd}:\n{e.stderr}")
+        if result.stdout:
+            return json.loads(result.stdout)
+        return None
+
+    def add_dummy_link(self, name):
+        logger.info(f"Adding dummy link {name}")
+        return self._ip("link", "add", name, type="dummy")
+
+    def set_link(self, name, *args, **kwargs):
+        logger.info(f"Setting link {name} {args} {kwargs}")
+        return self._ip("link", "set", name, *args, **kwargs)
+
+    def get_links(self, *args, **kwargs):
+        links = {}
+        for link in self._ip("link", "show", *args, **kwargs):
+            links[link["ifname"]] = link
+        return links
+
+    def delete_link(self, name):
+        logger.info(f"Deleting link {name}")
+        return self._ip("link", "del", name)
+
+    def add_address(self, address, interface, *args, **kwargs):
+        logger.info(f"Adding address {address} to {interface} {args} {kwargs}")
+        return self._ip("address", "add", address, "dev", interface, *args, **kwargs)
+
+    def delete_address(self, address, interface, *args, **kwargs):
+        logger.info(f"Adding address {address} from {interface} {args} {kwargs}")
+        return self._ip("address", "del", address, "dev", interface, *args, **kwargs)
+
+    def get_addresses(self, interface, *args, **kwargs):
+        addresses = {}
+        for address in self._ip("address", "show", "dev", interface, *args, **kwargs)[0]["addr_info"]:
+            addresses[f"{address['local']}/{address['prefixlen']}"] = address
+        return addresses
+
+    def add_route(self, destination, *args, **kwargs):
+        logger.info(f"Adding route {destination} {args} {kwargs}")
+        return self._ip("route", "add", destination, *args, **kwargs)
+
+    def replace_route(self, destination, *args, **kwargs):
+        logger.info(f"Replacing route {destination} {args} {kwargs}")
+        return self._ip("route", "replace", destination, *args, **kwargs)
+
+    def delete_route(self, destination, *args, **kwargs):
+        logger.info(f"Deleting route {destination} {args} {kwargs}")
+        return self._ip("route", "del", destination, *args, **kwargs)
+
+
+@pytest.fixture
+def ip(namespace):
+    return IP()
+
+
+def wrap_async_test(pyfuncitem, test_fn):
+    service = pyfuncitem.funcargs.get("service", None)
+
+    @functools.wraps(test_fn)
+    def wrapped_async_test(*args, **kwargs):
+        async def async_test(*args, **kwargs):
+            if service:
+                service.load_providers()
+                service_task = asyncio.create_task(service.service_main())
+                await service.wait_start()
+
+            await asyncio.wait_for(test_fn(*args, **kwargs), timeout=1)
+
+            if service:
+                service_task.cancel()
+                await service_task
+
+        asyncio.run(async_test(*args, **kwargs))
+
+    return wrapped_async_test
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_pyfunc_call(pyfuncitem):
+    is_async = False
     if hasattr(pyfuncitem, "hypothesis"):
         if inspect.iscoroutinefunction(pyfuncitem.obj.hypothesis.inner_test):
-            pyfuncitem.obj.hypothesis.inner_test = wrap_async_test(pyfuncitem.obj.hypothesis.inner_test)
+            is_async = True
+            pyfuncitem.obj.hypothesis.inner_test = wrap_async_test(pyfuncitem, pyfuncitem.obj.hypothesis.inner_test)
     elif inspect.iscoroutinefunction(pyfuncitem.obj):
-        pyfuncitem.obj = wrap_async_test(pyfuncitem.obj)
+        is_async = True
+        pyfuncitem.obj = wrap_async_test(pyfuncitem, pyfuncitem.obj)
 
-
-class FakeIPRoute:
-    def __init__(self):
-        self.addresses = []
-        self.interface_map = {
-            0: "lo",
-        }
-        self.interface_name_map = {
-            "lo": 0,
-        }
-
-    def addr(self, cmd, **kwargs):
-        if kwargs["index"] not in self.interface_map:
-            raise KeyError("Interface with index does not exist")
-        if cmd == "add":
-            self.addresses.append(kwargs)
-        elif cmd == "remove":
-            for address in self.addresses:
-                if (
-                    address["index"] == kwargs["index"] and
-                    address["address"] == kwargs["address"] and
-                    address["mask"] == kwargs["mask"]
-                ):
-                    self.addresses.remove(address)
-                    break
-
-    def has_address(self, ifname, address):
-        if ifname not in self.interface_name_map:
-            return False
-        index = self.interface_name_map[ifname]
-        address = ipaddress.ip_interface(address)
-        ip = str(address.ip)
-        mask = address.network.prefixlen
-        for address in self.addresses:
-            if (
-                address["index"] == index and
-                address["address"] == ip and
-                address["mask"] == mask
-            ):
-                return True
-        return False
-
-    def get_interface_name_by_index(self, index):
-        try:
-            return self.interface_map[index]
-        except KeyError:
-            raise EntityNotFound("Interface does not exist")
-
-    def get_interface_index_by_name(self, name):
-        try:
-            return self.interface_name_map[name]
-        except KeyError:
-            raise EntityNotFound("Interface does not exist")
-
-
-class FakeIPRouteProvider:
-    def __init__(self):
-        self.iproute = FakeIPRoute()
-        self.rt_proto = 42
-
-    def addr(self, cmd, **kwargs):
-        return self.iproute.addr(cmd, **kwargs)
-
-    def _get_interface_message(self, index, name):
-        message = pyroute2.netlink.rtnl.ifinfmsg.ifinfmsg()
-        message["index"] = index
-        message["ifi_type"] = 1
-        message["attrs"].append(
-            ("IFLA_IFNAME", name),
-        )
-        return message
-
-    def test_add_interface(self, name):
-        "Add fake interface and return the add event"
-        index = max(self.iproute.interface_map.keys()) + 1
-        self.iproute.interface_map[index] = name
-        self.iproute.interface_name_map[name] = index
-        return InterfaceAddEvent(self.iproute, self._get_interface_message(index, name))
-
-    def test_remove_interface(self, name):
-        "Remove fake interface and return the remove event"
-        index = self.iproute.interface_name_map[name]
-        del self.iproute.interface_map[index]
-        del self.iproute.interface_name_map[name]
-        return InterfaceRemoveEvent(self.iproute, self._get_interface_message(index, name))
-
-    def _get_address_message(self, index, address):
-        ip = ipaddress.ip_interface(address)
-        message = pyroute2.netlink.rtnl.ifaddrmsg.ifaddrmsg()
-        message["index"] = index
-        message["family"] = 2 if ip.version == 6 else 1
-        message["prefixlen"] = ip.network.prefixlen
-        message["attrs"].append(
-            ("IFA_ADDRESS", str(ip.ip)),
-        )
-        return message
-
-    def test_add_address(self, ifname, address):
-        "Add fake address and return the add event"
-        ifindex = self.iproute.interface_name_map[ifname]
-        ipinterface = ipaddress.ip_interface(address)
-        self.iproute.addr("add", index=ifindex, address=str(
-            ipinterface.ip), mask=ipinterface.network.prefixlen)
-        return AddressAddEvent(self.iproute, self._get_address_message(ifindex, address))
-
-    def test_remove_address(self, ifname, address):
-        "Remove fake address and return the remove event"
-        ifindex = self.iproute.interface_name_map[ifname]
-        ipinterface = ipaddress.ip_interface(address)
-        self.iproute.addr("remove", index=ifindex, address=str(
-            ipinterface.ip), mask=ipinterface.network.prefixlen)
-        return AddressRemoveEvent(self.iproute, self._get_address_message(ifindex, address))
-
-
-class FakeMQTTClient:
-    def __init__(self):
-        self.subscriptions = []
-
-    def subscribe(self, topic):
-        self.subscriptions.append(topic)
+    if not is_async:
+        assert pyfuncitem.funcargs.get("service", None) is None, "Test with service fixture must be a coroutine"
 
 
 @pytest.fixture
-def server_namespace():
+def namespace():
     nsname = str(uuid.uuid4())
     create_namespace(nsname)
     yield nsname
@@ -251,46 +245,288 @@ def server_namespace():
 
 
 @pytest.fixture
-def server_namespace_context(server_namespace):
-    with netns_context(server_namespace):
+def namespace_context(namespace):
+    with netns_context(namespace):
         yield
 
 
-@pytest.fixture
-def server(server_namespace_context):
-    return Server()
+class Stdin:
+    def __init__(self):
+        self.master_fd, self.slave_fd = pty.openpty()
+        self.reader = os.fdopen(self.master_fd)
+        self.writer = open(os.ttyname(self.slave_fd), "w")
+
+    def close(self):
+        self.reader.close()
+        self.writer.close()
 
 
 @pytest.fixture
-def mqtt():
-    return MQTT(client=FakeMQTTClient)
+def stdin():
+    stdin = Stdin()
+    yield stdin
+    stdin.close()
+
+
+class Stdout:
+    def __init__(self):
+        self.value = ""
+        self.dirty = False
+
+    def write(self, data):
+        self.value += data
+        self.dirty = True
+
+    def clear(self):
+        self.value = ""
+        self.dirty = False
+
+    def flush(self):
+        self.dirty = False
 
 
 @pytest.fixture
-def fake_iproute_provider():
-    return FakeIPRouteProvider()
+def stdout():
+    return Stdout()
+
+
+class AnyInteger:
+    def __eq__(self, other):
+        if isinstance(other, int):
+            return True
+        return False
 
 
 @pytest.fixture
-def rpc_provider(mqtt):
-    return RPCProvider(mqtt=mqtt)
+def any_integer():
+    return AnyInteger()
+
+
+class EventWaiter:
+    def __init__(self, future, **params):
+        self.future = future
+        self.params = params
+
+
+class TestService(Service):
+    """
+    This subclass adds `wait_for_event` which is only useful for tests
+    """
+    def __init__(self):
+        super().__init__()
+        self.event_waiters = {}
+
+    @classmethod
+    def get_provider_class(cls):
+        return Service
+
+    async def handle_event(self, event):
+        await super().handle_event(event)
+        if event.__class__ in self.event_waiters:
+            for waiter in self.event_waiters[event.__class__]:
+                for param, value in waiter.params.items():
+                    if getattr(event, param) != value:
+                        break
+                else:
+                    waiter.future.set_result(True)
+
+    async def wait_for_event(self, event_class, **params):
+        """
+        Wait for an event of the given type. If any params are given, wait for
+        an event matching the given params.
+        """
+        waiter = EventWaiter(self.main_loop.create_future(), **params)
+        if event_class in self.event_waiters:
+            self.event_waiters[event_class].append(waiter)
+        else:
+            self.event_waiters[event_class] = [waiter]
+        await waiter.future
+        self.event_waiters[event_class].remove(waiter)
+        if not self.event_waiters[event_class]:
+            del self.event_waiters[event_class]
 
 
 @pytest.fixture
-def config_provider(rpc_provider, tmp_path):
-    return ConfigProvider(rpc=rpc_provider, location=tmp_path)
+def service(namespace_context):
+    return TestService()
+
+
+class EventWatcher:
+    def __init__(self, service):
+        self.service = service
+        self.events = []
+        self.waiters = {}
+
+    async def handler(self, event):
+        self.events.append(event)
+        if event.__class__ in self.waiters:
+            self.waiters[event.__class__].set_result(event)
+
+    def subscribe(self, *event_classes):
+        for event_class in event_classes:
+            self.service.subscribe_event(event_class, self.handler)
+
+    async def wait_for(self, event_class):
+        future = self.service.main_loop.create_future()
+        self.waiters[event_class] = future
+        await future
+        del self.waiters[event_class]
+        return future.result()
 
 
 @pytest.fixture
-def address_provider(server, fake_iproute_provider, config_provider, rpc_provider):
-    return AddressProvider(
-        server=server,
-        iproute=fake_iproute_provider,
-        config=config_provider,
-        rpc=rpc_provider,
-    )
+def eventwatcher(service):
+    return EventWatcher(service)
 
 
 @pytest.fixture
-def nftables(server_namespace_context):
+def wait_for_event(service):
+    @asynccontextmanager
+    async def waiter(event_class):
+        future = asyncio.get_running_loop().create_future()
+
+        async def handler(event):
+            future.set_result(event)
+
+        service.subscribe_event(event_class, handler)
+        yield future
+        await future
+
+    return waiter
+
+
+class MockMQTTClient():
+    def __init__(self, broker, *args, **kwargs):
+        self.broker = broker
+
+    def subscribe(self, topic, qos=0):
+        self.broker.subscribe(self, topic)
+
+    def publish(self, topic, payload=None, qos=0, retain=False):
+        self.broker.publish(topic, payload)
+
+    def connect_async(self, host, port=1883, keepalive=60, bind_address=""):
+        cb = getattr(self, "on_connect", None)
+        if cb:
+            cb(self, None, 0, 0)
+
+    def loop_start(self):
+        pass
+
+    def loop_stop(self):
+        pass
+
+
+class MockMQTTBroker:
+    """
+    This mock broker runs in a thread to better emulate the real paho MQTT
+    client the way we use it
+    """
+    def __init__(self):
+        self.subscriptions = []
+        self.queue = queue.Queue()
+        self.running = False
+        self.thread = None
+
+    def get_client(self, *args, **kwargs):
+        return MockMQTTClient(self)
+
+    def subscribe(self, client, topic):
+        self.subscriptions.append((topic, client))
+
+    def publish(self, topic, payload=None):
+        self.queue.put((topic, payload))
+
+    def message_handler(self):
+        while self.running:
+            try:
+                topic, payload = self.queue.get(timeout=0.001)
+            except queue.Empty:
+                continue
+
+            for sub, client in self.subscriptions:
+                if topic_matches_sub(sub, topic):
+                    cb = getattr(client, "on_message", None)
+                    if cb:
+                        msg = MQTTMessage(0, topic.encode())
+                        msg.payload = payload
+                        cb(client, None, msg)
+
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self.message_handler)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        self.thread.join()
+        self.thread = None
+
+
+@pytest.fixture
+def mqttbroker():
+    broker = MockMQTTBroker()
+    broker.start()
+    yield broker
+    broker.stop()
+
+
+@pytest.fixture
+def mqtt(service, mqttbroker):
+    service.add_provider(MQTT, client=mqttbroker.get_client)
+    service.load_providers()
+    return service.providers[MQTT]
+
+
+@pytest.fixture
+def schema_registry(service):
+    service.add_provider(SchemaRegistry)
+    service.load_providers()
+    return service.providers[SchemaRegistry]
+
+
+@pytest.fixture
+def rpc(service, mqtt, schema_registry):
+    service.add_provider(RPC)
+    service.load_providers()
+    return service.providers[RPC]
+
+
+@pytest.fixture
+def rpcclient(service, mqtt, schema_registry):
+    service.add_provider(RPCClient)
+    service.load_providers()
+    return service.providers[RPCClient]
+
+
+@pytest.fixture
+def cli(service, rpcclient, stdin):
+    service.add_provider(CLI, stdin=stdin.reader)
+    service.load_providers()
+    return service.providers[CLI]
+
+
+@pytest.fixture
+def iproute_provider(service, rpcclient, stdin):
+    service.add_provider(IPRouteProvider)
+    service.load_providers()
+    return service.providers[IPRouteProvider]
+
+
+@pytest.fixture
+def config_provider(service, rpc, tmp_path):
+    service.add_provider(ConfigProvider, location=tmp_path)
+    service.load_providers()
+    return service.providers[ConfigProvider]
+
+
+@pytest.fixture
+def address_provider(service, iproute_provider, config_provider, rpc):
+    service.add_provider(AddressProvider)
+    service.load_providers()
+    return service.providers[AddressProvider]
+
+
+@pytest.fixture
+def nftables(namespace_context):
     yield Nftables()

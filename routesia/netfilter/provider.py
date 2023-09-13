@@ -1,26 +1,28 @@
 """
-routesia/interface/provider.py - Netfilter provider
+routesia/netfilter/provider.py - Netfilter provider
 """
 
 import logging
 
 from routesia.config.provider import ConfigProvider
-from routesia.injector import Provider
+from routesia.service import Provider
 from routesia.netfilter.config import NetfilterConfig
 from routesia.netfilter.nftables import Nftables
-from routesia.netfilter import netfilter_pb2
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPC
+from routesia.schema.v1 import netfilter_pb2
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("netfilter")
 
 
 class NetfilterProvider(Provider):
-    def __init__(self, config: ConfigProvider, rpc: RPCProvider):
+    def __init__(self, config: ConfigProvider, rpc: RPC):
         self.config = config
         self.rpc = rpc
         self.nft = Nftables()
         self.applied = False
+        self.rpc.register("/netfilter/config/get", self.rpc_config_get)
+        self.rpc.register("/netfilter/config/update", self.rpc_config_update)
 
     def on_config_change(self, config):
         self.apply()
@@ -44,12 +46,10 @@ class NetfilterProvider(Provider):
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
-    def startup(self):
-        self.rpc.register("/netfilter/config/get", self.rpc_config_get)
-        self.rpc.register("/netfilter/config/update", self.rpc_config_update)
+    def start(self):
         self.apply()
 
-    def shutdown(self):
+    def stop(self):
         self.flush()
 
     def rpc_config_get(self, msg: None) -> netfilter_pb2.NetfilterConfig:

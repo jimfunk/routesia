@@ -13,25 +13,25 @@ from routesia.dns.cache.config import (
     LOCAL_CONF,
     FORWARD_CONF,
 )
-from routesia.dns.cache import cache_pb2
-from routesia.injector import Provider
+from routesia.service import Provider
 from routesia.ipam.provider import IPAMProvider
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPC
 from routesia.rtnetlink.events import AddressAddEvent, AddressRemoveEvent
-from routesia.server import Server
-from routesia.systemd.provider import SystemdProvider
+from routesia.schema.v1 import dns_cache_pb2
+from routesia.service import Service
+from routesia.systemd import SystemdProvider
 
 
 class DNSCacheProvider(Provider):
     def __init__(
         self,
-        server: Server,
+        service: Service,
         config: ConfigProvider,
         ipam: IPAMProvider,
         systemd: SystemdProvider,
-        rpc: RPCProvider,
+        rpc: RPC,
     ):
-        self.server = server
+        self.service = service
         self.config = config
         self.ipam = ipam
         self.systemd = systemd
@@ -39,8 +39,10 @@ class DNSCacheProvider(Provider):
 
         self.addresses = set()
 
-        self.server.subscribe_event(AddressAddEvent, self.handle_address_add)
-        self.server.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
+        self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
+        self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
+        self.rpc.register("/dns/cache/config/get", self.rpc_config_get)
+        self.rpc.register("/dns/cache/config/update", self.rpc_config_update)
 
     def on_config_change(self, config):
         self.apply()
@@ -52,12 +54,12 @@ class DNSCacheProvider(Provider):
                 return True
         return False
 
-    def handle_address_add(self, address_event):
+    async def handle_address_add(self, address_event):
         self.addresses.add(address_event.ip.ip)
         if self.has_listen_address(address_event.ip.ip):
             self.apply()
 
-    def handle_address_remove(self, address_event):
+    async def handle_address_remove(self, address_event):
         self.addresses.remove(address_event.ip.ip)
         if self.has_listen_address(address_event.ip.ip):
             self.apply()
@@ -90,24 +92,16 @@ class DNSCacheProvider(Provider):
         self.start()
 
     def start(self):
-        self.systemd.start("unbound.service")
+        self.systemd.start_unit("unbound.service")
 
     def stop(self):
-        self.systemd.stop("unbound.service")
+        self.systemd.stop_unit("unbound.service")
 
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
-    def startup(self):
-        self.rpc.register("/dns/cache/config/get", self.rpc_config_get)
-        self.rpc.register("/dns/cache/config/update", self.rpc_config_update)
-        self.apply()
-
-    def shutdown(self):
-        self.stop()
-
-    def rpc_config_get(self, msg: None) -> cache_pb2.DNSCacheConfig:
+    def rpc_config_get(self, msg: None) -> dns_cache_pb2.DNSCacheConfig:
         return self.config.staged_data.dns.cache
 
-    def rpc_config_update(self, msg: cache_pb2.DNSCacheConfig) -> None:
+    def rpc_config_update(self, msg: dns_cache_pb2.DNSCacheConfig) -> None:
         self.config.staged_data.dns.cache.CopyFrom(msg)

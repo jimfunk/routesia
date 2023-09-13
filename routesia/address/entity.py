@@ -6,11 +6,10 @@ import errno
 from ipaddress import ip_interface
 from pyroute2 import NetlinkError
 
-from routesia.entity import Entity
-from routesia.address import address_pb2
+from routesia.schema.v1 import address_pb2
 
 
-class AddressEntity(Entity):
+class AddressEntity:
     def __init__(self, ifname, iproute, ifindex=None, config=None, dynamic=None):
         super().__init__()
         self.ifname = ifname
@@ -79,7 +78,7 @@ class AddressEntity(Entity):
                         args["address"] = str(ip.ip)
                     try:
                         self.addr(
-                            "add", index=self.ifindex, mask=ip.network.prefixlen, **args
+                            "add", index=self.ifindex, prefixlen=ip.network.prefixlen, **args
                         )
                     except NetlinkError as e:
                         if e.code == errno.ENODEV:
@@ -90,7 +89,7 @@ class AddressEntity(Entity):
                         "add",
                         index=self.ifindex,
                         address=str(self.dynamic.ip),
-                        mask=self.dynamic.network.prefixlen,
+                        prefixlen=self.dynamic.network.prefixlen,
                     )
                 except NetlinkError as e:
                     if e.code == errno.ENODEV:
@@ -103,7 +102,7 @@ class AddressEntity(Entity):
                 "remove",
                 index=self.ifindex,
                 address=str(ip.ip),
-                mask=ip.network.prefixlen,
+                prefixlen=ip.network.prefixlen,
             )
 
     def remove_dynamic(self):

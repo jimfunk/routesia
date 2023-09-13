@@ -10,15 +10,14 @@ from routesia.cli.parameters import (
     String,
     IPAddress,
     IPNetwork,
-    UInt16,
     UInt32,
     Bool,
     List,
     ProtobufEnum,
 )
 from routesia.exceptions import CommandError
-from routesia.interface import interface_pb2
-from routesia.netfilter import netfilter_pb2
+from routesia.schema.v1 import interface_pb2
+from routesia.schema.v1 import netfilter_pb2
 
 
 class ConfigShow(CLICommand):

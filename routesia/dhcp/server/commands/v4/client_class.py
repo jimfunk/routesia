@@ -4,7 +4,7 @@ routesia/dhcp/server/commands/v4/client_class.py - Routesia DHCPv4 server client
 from routesia.cli.command import CLICommand
 from routesia.cli.parameters import String, UInt32, Bool
 from routesia.exceptions import CommandError
-from routesia.dhcp.server import dhcpserver_pb2
+from routesia.schema.v1 import dhcpserver_pb2
 
 
 class V4ConfigClientClassList(CLICommand):

@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package routesia.dhcp;
 
-import "routesia/dhcp/server/dhcpserver.proto";
-import "routesia/dhcp/client/dhcpclient.proto";
+import "routesia/schema/v1/dhcp_server.proto";
+import "routesia/schema/v1/dhcp_client.proto";
 
 // DHCP module config
 //

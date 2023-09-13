@@ -4,7 +4,7 @@ routesia/dns/cache/config.py - Unbound config
 
 from ipaddress import ip_address, ip_network
 
-from routesia.dns.cache import cache_pb2
+from routesia.schema.v1 import dns_cache_pb2
 
 
 LOCAL_CONF = '/etc/unbound/local.d/routesia.conf'
@@ -18,35 +18,35 @@ def bool_as_option(b):
 
 class DNSCacheLocalConfig:
     access_control_action_map = {
-        cache_pb2.DNSCacheAccessControlRule.DENY: 'deny',
-        cache_pb2.DNSCacheAccessControlRule.REFUSE: 'refuse',
-        cache_pb2.DNSCacheAccessControlRule.ALLOW: 'allow',
-        cache_pb2.DNSCacheAccessControlRule.ALLOW_SET_RECURSION_DESIRED: 'allow_setrd',
-        cache_pb2.DNSCacheAccessControlRule.ALLOW_SNOOP: 'allow_snoop',
-        cache_pb2.DNSCacheAccessControlRule.DENY_NON_LOCAL: 'deny_non_local',
-        cache_pb2.DNSCacheAccessControlRule.REFUSE_NON_LOCAL: 'refuse_non_local',
+        dns_cache_pb2.DNSCacheAccessControlRule.DENY: 'deny',
+        dns_cache_pb2.DNSCacheAccessControlRule.REFUSE: 'refuse',
+        dns_cache_pb2.DNSCacheAccessControlRule.ALLOW: 'allow',
+        dns_cache_pb2.DNSCacheAccessControlRule.ALLOW_SET_RECURSION_DESIRED: 'allow_setrd',
+        dns_cache_pb2.DNSCacheAccessControlRule.ALLOW_SNOOP: 'allow_snoop',
+        dns_cache_pb2.DNSCacheAccessControlRule.DENY_NON_LOCAL: 'deny_non_local',
+        dns_cache_pb2.DNSCacheAccessControlRule.REFUSE_NON_LOCAL: 'refuse_non_local',
     }
 
     local_zone_type_map = {
-        cache_pb2.DNSCacheLocalZone.TRANSPARENT: 'transparent',
-        cache_pb2.DNSCacheLocalZone.TYPE_TRANSPARENT: 'typetransparent',
-        cache_pb2.DNSCacheLocalZone.REDIRECT: 'redirect',
-        cache_pb2.DNSCacheLocalZone.INFORM: 'inform',
-        cache_pb2.DNSCacheLocalZone.INFORM_DENY: 'inform_deny',
-        cache_pb2.DNSCacheLocalZone.INFORM_REDIRECT: 'inform_redirect',
-        cache_pb2.DNSCacheLocalZone.DENY: 'deny',
-        cache_pb2.DNSCacheLocalZone.REFUSE: 'refuse',
-        cache_pb2.DNSCacheLocalZone.ALWAYS_TRANSPARENT: 'always_transparent',
-        cache_pb2.DNSCacheLocalZone.ALWAYS_REFUSE: 'always_refuse',
-        cache_pb2.DNSCacheLocalZone.ALWAYS_NXDOMAIN: 'always_nxdomain',
-        cache_pb2.DNSCacheLocalZone.NO_VIEW: 'noview',
-        cache_pb2.DNSCacheLocalZone.NO_DEFAULT: 'nodefault',
+        dns_cache_pb2.DNSCacheLocalZone.TRANSPARENT: 'transparent',
+        dns_cache_pb2.DNSCacheLocalZone.TYPE_TRANSPARENT: 'typetransparent',
+        dns_cache_pb2.DNSCacheLocalZone.REDIRECT: 'redirect',
+        dns_cache_pb2.DNSCacheLocalZone.INFORM: 'inform',
+        dns_cache_pb2.DNSCacheLocalZone.INFORM_DENY: 'inform_deny',
+        dns_cache_pb2.DNSCacheLocalZone.INFORM_REDIRECT: 'inform_redirect',
+        dns_cache_pb2.DNSCacheLocalZone.DENY: 'deny',
+        dns_cache_pb2.DNSCacheLocalZone.REFUSE: 'refuse',
+        dns_cache_pb2.DNSCacheLocalZone.ALWAYS_TRANSPARENT: 'always_transparent',
+        dns_cache_pb2.DNSCacheLocalZone.ALWAYS_REFUSE: 'always_refuse',
+        dns_cache_pb2.DNSCacheLocalZone.ALWAYS_NXDOMAIN: 'always_nxdomain',
+        dns_cache_pb2.DNSCacheLocalZone.NO_VIEW: 'noview',
+        dns_cache_pb2.DNSCacheLocalZone.NO_DEFAULT: 'nodefault',
     }
 
     record_type_map = {
-        cache_pb2.DNSCacheLocalData.A: 'A',
-        cache_pb2.DNSCacheLocalData.AAAA: 'AAAA',
-        cache_pb2.DNSCacheLocalData.TXT: 'TXT',
+        dns_cache_pb2.DNSCacheLocalData.A: 'A',
+        dns_cache_pb2.DNSCacheLocalData.AAAA: 'AAAA',
+        dns_cache_pb2.DNSCacheLocalData.TXT: 'TXT',
     }
 
     def __init__(self, config, ipam, addresses):

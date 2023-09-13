@@ -6,10 +6,10 @@ from ipaddress import ip_network
 import logging
 
 from routesia.config.provider import ConfigProvider
-from routesia.exceptions import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
-from routesia.injector import Provider
-from routesia.server import Server
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
+from routesia.service import Provider
+from routesia.service import Service
+from routesia.rpc import RPC
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.rtnetlink.events import (
     RouteAddEvent,
@@ -18,10 +18,10 @@ from routesia.rtnetlink.events import (
     InterfaceRemoveEvent,
 )
 from routesia.route.entities import TableEntity
-from routesia.route import route_pb2
+from routesia.schema.v1 import route_pb2
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("route")
 
 
 DEFAULT_TABLES = {
@@ -34,12 +34,12 @@ DEFAULT_TABLES = {
 class RouteProvider(Provider):
     def __init__(
         self,
-        server: Server,
+        service: Service,
         iproute: IPRouteProvider,
         config: ConfigProvider,
-        rpc: RPCProvider,
+        rpc: RPC,
     ):
-        self.server = server
+        self.service = service
         self.iproute = iproute
         self.config = config
         self.rpc = rpc
@@ -49,10 +49,20 @@ class RouteProvider(Provider):
 
         self.config.register_init_config_handler(self.init_config)
         self.config.register_change_handler(self.handle_config_change)
-        self.server.subscribe_event(RouteAddEvent, self.handle_route_add)
-        self.server.subscribe_event(RouteRemoveEvent, self.handle_route_remove)
-        self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
-        self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(RouteAddEvent, self.handle_route_add)
+        self.service.subscribe_event(RouteRemoveEvent, self.handle_route_remove)
+        self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
+        self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.rpc.register("/route/list", self.rpc_list_routes)
+        self.rpc.register("/route/table/list", self.rpc_list_tables)
+        self.rpc.register("/route/config/get", self.rpc_get_config)
+        self.rpc.register("/route/config/table/add", self.rpc_add_table)
+        self.rpc.register("/route/config/table/update", self.rpc_update_table)
+        self.rpc.register("/route/config/table/delete", self.rpc_delete_table)
+        self.rpc.register("/route/config/route/get", self.rpc_get_route)
+        self.rpc.register("/route/config/route/add", self.rpc_add_route)
+        self.rpc.register("/route/config/route/update", self.rpc_update_route)
+        self.rpc.register("/route/config/route/delete", self.rpc_delete_route)
 
     def init_config(self, config):
         # Set the default tables. These are always present
@@ -78,7 +88,7 @@ class RouteProvider(Provider):
                 )
             self.tables[table_config.id].handle_config_change(table_config)
 
-    def handle_route_add(self, event):
+    async def handle_route_add(self, event):
         table_id = event.message["table"]
         if table_id not in self.tables:
             self.tables[table_id] = TableEntity(
@@ -86,17 +96,17 @@ class RouteProvider(Provider):
             )
         self.tables[table_id].handle_route_add_event(event)
 
-    def handle_route_remove(self, event):
+    async def handle_route_remove(self, event):
         table_id = event.message["table"]
         if table_id not in self.tables:
             return
         self.tables[table_id].handle_route_remove_event(event)
 
-    def handle_interface_add(self, event):
+    async def handle_interface_add(self, event):
         for table in self.tables.values():
             table.handle_interface_add(event)
 
-    def handle_interface_remove(self, event):
+    async def handle_interface_remove(self, event):
         for table in self.tables.values():
             table.handle_interface_remove(event)
 
@@ -119,17 +129,7 @@ class RouteProvider(Provider):
             logging.debug("Removing dynamic route %s table=%s" % (destination, table.id))
             table.remove_dynamic_route(destination)
 
-    def startup(self):
-        self.rpc.register("/route/list", self.rpc_list_routes)
-        self.rpc.register("/route/table/list", self.rpc_list_tables)
-        self.rpc.register("/route/config/get", self.rpc_get_config)
-        self.rpc.register("/route/config/table/add", self.rpc_add_table)
-        self.rpc.register("/route/config/table/update", self.rpc_update_table)
-        self.rpc.register("/route/config/table/delete", self.rpc_delete_table)
-        self.rpc.register("/route/config/route/get", self.rpc_get_route)
-        self.rpc.register("/route/config/route/add", self.rpc_add_route)
-        self.rpc.register("/route/config/route/update", self.rpc_update_route)
-        self.rpc.register("/route/config/route/delete", self.rpc_delete_route)
+    def start(self):
         self.configure()
 
     def rpc_list_routes(self, msg: None) -> route_pb2.RouteStateList:

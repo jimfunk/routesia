@@ -5,13 +5,13 @@ routesia/dhcp/client/provider.py - Routesia DHCP clients
 from routesia.address.provider import AddressProvider
 from routesia.config.provider import ConfigProvider
 from routesia.dhcp.client.entities import DHCPv4Client
-from routesia.dhcp.client import dhcpclient_pb2
-from routesia.exceptions import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
-from routesia.injector import Provider
+from routesia.rpc import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
+from routesia.service import Provider
 from routesia.interface.provider import InterfaceProvider
 from routesia.route.provider import RouteProvider
-from routesia.rpc.provider import RPCProvider
-from routesia.systemd.provider import SystemdProvider
+from routesia.rpc import RPC
+from routesia.schema.v1 import dhcp_client_pb2
+from routesia.systemd import SystemdProvider
 
 
 class DHCPClientProvider(Provider):
@@ -19,7 +19,7 @@ class DHCPClientProvider(Provider):
         self,
         config: ConfigProvider,
         systemd: SystemdProvider,
-        rpc: RPCProvider,
+        rpc: RPC,
         address_provider: AddressProvider,
         interface_provider: InterfaceProvider,
         route_provider: RouteProvider,
@@ -31,6 +31,14 @@ class DHCPClientProvider(Provider):
         self.interface_provider = interface_provider
         self.route_provider = route_provider
         self.v4_clients = {}
+
+        self.rpc.register("/dhcp/client/v4/list", self.rpc_v4_list)
+        self.rpc.register("/dhcp/client/v4/event", self.rpc_v4_event)
+        self.rpc.register("/dhcp/client/v4/restart", self.rpc_v4_restart)
+        self.rpc.register("/dhcp/client/config/get", self.rpc_config_get)
+        self.rpc.register("/dhcp/client/config/v4/add", self.rpc_config_v4_add)
+        self.rpc.register("/dhcp/client/config/v4/update", self.rpc_config_v4_update)
+        self.rpc.register("/dhcp/client/config/v4/delete", self.rpc_config_v4_delete)
 
     def on_config_change(self, config):
         self.apply()
@@ -66,14 +74,7 @@ class DHCPClientProvider(Provider):
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
-    def startup(self):
-        self.rpc.register("/dhcp/client/v4/list", self.rpc_v4_list)
-        self.rpc.register("/dhcp/client/v4/event", self.rpc_v4_event)
-        self.rpc.register("/dhcp/client/v4/restart", self.rpc_v4_restart)
-        self.rpc.register("/dhcp/client/config/get", self.rpc_config_get)
-        self.rpc.register("/dhcp/client/config/v4/add", self.rpc_config_v4_add)
-        self.rpc.register("/dhcp/client/config/v4/update", self.rpc_config_v4_update)
-        self.rpc.register("/dhcp/client/config/v4/delete", self.rpc_config_v4_delete)
+    def start(self):
         self.apply()
 
     def shutdown(self):
@@ -81,27 +82,27 @@ class DHCPClientProvider(Provider):
             client.stop()
         self.v4_clients = {}
 
-    def rpc_v4_list(self, msg: None) -> dhcpclient_pb2.DHCPv4ClientStatusList:
-        status_list = dhcpclient_pb2.DHCPv4ClientStatusList()
+    def rpc_v4_list(self, msg: None) -> dhcp_client_pb2.DHCPv4ClientStatusList:
+        status_list = dhcp_client_pb2.DHCPv4ClientStatusList()
         for client in self.v4_clients.values():
             status = status_list.client.add()
             status.CopyFrom(client.status)
         return status_list
 
-    def rpc_v4_restart(self, msg: dhcpclient_pb2.DHCPv4ClientConfig) -> None:
+    def rpc_v4_restart(self, msg: dhcp_client_pb2.DHCPv4ClientConfig) -> None:
         if msg.interface not in self.v4_clients:
             return
         self.v4_clients[msg.interface].start()
 
-    def rpc_v4_event(self, msg: dhcpclient_pb2.DHCPv4ClientEvent) -> None:
+    def rpc_v4_event(self, msg: dhcp_client_pb2.DHCPv4ClientEvent) -> None:
         if msg.interface not in self.v4_clients:
             return
         self.v4_clients[msg.interface].on_event(msg)
 
-    def rpc_config_get(self, msg: None) -> dhcpclient_pb2.DHCPClientConfig:
+    def rpc_config_get(self, msg: None) -> dhcp_client_pb2.DHCPClientConfig:
         return self.config.staged_data.dhcp.client
 
-    def rpc_config_v4_add(self, msg: dhcpclient_pb2.DHCPv4ClientConfig) -> None:
+    def rpc_config_v4_add(self, msg: dhcp_client_pb2.DHCPv4ClientConfig) -> None:
         if not msg.interface:
             raise RPCInvalidParameters("interface not specified")
         for client in self.config.staged_data.dhcp.client.v4:
@@ -111,7 +112,7 @@ class DHCPClientProvider(Provider):
         client.CopyFrom(msg)
         return client
 
-    def rpc_config_v4_update(self, msg: dhcpclient_pb2.DHCPv4ClientConfig) -> None:
+    def rpc_config_v4_update(self, msg: dhcp_client_pb2.DHCPv4ClientConfig) -> None:
         if not msg.interface:
             raise RPCInvalidParameters("interface not specified")
         for client in self.config.staged_data.dhcp.client.v4:
@@ -120,7 +121,7 @@ class DHCPClientProvider(Provider):
                 return
         raise RPCEntityNotFound(msg.interface)
 
-    def rpc_config_v4_delete(self, msg: dhcpclient_pb2.DHCPv4ClientConfig) -> None:
+    def rpc_config_v4_delete(self, msg: dhcp_client_pb2.DHCPv4ClientConfig) -> None:
         if not msg.interface:
             raise RPCInvalidParameters("interface not specified")
         for i, client in enumerate(self.config.staged_data.dhcp.client.v4):

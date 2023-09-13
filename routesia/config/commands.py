@@ -5,8 +5,8 @@ import difflib
 
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import String
-from routesia.config import config_pb2
 from routesia.exceptions import CommandError
+from routesia.schema.v1 import config_pb2
 
 
 class Show(CLICommand):

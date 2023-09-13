@@ -5,14 +5,13 @@ routesia/dhcp/client/entities.py - DHCP client entities
 from ipaddress import ip_address, ip_interface, ip_network
 import logging
 
-from routesia.dhcp.client.dhcpclient_pb2 import DHCPClientEventType, DHCPv4ClientStatus
-from routesia.entity import Entity
+from routesia.schema.v1.dhcp_client_pb2 import DHCPClientEventType, DHCPv4ClientStatus
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("dhcp-client")
 
 
-class DHCPv4Client(Entity):
+class DHCPv4Client:
     def __init__(
         self, systemd, config, address_provider, interface_provider, route_provider
     ):
@@ -207,8 +206,8 @@ class DHCPv4Client(Entity):
 
     def start(self):
         logger.info("Starting DHCPv4 client on %s" % self.interface)
-        self.systemd.start(self.unit)
+        self.systemd.start_unit(self.unit)
 
     def stop(self):
         logger.info("Stopping DHCPv4 client on %s" % self.interface)
-        self.systemd.stop(self.unit)
+        self.systemd.stop_unit(self.unit)

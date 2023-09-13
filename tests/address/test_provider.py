@@ -2,34 +2,39 @@
 tests/address/test_provider.py
 """
 
-from routesia.config import config_pb2
+from ipaddress import ip_interface
+
+from routesia.rtnetlink.events import (
+    AddressAddEvent,
+    AddressRemoveEvent,
+    InterfaceAddEvent,
+    InterfaceRemoveEvent,
+)
+from routesia.schema.v1 import config_pb2
 
 
-def test_handle_interface_add(address_provider, fake_iproute_provider):
-    event = fake_iproute_provider.test_add_interface("enp2s0")
-    address_provider.handle_interface_add(event)
+async def test_handle_interface_add(ip, service, address_provider):
+    ip.add_dummy_link("enp2s0")
+    await service.wait_for_event(InterfaceAddEvent, ifname="enp2s0")
     assert "enp2s0" in address_provider.interfaces
 
 
-def test_handle_interface_remove(address_provider, fake_iproute_provider):
-    add_event = fake_iproute_provider.test_add_interface("enp2s0")
-    address_provider.handle_interface_add(add_event)
-    remove_event = fake_iproute_provider.test_remove_interface("enp2s0")
-    address_provider.handle_interface_remove(remove_event)
+async def test_handle_interface_remove(ip, service, address_provider):
+    ip.add_dummy_link("enp2s0")
+    await service.wait_for_event(InterfaceAddEvent, ifname="enp2s0")
+    ip.delete_link("enp2s0")
+    await service.wait_for_event(InterfaceRemoveEvent, ifname="enp2s0")
     assert "enp2s0" not in address_provider.interfaces
 
 
-def test_handle_address_add(address_provider, fake_iproute_provider):
-    address_provider.handle_interface_add(
-        fake_iproute_provider.test_add_interface("enp2s0")
-    )
-    address_provider.handle_address_add(
-        fake_iproute_provider.test_add_address("enp2s0", "10.1.2.3/24")
-    )
+async def test_handle_address_add(ip, service, address_provider):
+    ip.add_dummy_link("enp2s0")
+    ip.add_address("10.1.2.3/24", "enp2s0")
+    await service.wait_for_event(AddressAddEvent, ip=ip_interface("10.1.2.3/24"))
     assert ("enp2s0", "10.1.2.3/24") in address_provider.addresses
 
 
-def test_on_config_change_add_new_address_no_interface(address_provider, fake_iproute_provider):
+async def test_on_config_change_add_new_address_no_interface(ip, service, address_provider):
     config = config_pb2.Config()
     address = config.addresses.address.add()
     address.interface = "enp2s0"
@@ -38,14 +43,10 @@ def test_on_config_change_add_new_address_no_interface(address_provider, fake_ip
     assert ("enp2s0", "10.1.2.3/24") in address_provider.addresses
     entity = address_provider.addresses[("enp2s0", "10.1.2.3/24")]
     assert entity.ifindex is None
-    assert not fake_iproute_provider.iproute.has_address(
-        "enp2s0", "10.1.2.3/24")
 
 
-def test_on_config_change_add_new_address_with_interface(address_provider, fake_iproute_provider):
-    address_provider.handle_interface_add(
-        fake_iproute_provider.test_add_interface("enp2s0")
-    )
+async def test_on_config_change_add_new_address_with_interface(ip, service, address_provider):
+    ip.add_dummy_link("enp2s0")
     config = config_pb2.Config()
     address = config.addresses.address.add()
     address.interface = "enp2s0"
@@ -53,35 +54,33 @@ def test_on_config_change_add_new_address_with_interface(address_provider, fake_
     address_provider.on_config_change(config)
     assert ("enp2s0", "10.1.2.3/24") in address_provider.addresses
     entity = address_provider.addresses[("enp2s0", "10.1.2.3/24")]
-    assert entity.ifindex == 1
-    assert fake_iproute_provider.iproute.has_address("enp2s0", "10.1.2.3/24")
+    await service.wait_for_event(AddressAddEvent, ip=ip_interface("10.1.2.3/24"))
+    assert entity.ifindex == 2
+    assert "10.1.2.3/24" in ip.get_addresses("enp2s0")
 
 
-def test_handle_interface_add_with_address(address_provider, fake_iproute_provider):
+async def test_handle_interface_add_with_address(ip, service, address_provider):
     config = config_pb2.Config()
     address = config.addresses.address.add()
     address.interface = "enp2s0"
     address.ip = "10.1.2.3/24"
     address_provider.on_config_change(config)
-    address_provider.handle_interface_add(
-        fake_iproute_provider.test_add_interface("enp2s0")
-    )
+    ip.add_dummy_link("enp2s0")
+    await service.wait_for_event(AddressAddEvent, ip=ip_interface("10.1.2.3/24"))
     assert "enp2s0" in address_provider.interfaces
-    assert address_provider.addresses[("enp2s0", "10.1.2.3/24")].ifindex == 1
+    assert address_provider.addresses[("enp2s0", "10.1.2.3/24")].ifindex == 2
 
 
-def test_handle_interface_remove_with_address(address_provider, fake_iproute_provider):
+async def test_handle_interface_remove_with_address(ip, service, address_provider):
     config = config_pb2.Config()
     address = config.addresses.address.add()
     address.interface = "enp2s0"
     address.ip = "10.1.2.3/24"
     address_provider.on_config_change(config)
-    address_provider.handle_interface_add(
-        fake_iproute_provider.test_add_interface("enp2s0")
-    )
-    address_provider.handle_interface_remove(
-        fake_iproute_provider.test_remove_interface("enp2s0")
-    )
+    ip.add_dummy_link("enp2s0")
+    await service.wait_for_event(InterfaceAddEvent, ifname="enp2s0")
+    ip.delete_link("enp2s0")
+    await service.wait_for_event(InterfaceRemoveEvent, ifname="enp2s0")
     assert "enp2s0" not in address_provider.interfaces
     assert address_provider.addresses[(
         "enp2s0", "10.1.2.3/24")].ifindex is None

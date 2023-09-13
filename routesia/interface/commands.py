@@ -15,7 +15,7 @@ from routesia.cli.parameters import (
     UInt8,
 )
 from routesia.exceptions import CommandError
-from routesia.interface import interface_pb2
+from routesia.schema.v1 import interface_pb2
 
 
 class InterfaceParameter(String):

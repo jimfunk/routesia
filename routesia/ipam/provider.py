@@ -3,20 +3,24 @@ routesia/ipam/provider.py - IP Address Management
 """
 
 from routesia.config.provider import ConfigProvider
-from routesia.exceptions import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
-from routesia.injector import Provider
+from routesia.rpc import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
+from routesia.service import Provider
 from routesia.ipam.entities import Host
-from routesia.ipam import ipam_pb2
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPC
+from routesia.schema.v1 import ipam_pb2
 
 
 class IPAMProvider(Provider):
-    def __init__(self, config: ConfigProvider, rpc: RPCProvider):
+    def __init__(self, config: ConfigProvider, rpc: RPC):
         self.config = config
         self.rpc = rpc
         self.hosts = {}
         self.hosts_by_hardware_address = {}
         self.hosts_by_ip_address = {}
+        self.rpc.register("/ipam/config/host/list", self.rpc_config_list)
+        self.rpc.register("/ipam/config/host/add", self.rpc_config_host_add)
+        self.rpc.register("/ipam/config/host/update", self.rpc_config_host_update)
+        self.rpc.register("/ipam/config/host/remove", self.rpc_config_host_remove)
 
     def update_hosts(self):
         self.hosts = {}
@@ -36,11 +40,7 @@ class IPAMProvider(Provider):
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
-    def startup(self):
-        self.rpc.register("/ipam/config/host/list", self.rpc_config_list)
-        self.rpc.register("/ipam/config/host/add", self.rpc_config_host_add)
-        self.rpc.register("/ipam/config/host/update", self.rpc_config_host_update)
-        self.rpc.register("/ipam/config/host/remove", self.rpc_config_host_remove)
+    def start(self):
         self.update_hosts()
 
     def rpc_config_list(self, msg: None) -> ipam_pb2.IPAMConfig:

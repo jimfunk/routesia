@@ -1,12 +1,19 @@
+PYTHON_VERSION = 3.11
+
 PROTO_SOURCES := $(shell find routesia* -type f -name '*.proto')
 PROTO_MODULES := $(PROTO_SOURCES:%.proto=%_pb2.py)
+TEST_PROTO_SOURCES := $(shell find tests* -type f -name '*.proto')
+TEST_PROTO_MODULES := $(TEST_PROTO_SOURCES:%.proto=%_pb2.py)
 PYTHON_SOURCES := $(shell find routesia* -type f -name '*.py')
 
-PYTHON = python3
+PYTHON = python$(PYTHON_VERSION)
+PYTEST = pytest-$(PYTHON_VERSION)
 
 all: build
 
 proto: $(PROTO_MODULES)
+
+testproto: $(TEST_PROTO_MODULES)
 
 %_pb2.py: %.proto
 	protoc -I. --python_out=. $<
@@ -14,11 +21,11 @@ proto: $(PROTO_MODULES)
 build: setup.py $(PYTHON_SOURCES) proto
 	$(PYTHON) setup.py build
 
-test: proto
-	pytest $(ARGS)
+test: proto testproto
+	$(PYTEST) $(ARGS)
 
 coverage: proto
-	pytest --cov=routesia $(ARGS)
+	$(PYTEST) --cov=routesia $(ARGS)
 
 install: proto
 	$(PYTHON) setup.py install

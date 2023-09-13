@@ -5,19 +5,23 @@ from google.protobuf import text_format
 import logging
 import os
 
-from routesia.config.config_pb2 import Config, CommitResult
-from routesia.rpc.provider import RPCProvider
-from routesia.injector import Provider
+from routesia.schema.v1.config_pb2 import Config, CommitResult
+from routesia.rpc import RPC
+from routesia.service import Provider
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("config")
 
 
 SCHEMA = "1.0"
 
 
+class InvalidConfig(Exception):
+    pass
+
+
 class ConfigProvider(Provider):
-    def __init__(self, rpc: RPCProvider, location="/etc/routesia/config"):
+    def __init__(self, rpc: RPC, location="/etc/routesia/config"):
         self.rpc = rpc
         self.location = location
 
@@ -26,6 +30,11 @@ class ConfigProvider(Provider):
 
         self.init_config_handlers = []
         self.change_handlers = []
+
+        self.rpc.register("/config/running/get", self.rpc_get_running)
+        self.rpc.register("/config/staged/get", self.rpc_get_staged)
+        self.rpc.register("/config/staged/drop", self.rpc_drop_staged)
+        self.rpc.register("/config/staged/commit", self.rpc_commit)
 
     @property
     def config_file(self):
@@ -124,12 +133,5 @@ class ConfigProvider(Provider):
 
         return result
 
-    def startup(self):
+    def start(self):
         self.staged_data.CopyFrom(self.data)
-
-        # Register RPC methods
-        #
-        self.rpc.register("/config/running/get", self.rpc_get_running)
-        self.rpc.register("/config/staged/get", self.rpc_get_staged)
-        self.rpc.register("/config/staged/drop", self.rpc_drop_staged)
-        self.rpc.register("/config/staged/commit", self.rpc_commit)

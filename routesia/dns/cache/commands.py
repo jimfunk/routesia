@@ -12,7 +12,7 @@ from routesia.cli.parameters import (
     ProtobufEnum,
 )
 from routesia.exceptions import CommandError
-from routesia.dns.cache import cache_pb2
+from routesia.schema.v1 import cache_pb2
 
 
 class ConfigShow(CLICommand):

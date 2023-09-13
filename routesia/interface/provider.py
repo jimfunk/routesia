@@ -4,21 +4,21 @@ routesia/interface/provider.py - Interface support
 
 import logging
 from routesia.config.provider import ConfigProvider
-from routesia.exceptions import RPCInvalidParameters, RPCEntityExists
-from routesia.injector import Provider
+from routesia.rpc import RPCInvalidParameters, RPCEntityExists
+from routesia.service import Provider
 from routesia.interface.entities import (
     INTERFACE_TYPE_ENTITY_MAP,
     INTERFACE_CONFIG_TYPE_ENTITY_MAP,
 )
-from routesia.interface import interface_pb2
 from routesia.interface import interface_types
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPC
 from routesia.rtnetlink.events import InterfaceAddEvent, InterfaceRemoveEvent
 from routesia.rtnetlink.provider import IPRouteProvider
-from routesia.server import Server
+from routesia.schema.v1 import interface_pb2
+from routesia.service import Service
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("interface")
 
 
 # Interface config type indexed by type and kind
@@ -40,12 +40,12 @@ INTERFACE_TYPE_CONFIG_MAP = {
 class InterfaceProvider(Provider):
     def __init__(
         self,
-        server: Server,
+        service: Service,
         iproute: IPRouteProvider,
         config: ConfigProvider,
-        rpc: RPCProvider,
+        rpc: RPC,
     ):
-        self.server = server
+        self.service = service
         self.iproute = iproute
         self.config = config
         self.rpc = rpc
@@ -53,8 +53,13 @@ class InterfaceProvider(Provider):
         self.interface_dependencies = {}
         self.running = False
 
-        self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
-        self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
+        self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.rpc.register("/interface/list", self.rpc_list_interfaces)
+        self.rpc.register("/interface/config/list", self.rpc_list_interface_configs)
+        self.rpc.register("/interface/config/add", self.rpc_add_interface_config)
+        self.rpc.register("/interface/config/update", self.rpc_update_interface_config)
+        self.rpc.register("/interface/config/delete", self.rpc_delete_interface_config)
 
     def on_config_change(self, config):
         new_interfaces = {}
@@ -87,7 +92,7 @@ class InterfaceProvider(Provider):
                 self.interfaces[ifname] = entity
                 entity.startup()
 
-    def handle_interface_add(self, interface_event):
+    async def handle_interface_add(self, interface_event):
         map_type = (interface_event.iftype, interface_event.kind)
         ifname = interface_event.ifname
 
@@ -102,7 +107,7 @@ class InterfaceProvider(Provider):
             for entity in self.interface_dependencies[interface_event.ifname]:
                 entity.on_dependent_interface_add(interface_event)
 
-    def handle_interface_remove(self, interface_event):
+    async def handle_interface_remove(self, interface_event):
         ifname = interface_event.ifname
 
         if ifname in self.interface_dependencies:
@@ -126,20 +131,15 @@ class InterfaceProvider(Provider):
                     self.interface_dependencies[dependent_interface] = []
                 self.interface_dependencies[dependent_interface].append(entity)
 
-    def startup(self):
+    def start(self):
         self.running = True
-        self.rpc.register("/interface/list", self.rpc_list_interfaces)
-        self.rpc.register("/interface/config/list", self.rpc_list_interface_configs)
-        self.rpc.register("/interface/config/add", self.rpc_add_interface_config)
-        self.rpc.register("/interface/config/update", self.rpc_update_interface_config)
-        self.rpc.register("/interface/config/delete", self.rpc_delete_interface_config)
         for interface in self.interfaces.values():
             interface.startup()
 
-    def shutdown(self):
+    def stop(self):
         self.running = False
         for interface in self.interfaces.values():
-            interface.shutdown()
+            interface.stop()
 
     def get_ifindex(self, ifname):
         if ifname in self.interfaces:
@@ -151,19 +151,17 @@ class InterfaceProvider(Provider):
         if ifname in self.interfaces:
             self.interfaces[ifname].set_dynamic_config(config)
 
-    def rpc_list_interfaces(self, msg: None) -> interface_pb2.InterfaceList:
+    async def rpc_list_interfaces(self) -> interface_pb2.InterfaceList:
         interfaces = interface_pb2.InterfaceList()
         for entity in self.interfaces.values():
             interface = interfaces.interface.add()
             entity.to_message(interface)
         return interfaces
 
-    def rpc_list_interface_configs(
-        self, msg: None
-    ) -> interface_pb2.InterfaceConfigList:
+    async def rpc_list_interface_configs(self) -> interface_pb2.InterfaceConfigList:
         return self.config.staged_data.interfaces
 
-    def rpc_add_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
+    async def rpc_add_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
             raise RPCInvalidParameters("name not specified")
         for interface in self.config.staged_data.interfaces.interface:
@@ -173,14 +171,14 @@ class InterfaceProvider(Provider):
         interface.CopyFrom(msg)
         return interface
 
-    def rpc_update_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
+    async def rpc_update_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
             raise RPCInvalidParameters("name not specified")
         for interface in self.config.staged_data.interfaces.interface:
             if interface.name == msg.name:
                 interface.CopyFrom(msg)
 
-    def rpc_delete_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
+    async def rpc_delete_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
             raise RPCInvalidParameters("name not specified")
         for i, interface in enumerate(self.config.staged_data.interfaces.interface):

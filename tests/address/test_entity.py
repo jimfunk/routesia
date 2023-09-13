@@ -5,8 +5,8 @@ tests/address/test_entity.py
 import ipaddress
 import pytest
 
-from routesia.address import address_pb2
 from routesia.address.entity import AddressEntity
+from routesia.schema.v1 import address_pb2
 
 
 class FakeIPRoute:
@@ -21,7 +21,7 @@ class FakeIPRoute:
                 if (
                     address["index"] == kwargs["index"] and
                     address["address"] == kwargs["address"] and
-                    address["mask"] == kwargs["mask"]
+                    address["prefixlen"] == kwargs["prefixlen"]
                 ):
                     self.addresses.remove(address)
                     break
@@ -70,7 +70,7 @@ def test_set_ifindex(address_with_config):
         {
             "index": 2,
             "address": "10.1.2.3",
-            "mask": 24,
+            "prefixlen": 24,
             "proto": 42,
         }
     ]
@@ -100,7 +100,7 @@ def test_update_config(address_with_config):
         {
             "index": 2,
             "address": "10.2.3.4",
-            "mask": 27,
+            "prefixlen": 27,
             "proto": 42,
         }
     ]

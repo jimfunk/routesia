@@ -4,11 +4,10 @@ routesia/address/address/commands.py - Routesia address commands
 from ipaddress import ip_interface
 
 from routesia.cli.command import CLICommand, CLICommandSet
-from routesia.cli.parameters import IPAddress, IPInterface, String, UInt32
+from routesia.cli.parameters import IPAddress, IPInterface, UInt32
 from routesia.exceptions import CommandError
-from routesia.interface import interface_pb2
 from routesia.interface.commands import ConfiguredInterfaceParameter
-from routesia.address import address_pb2
+from routesia.schema.v1 import address_pb2
 
 
 class AddressShow(CLICommand):

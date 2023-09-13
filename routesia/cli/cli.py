@@ -1,6 +1,8 @@
 """
 routesia/cli/cli.py - Command line interface
 """
+# TO REMOVE
+
 import asyncio
 import os
 from prompt_toolkit import PromptSession, HTML
@@ -11,7 +13,7 @@ import shlex
 import sys
 
 from routesia.exceptions import CommandError
-from routesia.rpc.client import AsyncRPCClient
+from routesia.rpcclient import AsyncRPCClient
 
 
 CONFIG_PATH = os.path.expanduser("~/.config/routesia/")

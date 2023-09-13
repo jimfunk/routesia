@@ -3,8 +3,8 @@ routesia/ipam/commands.py - Routesia IPAM commands
 """
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import String, HardwareAddress, IPAddress
-from routesia.exceptions import CommandError
-from routesia.ipam import ipam_pb2
+from routesia.config.provider import CommandError
+from routesia.schema.v1 import ipam_pb2
 
 
 class IPAMHostList(CLICommand):

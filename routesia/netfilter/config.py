@@ -4,7 +4,7 @@ routesia/interface/config.py - Netfilter config
 
 import logging
 
-from routesia.netfilter import netfilter_pb2
+from routesia.schema.v1 import netfilter_pb2
 
 logger = logging.getLogger("netfilter")
 

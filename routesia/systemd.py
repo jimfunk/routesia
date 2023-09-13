@@ -3,7 +3,7 @@ routesia/systemd/provider.py - SystemD support
 """
 import dbus
 
-from routesia.injector import Provider
+from routesia.service import Provider
 
 
 class SystemdProvider(Provider):
@@ -12,8 +12,8 @@ class SystemdProvider(Provider):
         self.systemd1 = self.bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
         self.manager = dbus.Interface(self.systemd1, 'org.freedesktop.systemd1.Manager')
 
-    def start(self, unit):
+    def start_unit(self, unit):
         self.manager.RestartUnit(unit, "replace")
 
-    def stop(self, unit):
+    def stop_unit(self, unit):
         self.manager.StopUnit(unit, "replace")

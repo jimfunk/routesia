@@ -6,7 +6,7 @@ import ipaddress
 from routesia.cli.command import CLICommand
 from routesia.cli.parameters import Bool, IPAddress, HardwareAddress, String, UInt32
 from routesia.exceptions import CommandError
-from routesia.dhcp.server import dhcpserver_pb2
+from routesia.schema.v1 import dhcpserver_pb2
 
 
 class V4ConfigSubnetList(CLICommand):

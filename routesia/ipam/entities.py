@@ -4,10 +4,8 @@ routesia/ipam/entities.py - IP Address Management entities
 
 from ipaddress import ip_address
 
-from routesia.entity import Entity
 
-
-class Host(Entity):
+class Host:
     def __init__(self, config):
         self.config = config
 

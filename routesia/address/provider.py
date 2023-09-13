@@ -6,11 +6,9 @@ from ipaddress import ip_interface
 import logging
 
 from routesia.config.provider import ConfigProvider
-from routesia.injector import Provider
-from routesia.address import address_pb2
+from routesia.service import Provider
 from routesia.address.entity import AddressEntity
-from routesia.exceptions import RPCInvalidParameters, RPCEntityExists
-from routesia.rpc.provider import RPCProvider
+from routesia.rpc import RPC, RPCInvalidParameters, RPCEntityExists
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.rtnetlink.events import (
     AddressAddEvent,
@@ -18,21 +16,22 @@ from routesia.rtnetlink.events import (
     InterfaceAddEvent,
     InterfaceRemoveEvent,
 )
-from routesia.server import Server
+from routesia.schema.v1 import address_pb2
+from routesia.service import Service
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("address")
 
 
 class AddressProvider(Provider):
     def __init__(
         self,
-        server: Server,
+        service: Service,
         iproute: IPRouteProvider,
         config: ConfigProvider,
-        rpc: RPCProvider,
+        rpc: RPC,
     ):
-        self.server = server
+        self.service = service
         self.iproute = iproute
         self.config = config
         self.rpc = rpc
@@ -43,10 +42,15 @@ class AddressProvider(Provider):
         # Track interfaces for use by configured addresses
         self.interfaces = {}
 
-        self.server.subscribe_event(AddressAddEvent, self.handle_address_add)
-        self.server.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
-        self.server.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
-        self.server.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
+        self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
+        self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
+        self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.rpc.register("address/list", self.rpc_list_addresses)
+        self.rpc.register("address/config/list", self.rpc_list_address_configs)
+        self.rpc.register("address/config/add", self.rpc_add_address)
+        self.rpc.register("address/config/update", self.rpc_update_address)
+        self.rpc.register("address/config/delete", self.rpc_delete_address)
 
     def on_config_change(self, config):
         new_addresses = {}
@@ -81,7 +85,7 @@ class AddressProvider(Provider):
             ):
                 return config
 
-    def handle_address_add(self, address_event):
+    async def handle_address_add(self, address_event):
         ifname = address_event.ifname
         ip = str(address_event.ip)
 
@@ -93,7 +97,7 @@ class AddressProvider(Provider):
             address = self.addresses[(ifname, ip)]
         address.update_state(address_event)
 
-    def handle_address_remove(self, address_event):
+    async def handle_address_remove(self, address_event):
         ifname = address_event.ifname
         ip = str(address_event.ip)
 
@@ -103,13 +107,13 @@ class AddressProvider(Provider):
             if address.config is None:
                 del self.addresses[(ifname, ip)]
 
-    def handle_interface_add(self, interface_event):
+    async def handle_interface_add(self, interface_event):
         self.interfaces[interface_event.ifname] = interface_event
         for address in self.addresses.values():
             if address.ifname == interface_event.ifname:
                 address.set_ifindex(interface_event.ifindex)
 
-    def handle_interface_remove(self, interface_event):
+    async def handle_interface_remove(self, interface_event):
         for address in self.addresses.values():
             if address.ifname == interface_event.ifname:
                 address.set_ifindex(None)
@@ -145,12 +149,7 @@ class AddressProvider(Provider):
     def load(self):
         self.config.register_change_handler(self.on_config_change)
 
-    def startup(self):
-        self.rpc.register("/address/list", self.rpc_list_addresses)
-        self.rpc.register("/address/config/list", self.rpc_list_address_configs)
-        self.rpc.register("/address/config/add", self.rpc_add_address)
-        self.rpc.register("/address/config/update", self.rpc_update_address)
-        self.rpc.register("/address/config/delete", self.rpc_delete_address)
+    def start(self):
         for config in self.config.data.addresses.address:
             if (config.interface, config.ip) not in self.addresses:
                 if config.interface in self.interfaces:
@@ -161,14 +160,14 @@ class AddressProvider(Provider):
                     config.interface, self.iproute, ifindex=ifindex, config=config,
                 )
 
-    def rpc_list_addresses(self, msg: None) -> address_pb2.AddressList:
+    async def rpc_list_addresses(self) -> address_pb2.AddressList:
         addresses = address_pb2.AddressList()
         for entity in self.addresses.values():
             address = addresses.address.add()
             entity.to_message(address)
         return addresses
 
-    def rpc_list_address_configs(self, msg: None) -> address_pb2.AddressConfigList:
+    async def rpc_list_address_configs(self) -> address_pb2.AddressConfigList:
         return self.config.staged_data.addresses
 
     def validate_interface_and_ip(self, msg: address_pb2.AddressConfig):
@@ -181,7 +180,7 @@ class AddressProvider(Provider):
         except ValueError:
             raise RPCInvalidParameters("ip not an IP address")
 
-    def rpc_add_address(self, msg: address_pb2.AddressConfig) -> None:
+    async def rpc_add_address(self, msg: address_pb2.AddressConfig) -> None:
         self.validate_interface_and_ip(msg)
 
         for address in self.config.staged_data.addresses.address:
@@ -193,7 +192,7 @@ class AddressProvider(Provider):
         address.CopyFrom(msg)
         return address
 
-    def rpc_update_address(self, msg: address_pb2.AddressConfig) -> None:
+    async def rpc_update_address(self, msg: address_pb2.AddressConfig) -> None:
         self.validate_interface_and_ip(msg)
 
         for address in self.config.staged_data.addresses.address:
@@ -202,7 +201,7 @@ class AddressProvider(Provider):
             ) == ip_interface(msg.ip):
                 address.CopyFrom(msg)
 
-    def rpc_delete_address(self, msg: address_pb2.AddressConfig) -> None:
+    async def rpc_delete_address(self, msg: address_pb2.AddressConfig) -> None:
         self.validate_interface_and_ip(msg)
 
         for i, address in enumerate(self.config.staged_data.addresses.address):

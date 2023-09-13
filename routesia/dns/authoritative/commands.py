@@ -3,8 +3,8 @@ routesia/dns/authoritative/commands.py - Routesia authoritative DNS commands
 """
 from routesia.cli.command import CLICommand, CLICommandSet
 from routesia.cli.parameters import String, IPAddress, IPNetwork, UInt16, UInt32, Bool
-from routesia.exceptions import CommandError
-from routesia.dns.authoritative import authoritative_pb2
+from routesia.config.provider import CommandError
+from routesia.schema.v1 import authoritative_pb2
 
 
 class ZoneParameter(String):

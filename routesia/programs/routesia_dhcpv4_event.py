@@ -7,8 +7,8 @@ import ipaddress
 import os
 import sys
 
-from routesia.dhcp.client import dhcpclient_pb2
-from routesia.rpc.client import RPCClient
+from routesia.rpcclient import RPCClient
+from routesia.schema.v1 import dhcpclient_pb2
 
 
 def get_cidr_address(ip_var, mask_var):
