@@ -4,6 +4,7 @@ hosteria/cli/__init__.py - CLI appplication
 
 import asyncio
 from asyncio import Queue
+from collections import OrderedDict
 import sys
 import termios
 import tty
@@ -49,7 +50,7 @@ class CommandNode:
         if keyword_list_arguments is not None:
             self.keyword_list_arguments = set(keyword_list_arguments)
 
-    def match(self, fragments: list[str]) -> tuple["CommandNode", dict[str, str]]:
+    def match(self, fragments: list[str], completion: bool = False) -> tuple["CommandNode", dict[str, str]]:
         """
         Return the child matching the given fragments.
 
@@ -60,21 +61,25 @@ class CommandNode:
             return self, {}
 
         if fragments[0] in self.children:
-            return self.children[fragments[0]].match(fragments[1:])
+            return self.children[fragments[0]].match(fragments[1:], completion=completion)
         else:
             for name, child in self.children.items():
                 if name.startswith(":"):
-                    node, args = child.match(fragments[1:])
+                    node, args = child.match(fragments[1:], completion=completion)
                     if node:
                         args[name[1:]] = fragments[0]
                         return node, args
             if self.handler:
                 # Check the remaining fragments for keyword arguments
                 keyword_fragments = fragments[:]
-                args = {}
+                args = OrderedDict()
                 while keyword_fragments:
                     if len(keyword_fragments) < 2:
-                        raise InvalidArgument(keyword_fragments[0])
+                        if completion:
+                            args[keyword_fragments[0]] = None
+                            break
+                        else:
+                            raise InvalidArgument(keyword_fragments[0])
 
                     name, value = keyword_fragments[:2]
                     keyword_fragments = keyword_fragments[2:]
@@ -151,19 +156,37 @@ class CommandRouter:
 
     async def get_command_completions(self, fragments: list[str]):
         try:
-            node, args = self.root_node.match(fragments)
+            node, args = self.root_node.match(fragments, completion=True)
         except CommandNotFound:
             return []
 
         completions = []
         for child in node.children:
             if child.startswith(":"):
-                completer = self.argument_completers.get(child[1:], None)
+                completer = self.argument_completers.get(child[1:])
                 if completer:
                     for child_completion in await completer(**args):
                         completions.append(child_completion)
             else:
                 completions.append(child)
+
+        keyword_value = False
+        if args:
+            last_keyword_arg, last_keyword_value = list(args.items())[-1]
+            if not last_keyword_value:
+                keyword_value = True
+                keyword_completer = self.argument_completers.get(last_keyword_arg)
+                if keyword_completer:
+                    for arg_completion in await keyword_completer(**args):
+                        completions.append(arg_completion)
+
+        if not keyword_value:
+            for keyword_argument in node.keyword_arguments:
+                if keyword_argument not in args:
+                    completions.append(keyword_argument)
+
+            for keyword_list_argument in node.keyword_list_arguments:
+                completions.append(keyword_list_argument)
 
         return completions
 

@@ -102,3 +102,4 @@ class RPCClient(Provider):
         response.ParseFromString(message.payload)
         if response.request_id in self.in_flight_requests:
             self.in_flight_requests[response.request_id].set_response(response)
+            del self.in_flight_requests[response.request_id]

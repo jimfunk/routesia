@@ -239,6 +239,41 @@ async def test_argument_completions(cli):
     ]
 
 
+async def test_keyword_argument_completions(cli):
+    def foo(arg1=None, arg2=None):
+        pass
+
+    async def complete_arg1(**args):
+        return ["foo", "bar"]
+
+    async def complete_arg2(**args):
+        return ["spam", "eggs"]
+
+    cli.add_command("show foo @arg1 @arg2", foo)
+
+    cli.add_argument_completer("arg1", complete_arg1)
+    cli.add_argument_completer("arg2", complete_arg2)
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo"])) == [
+        "arg1",
+        "arg2",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1"])) == [
+        "bar",
+        "foo",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1", "foo"])) == [
+        "arg2",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1", "foo", "arg2"])) == [
+        "eggs",
+        "spam",
+    ]
+
+
 async def test_argument_completions_no_completer(cli):
     def foo(arg):
         pass
