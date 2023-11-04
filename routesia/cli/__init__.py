@@ -42,13 +42,25 @@ class CommandNode:
         self.handler = None
         self.keyword_arguments = set()
         self.keyword_list_arguments = set()
+        self.disabled_completion_arguments = set()
 
     def set_handler(self, handler, keyword_arguments=None, keyword_list_arguments=None):
         self.handler = handler
         if keyword_arguments is not None:
-            self.keyword_arguments = set(keyword_arguments)
+            self.keyword_arguments = set()
+            for keyword_argument in keyword_arguments:
+                arg = keyword_argument.rstrip("!")
+                if keyword_argument.endswith("!"):
+                    self.disabled_completion_arguments.add(arg)
+                self.keyword_arguments.add(arg)
+
         if keyword_list_arguments is not None:
-            self.keyword_list_arguments = set(keyword_list_arguments)
+            self.keyword_list_arguments = set()
+            for keyword_argument in keyword_list_arguments:
+                arg = keyword_argument.rstrip("!")
+                if keyword_argument.endswith("!"):
+                    self.disabled_completion_arguments.add(arg)
+                self.keyword_list_arguments.add(arg)
 
     def match(self, fragments: list[str], completion: bool = False) -> tuple["CommandNode", dict[str, str]]:
         """
@@ -67,7 +79,7 @@ class CommandNode:
                 if name.startswith(":"):
                     node, args = child.match(fragments[1:], completion=completion)
                     if node:
-                        args[name[1:]] = fragments[0]
+                        args[name[1:].rstrip("!")] = fragments[0]
                         return node, args
             if self.handler:
                 # Check the remaining fragments for keyword arguments
@@ -163,10 +175,11 @@ class CommandRouter:
         completions = []
         for child in node.children:
             if child.startswith(":"):
-                completer = self.argument_completers.get(child[1:])
-                if completer:
-                    for child_completion in await completer(**args):
-                        completions.append(child_completion)
+                if not child.endswith("!"):
+                    completer = self.argument_completers.get(child[1:])
+                    if completer:
+                        for child_completion in await completer(**args):
+                            completions.append(child_completion)
             else:
                 completions.append(child)
 
@@ -176,17 +189,17 @@ class CommandRouter:
             if not last_keyword_value:
                 keyword_value = True
                 keyword_completer = self.argument_completers.get(last_keyword_arg)
-                if keyword_completer:
+                if keyword_completer and last_keyword_arg not in node.disabled_completion_arguments:
                     for arg_completion in await keyword_completer(**args):
                         completions.append(arg_completion)
 
         if not keyword_value:
             for keyword_argument in node.keyword_arguments:
                 if keyword_argument not in args:
-                    completions.append(keyword_argument)
+                    completions.append(keyword_argument.rstrip("!"))
 
             for keyword_list_argument in node.keyword_list_arguments:
-                completions.append(keyword_list_argument)
+                completions.append(keyword_list_argument.rstrip("!"))
 
         return completions
 
@@ -213,24 +226,30 @@ class CLI(Provider):
 
             show foo
 
-        If a component of the pattern starts with ``:`` it will represent an
-        argument that will be passed to the handler. The argument should be
-        added using the ``add_argument_completer()`` method if completion is
-        desired.
+        If a component of the pattern starts with ``:``, ``@`` or ``*`` it
+        will represent an argument that will be passed to the handler via a
+        keyword argument of the name without the prefix. For example, the
+        component ``:foo`` will result in the value being passed as the
+        ``foo`` argument to the handler.
 
-        For example:
+        If completion is desired, the argument name without the prefix should
+        be added using the ``add_argument_completer()`` method. If you have an
+        argument you are using for multiple commands but want to exclude
+        completion for it in one instance, appeng the ``!`` character to it.
 
-            show foo :bar
+        The ``:`` prefix represents a positional argument. The expected input
+        is simply the value. These must always be defined before keyword
+        arguments.
 
-        Commands may also define keyword arguments. Each argument must start
-        with a character indicating how it is to be interpreted:
+        The ``@`` prefix represents a simple keyword argument. The expected
+        input is the arguemnt name followed by whitespace, followed by the
+        value. Argument order does not matter as long as they are after
+        positional arguments.
 
-            ``@``: May only be specified once
-            ``*``: May be specified multiple times
-
-        Keyword arguments must always be defined after positional arguments.
-        They are expected to be entered in the command as 2 arguments,
-        starting with the variable name, eg: ``argument-name value``.
+        The ``*`` prefix represents a repeated keyword argument. The expected
+        input is exactly the same a simple keyword argument but may be
+        specified multiple times. The value passed to the handler will be a
+        list of all given values.
 
         All variables and arguments will be passed to the handler as keyword
         arguments, even when defined as positional in the pattern.
