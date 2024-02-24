@@ -199,7 +199,6 @@ class RouteEntity:
                     nexthop.gateway = attrs["RTA_GATEWAY"]
 
         logger.debug("Route %s added in table %s" % (self.destination, self.table.id))
-        self.apply()
 
     def handle_remove_event(self):
         logger.debug(

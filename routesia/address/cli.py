@@ -3,15 +3,10 @@ routesia/address/cli.py - Routesia address CLI
 """
 from ipaddress import ip_interface
 
-from routesia.cli import CLI
+from routesia.cli import CLI, InvalidArgument
 from routesia.rpcclient import RPCClient
 from routesia.service import Provider
 from routesia.schema.v1 import address_pb2
-
-
-
-# from routesia.cli.parameters import IPAddress, IPInterface, UInt32
-# from routesia.interface.commands import ConfiguredInterfaceParameter
 
 
 class AddressCLI(Provider):
@@ -26,8 +21,10 @@ class AddressCLI(Provider):
         self.cli.add_command("address show", self.show_addresses)
         self.cli.add_command("address show @interface", self.show_addresses)
         self.cli.add_command("address config list", self.show_address_configs)
-        self.cli.add_command("address config list @interface @ip", self.show_address_configs)
+        self.cli.add_command("address config list :interface", self.show_address_configs)
         self.cli.add_command("address config add :interface :ip @peer @scope", self.add_address_config)
+        self.cli.add_command("address config update :interface :ip @peer @scope", self.update_address_config)
+        self.cli.add_command("address config delete :interface :ip", self.delete_address_config)
 
     async def complete_interfaces(self, **args):
         interfaces = []
@@ -54,7 +51,7 @@ class AddressCLI(Provider):
             return interface_addresses
         return addresses
 
-    async def show_address_configs(self, interface=None, ip=None):
+    async def show_address_configs(self, interface=None):
         addresses = await self.rpc.request("address/config/list", None)
         if interface:
             interface_addresses = address_pb2.AddressConfigList()
@@ -63,13 +60,6 @@ class AddressCLI(Provider):
                     address = interface_addresses.address.add()
                     address.CopyFrom(address_config)
             addresses = interface_addresses
-        if ip:
-            ip_addresses = address_pb2.AddressConfigList()
-            for address_config in addresses.address:
-                if address_config.ip == ip:
-                    address = ip_addresses.address.add()
-                    address.CopyFrom(address_config)
-            addresses = ip_addresses
         return addresses
 
     async def add_address_config(self, interface, ip, peer=None, scope=None):
@@ -79,53 +69,37 @@ class AddressCLI(Provider):
         if peer is not None:
             address.peer = peer
         if scope is not None:
-            address.scope = scope
+
+            address.scope = int(scope)
         await self.rpc.request("address/config/add", address)
 
+    async def get_address(self, interface, ip):
+        addresses = await self.rpc.request("address/config/list", None)
+        address = None
 
-# class AddressConfigUpdate(CLICommand):
-#     command = "address config update"
-#     parameters = (
-#         ("interface", ConfiguredInterfaceParameter(required=True)),
-#         ("ip", IPParameter(required=True)),
-#         ("peer", IPAddress()),
-#         ("scope", UInt32()),
-#     )
+        for address_object in addresses.address:
+            if address_object.interface == interface and ip_interface(
+                address_object.ip
+            ) == ip_interface(ip):
+                address = address_object
 
-#     async def call(self, interface, ip, **kwargs):
-#         data = await self.rpc.request("address/config/list", None)
-#         addresses = address_pb2.AddressConfigList.FromString(data)
-#         address = None
-#         for address_object in addresses.address:
-#             if address_object.interface == interface and ip_interface(
-#                 address_object.ip
-#             ) == ip_interface(ip):
-#                 address = address_object
-#         if not address:
-#             raise CommandError("No such address: %s %s" % (interface, ip))
-#         self.update_message_from_args(address, **kwargs)
-#         await self.rpc.request("address/config/update", address)
+        if not address:
+            raise InvalidArgument("No such address: %s %s" % (interface, ip))
 
+        return address
 
-# class AddressConfigDelete(CLICommand):
-#     command = "address config delete"
-#     parameters = (
-#         ("interface", ConfiguredInterfaceParameter(required=True)),
-#         ("ip", IPParameter(required=True)),
-#     )
+    async def update_address_config(self, interface, ip, peer=None, scope=None):
+        address = await self.get_address(interface, ip)
 
-#     async def call(self, interface, ip, **kwargs):
-#         address = address_pb2.AddressConfig()
-#         address.interface = interface
-#         address.ip = ip
-#         await self.rpc.request("address/config/delete", address)
+        if peer is not None:
+            address.peer = peer
+        if scope is not None:
+            address.scope = int(scope)
 
+        await self.rpc.request("address/config/update", address)
 
-# class AddressCommandSet(CLICommandSet):
-#     commands = (
-#         AddressShow,
-#         AddressConfigList,
-#         AddressConfigAdd,
-#         AddressConfigUpdate,
-#         AddressConfigDelete,
-#     )
+    async def delete_address_config(self, interface, ip):
+        address = address_pb2.AddressConfig()
+        address.interface = interface
+        address.ip = ip
+        await self.rpc.request("address/config/delete", address)

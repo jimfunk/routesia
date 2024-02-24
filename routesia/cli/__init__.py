@@ -352,7 +352,7 @@ class CLI(Provider):
             except InvalidArgument as e:
                 prompt.display_message(f"Invalid argument: {e}")
                 return
-            except TimeoutError as e:
+            except TimeoutError:
                 prompt.display_message("Timed out handling command")
                 return
 

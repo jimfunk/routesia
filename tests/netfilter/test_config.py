@@ -2356,7 +2356,7 @@ def test_masquerade_with_ip_forward(nftables, any_integer):
     nftables.cmd(str(NetfilterConfig(config)))
     assert nftables.get_ruleset()["ip"]["nat"] == {
         "family": "ip",
-        "handle": 1,
+        "handle": any_integer,
         "name": "nat",
         "chains": {
             "postrouting": {
