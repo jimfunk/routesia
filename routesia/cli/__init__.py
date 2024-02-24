@@ -11,6 +11,7 @@ import tty
 
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
+from routesia.rpc import RPCInvalidParameters
 from routesia.rpcclient import RPCClient
 from routesia.service import Provider, ServiceExit
 
@@ -286,7 +287,10 @@ class CLI(Provider):
 
     async def handle_command(self, cmd):
         command, args = self.router.get_command_handler(cmd)
-        return await command(**args)
+        try:
+            return await command(**args)
+        except RPCInvalidParameters as e:
+            raise InvalidArgument(str(e))
 
     def read_input(self):
         self.key_queue.put_nowait(sys.stdin.read(1))

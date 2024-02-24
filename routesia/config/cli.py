@@ -1,0 +1,101 @@
+"""
+routesia/config/commands.py - Routesia config commands
+"""
+import difflib
+
+from routesia.cli import CLI
+from routesia.rpcclient import RPCClient
+from routesia.service import Provider
+from routesia.schema.v1 import config_pb2
+
+class ConfigCLI(Provider):
+    def __init__(self, cli: CLI, rpc: RPCClient):
+        super().__init__(self)
+        self.cli = cli
+        self.rpc = rpc
+
+        self.cli.add_command("config running show :section", self.show_running_config)
+
+    async def show_running_config(self, section=None):
+        config = await self.rpc.request("/config/running/get", None)
+        if section:
+            if not hasattr(config, section):
+                raise CommandError('Section "%s" not in config' % section)
+            return getattr(config, section)
+
+        return config
+
+
+# class Show(CLICommand):
+#     topic = None
+#     parameters = (("section", String()),)
+
+#     async def call(self, section=None, **kwargs):
+
+#     async def get_section_completions(self, suggestion, *args, **kwargs):
+#         completions = []
+#         for field in config_pb2.Config.DESCRIPTOR.fields:
+#             if field.name.startswith(suggestion):
+#                 completions.append(field.name)
+#         return completions
+
+
+# class ShowRunning(Show):
+#     command = "config running show"
+#     topic = "/config/running/get"
+
+
+# class ShowStaged(Show):
+#     command = "config staged show"
+#     topic = "/config/staged/get"
+
+
+# class Diff(Show):
+#     command = "config diff"
+
+#     async def call(self, section=None, **kwargs):
+#         data = await self.client.request("/config/running/get", None)
+#         running_config = config_pb2.Config.FromString(data)
+#         data = await self.client.request("/config/staged/get", None)
+#         staged_config = config_pb2.Config.FromString(data)
+
+#         if section:
+#             if not hasattr(running_config, section):
+#                 raise CommandError('Section "%s" not in config' % section)
+#             running_config = getattr(running_config, section)
+#             staged_config = getattr(staged_config, section)
+
+#         return "\n".join(
+#             list(
+#                 difflib.unified_diff(
+#                     str(running_config).splitlines(),
+#                     str(staged_config).splitlines(),
+#                     lineterm="",
+#                 )
+#             )[2:]
+#         )
+
+
+# class Drop(CLICommand):
+#     command = "config drop"
+
+#     async def call(self, **kwargs):
+#         await self.client.request("/config/staged/drop", None)
+
+
+# class Commit(CLICommand):
+#     command = "config commit"
+
+#     async def call(self, **kwargs):
+#         data = await self.client.request("/config/staged/commit", None)
+#         return config_pb2.CommitResult.FromString(data)
+
+
+# class ConfigCommandSet(CLICommandSet):
+#     commands = (
+#         ShowRunning,
+#         ShowStaged,
+#         Diff,
+#         Drop,
+#         Commit,
+#     )

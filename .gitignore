@@ -1,5 +1,6 @@
 build
 dist
+.vscode
 *.egg-info
 *.pyc
 *_pb2.py

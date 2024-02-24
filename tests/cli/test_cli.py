@@ -65,6 +65,19 @@ async def test_variable_command(cli):
     assert calls == ["value"]
 
 
+async def test_variable_command_disabled_completion(cli):
+    calls = []
+
+    async def show_foo(arg):
+        calls.append(arg)
+
+    cli.add_command("show foo :arg!", show_foo)
+
+    await cli.handle_command("show foo value")
+
+    assert calls == ["value"]
+
+
 async def test_branches_variable_and_non_variable(cli):
     foo_calls = []
     foo_all_calls = []
@@ -239,6 +252,20 @@ async def test_argument_completions(cli):
     ]
 
 
+async def test_argument_disabled_completions(cli):
+    def foo(arg):
+        pass
+
+    async def complete_arg(**args):
+        return ["spam", "eggs"]
+
+    cli.add_command("show foo :arg!", foo)
+
+    cli.add_argument_completer("arg", complete_arg)
+
+    assert await cli.router.get_command_completions(["show", "foo"]) == []
+
+
 async def test_keyword_argument_completions(cli):
     def foo(arg1=None, arg2=None):
         pass
@@ -272,6 +299,38 @@ async def test_keyword_argument_completions(cli):
         "eggs",
         "spam",
     ]
+
+
+async def test_keyword_argument_disabled_completions(cli):
+    def foo(arg1=None, arg2=None):
+        pass
+
+    async def complete_arg1(**args):
+        return ["foo", "bar"]
+
+    async def complete_arg2(**args):
+        return ["spam", "eggs"]
+
+    cli.add_command("show foo @arg1 @arg2!", foo)
+
+    cli.add_argument_completer("arg1", complete_arg1)
+    cli.add_argument_completer("arg2", complete_arg2)
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo"])) == [
+        "arg1",
+        "arg2",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1"])) == [
+        "bar",
+        "foo",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1", "foo"])) == [
+        "arg2",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1", "foo", "arg2"])) == []
 
 
 async def test_argument_completions_no_completer(cli):

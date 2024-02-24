@@ -26,9 +26,8 @@ class AddressCLI(Provider):
         self.cli.add_command("address show", self.show_addresses)
         self.cli.add_command("address show @interface", self.show_addresses)
         self.cli.add_command("address config list", self.show_address_configs)
-        # self.cli.add_command("address config list @interface @ip", self.show_address_configs)
-        self.cli.add_command("address config list :interface", self.show_address_configs)
-        self.cli.add_command("address config list :ip", self.show_address_configs)
+        self.cli.add_command("address config list @interface @ip", self.show_address_configs)
+        self.cli.add_command("address config add :interface :ip @peer @scope", self.add_address_config)
 
     async def complete_interfaces(self, **args):
         interfaces = []
@@ -73,45 +72,15 @@ class AddressCLI(Provider):
             addresses = ip_addresses
         return addresses
 
-
-# class AddressConfigList(CLICommand):
-#     command = "address config list"
-#     parameters = (
-#         ("interface", ConfiguredInterfaceParameter()),
-#         ("ip", IPParameter()),
-#     )
-
-#     async def call(self, interface=None, ip=None):
-
-# class IPParameter(IPInterface):
-#     async def get_completions(self, client, suggestion, **kwargs):
-#         completions = []
-#         interface = kwargs.get("interface", None)
-#         data = await client.request("address/config/list", None)
-#         address_list = address_pb2.AddressConfigList.FromString(data)
-#         for address in address_list.address:
-#             if (
-#                 interface is None or interface == address.interface
-#             ) and address.ip.startswith(suggestion):
-#                 completions.append(address.ip)
-#         return completions
-
-
-
-
-# class AddressConfigAdd(CLICommand):
-#     command = "address config add"
-#     parameters = (
-#         ("interface", ConfiguredInterfaceParameter(required=True)),
-#         ("ip", IPInterface(required=True)),
-#         ("peer", IPAddress()),
-#         ("scope", UInt32()),
-#     )
-
-#     async def call(self, **kwargs):
-#         address = address_pb2.AddressConfig()
-#         self.update_message_from_args(address, **kwargs)
-#         await self.rpc.request("address/config/add", address)
+    async def add_address_config(self, interface, ip, peer=None, scope=None):
+        address = address_pb2.AddressConfig()
+        address.interface = interface
+        address.ip = ip
+        if peer is not None:
+            address.peer = peer
+        if scope is not None:
+            address.scope = scope
+        await self.rpc.request("address/config/add", address)
 
 
 # class AddressConfigUpdate(CLICommand):
