@@ -9,6 +9,7 @@ import sys
 import termios
 import tty
 
+from routesia.cli.history import History
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
 from routesia.rpc import RPCInvalidParameters
@@ -216,6 +217,7 @@ class CLI(Provider):
         self.application = None
         self.router = CommandRouter()
         self.key_queue = Queue(maxsize=65535)
+        self.history = History()
 
     def add_command(self, pattern: str, handler: callable):
         """
@@ -299,7 +301,7 @@ class CLI(Provider):
         """
         Prompt and handle command if valid. Returns after each line
         """
-        prompt = Prompt(stdout=self.stdout)
+        prompt = Prompt(stdout=self.stdout, history=self.history)
 
         with KeyReader(self.stdin) as keyreader:
             while True:
@@ -311,6 +313,10 @@ class CLI(Provider):
                         break
                 elif key == Key.DELETE_LEFT:
                     prompt.delete_left()
+                elif key == Key.HOME:
+                    prompt.cursor_home()
+                elif key == Key.END:
+                    prompt.cursor_end()
                 elif key == Key.LEFT:
                     prompt.cursor_left()
                 elif key == Key.RIGHT:
@@ -380,3 +386,4 @@ class CLI(Provider):
         finally:
             loop.remove_reader(self.stdin.fileno())
             termios.tcsetattr(self.stdin, termios.TCSAFLUSH, term_attrs)
+            self.history.save()

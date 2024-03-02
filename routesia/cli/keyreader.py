@@ -98,6 +98,8 @@ class EscapeSequenceTree:
 
 
 ESCAPE_SEQUENCE_TREE = EscapeSequenceTree()
+ESCAPE_SEQUENCE_TREE.add("\x1b[1~", Key.HOME)
+ESCAPE_SEQUENCE_TREE.add("\x1b[4~", Key.END)
 ESCAPE_SEQUENCE_TREE.add("\x1b[3~", Key.DELETE_RIGHT)
 ESCAPE_SEQUENCE_TREE.add("\x1b[A", Key.UP)
 ESCAPE_SEQUENCE_TREE.add("\x1b[B", Key.DOWN)

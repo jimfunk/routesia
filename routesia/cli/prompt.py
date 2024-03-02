@@ -5,6 +5,7 @@ hosteria/cli/prompt.py - Prompt implementation
 import sys
 
 from routesia.cli.ansi import ansi
+from routesia.cli.history import History, HistoryCursor
 
 
 class CompletionSelector:
@@ -120,10 +121,19 @@ class Prompt:
     Represents the contents of a prompt, tracking position and providing
     editing operations
     """
-    def __init__(self, stdout=sys.stdout, input="", prefix: str = "> "):
+    def __init__(
+            self,
+            stdout=sys.stdout,
+            input="",
+            prefix: str = "> ",
+            history: History | None = None,
+        ):
         self.stdout = stdout
         self.input = input
         self.prefix = prefix
+        self.history: History | None = history
+        self.history_cursor: HistoryCursor | None = history.get_cursor() if history else None
+
         self.position = len(self.input)
         self.selector: CompletionSelector = None
         self.current_fragment = None
@@ -200,15 +210,43 @@ class Prompt:
             self.position += 1
             self.display(ansi.right(1))
 
+    def cursor_home(self):
+        if self.position > 0:
+            self.display(ansi.left(self.position))
+            self.position = 0
+
+    def cursor_end(self):
+        distance = len(self.input) - self.position
+        if distance:
+            self.display(ansi.right(distance))
+            self.position = len(self.input)
+
     def up(self):
         if self.selector:
             self.selector.previous()
             self.display(self.selector.view())
+        elif self.history_cursor:
+            self.replace_input(self.history_cursor.previous())
 
     def down(self):
         if self.selector:
             self.selector.next()
             self.display(self.selector.view())
+        elif self.history_cursor:
+            self.replace_input(self.history_cursor.next())
+
+    def replace_input(self, input):
+        """
+        Replace input
+        """
+        if self.position:
+            self.display(ansi.left(self.position))
+        self.display(input)
+        distance = len(self.input) - len(input)
+        if distance > 0:
+            self.display(ansi.save_cursor + " " * distance + ansi.restore_cursor)
+        self.input = input
+        self.position = len(input)
 
     def update_fragment(self, s: str):
         fragment = self.get_current_fragment()
@@ -357,6 +395,6 @@ class Prompt:
                 return False
             else:
                 self.reject_completion()
+        if self.history:
+            self.history.add(self.input)
         return True
-
-

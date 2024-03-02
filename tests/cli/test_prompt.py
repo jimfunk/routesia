@@ -403,6 +403,66 @@ def test_prompt_cursor_right(stdout):
     assert stdout.value == ansi.right(1) * 3
 
 
+def test_prompt_cursor_home(stdout):
+    prompt = Prompt(stdout=stdout, input="foo")
+
+    prompt.cursor_home()
+    assert prompt.position == 0
+
+    assert stdout.value == "> foo" + ansi.left(3)
+    assert stdout.dirty is False
+
+    prompt.cursor_home()
+    assert prompt.position == 0
+
+
+def test_prompt_cursor_end(stdout):
+    prompt = Prompt(stdout=stdout, input="foo")
+
+    prompt.cursor_left()
+    prompt.cursor_left()
+
+    prompt.cursor_end()
+    assert prompt.position == 3
+
+    assert stdout.value == "> foo" + ansi.left(1) * 2 + ansi.right(2)
+    assert stdout.dirty is False
+
+    prompt.cursor_end()
+    assert prompt.position == 3
+    assert stdout.value == "> foo" + ansi.left(1) * 2 + ansi.right(2)
+
+
+def test_prompt_replace_input_empty(stdout):
+    prompt = Prompt(stdout=stdout, input="")
+
+    prompt.replace_input("something")
+
+    assert prompt.position == 9
+    assert stdout.value == "> " + "something"
+    assert stdout.dirty is False
+
+
+def test_prompt_replace_input_larger(stdout):
+    prompt = Prompt(stdout=stdout, input="foo")
+
+    prompt.replace_input("something")
+
+    assert prompt.position == 9
+    assert stdout.value == "> foo" + ansi.left(3) + "something"
+    assert stdout.dirty is False
+
+
+def test_prompt_replace_input_smaller(stdout):
+    prompt = Prompt(stdout=stdout, input="something")
+
+    prompt.replace_input("foo")
+
+    assert prompt.position == 3
+    assert stdout.value == "> something" + ansi.left(9) + "foo" + ansi.save_cursor + "      " + ansi.restore_cursor
+    assert stdout.dirty is False
+
+
 def test_prompt_insert_append(stdout):
     prompt = Prompt(stdout=stdout)
 
