@@ -394,3 +394,53 @@ async def test_argument_completions_previous_args(cli):
             "arg2": "two",
         },
     ]
+
+
+async def test_variable_coercion(cli):
+    calls = []
+
+    async def show_foo(arg: int):
+        calls.append(arg)
+
+    cli.add_command("show foo :arg", show_foo)
+
+    with pytest.raises(InvalidArgument):
+        await cli.handle_command("show foo value")
+
+    await cli.handle_command("show foo 42")
+
+    assert calls == [42]
+
+
+async def test_variable_coercion_optional(cli):
+    calls = []
+
+    async def show_foo(arg: int = None):
+        calls.append(arg)
+
+    cli.add_command("show foo", show_foo)
+    cli.add_command("show foo :arg", show_foo)
+
+    await cli.handle_command("show foo")
+
+    assert calls == [None]
+
+
+async def test_variable_coercion_union(cli):
+    calls = []
+
+    async def show_foo(arg: int | float):
+        calls.append(arg)
+
+    cli.add_command("show foo :arg", show_foo)
+
+    with pytest.raises(InvalidArgument):
+        await cli.handle_command("show foo value")
+
+    await cli.handle_command("show foo 42")
+    await cli.handle_command("show foo 4.2")
+
+    assert calls == [
+        42,
+        4.2,
+    ]

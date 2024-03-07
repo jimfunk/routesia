@@ -8,7 +8,7 @@ import logging
 from routesia.config.provider import ConfigProvider
 from routesia.service import Provider
 from routesia.address.entity import AddressEntity
-from routesia.rpc import RPC, RPCInvalidParameters, RPCEntityExists
+from routesia.rpc import RPC, RPCInvalidArgument
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.rtnetlink.events import (
     AddressAddEvent,
@@ -42,10 +42,13 @@ class AddressProvider(Provider):
         # Track interfaces for use by configured addresses
         self.interfaces = {}
 
+        self.config.register_change_handler(self.on_config_change)
+
         self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+
         self.rpc.register("address/list", self.rpc_list_addresses)
         self.rpc.register("address/config/list", self.rpc_list_address_configs)
         self.rpc.register("address/config/add", self.rpc_add_address)
@@ -146,9 +149,6 @@ class AddressProvider(Provider):
             logger.debug("Removing dynamic address %s to %s" % (address, interface))
             self.addresses[key].remove_dynamic()
 
-    def load(self):
-        self.config.register_change_handler(self.on_config_change)
-
     def start(self):
         for config in self.config.data.addresses.address:
             if (config.interface, config.ip) not in self.addresses:
@@ -172,13 +172,13 @@ class AddressProvider(Provider):
 
     def validate_interface_and_ip(self, msg: address_pb2.AddressConfig):
         if not msg.interface:
-            raise RPCInvalidParameters("interface not specified")
+            raise RPCInvalidArgument("interface not specified")
         if not msg.ip:
-            raise RPCInvalidParameters("ip not specified")
+            raise RPCInvalidArgument("ip not specified")
         try:
             ip_interface(msg.ip)
         except ValueError:
-            raise RPCInvalidParameters("ip not an IP address")
+            raise RPCInvalidArgument("ip not an IP address")
 
     async def rpc_add_address(self, msg: address_pb2.AddressConfig) -> None:
         self.validate_interface_and_ip(msg)
@@ -187,7 +187,7 @@ class AddressProvider(Provider):
             if address.interface == msg.interface and ip_interface(
                 address.ip
             ) == ip_interface(msg.ip):
-                raise RPCEntityExists("%s %s" % (msg.interface, msg.ip))
+                raise RPCInvalidArgument("%s %s" % (msg.interface, msg.ip))
         address = self.config.staged_data.addresses.address.add()
         address.CopyFrom(msg)
         return address

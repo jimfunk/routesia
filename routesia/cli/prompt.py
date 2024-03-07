@@ -5,6 +5,7 @@ hosteria/cli/prompt.py - Prompt implementation
 import sys
 
 from routesia.cli.ansi import ansi
+from routesia.cli.completion import Completion
 from routesia.cli.history import History, HistoryCursor
 
 
@@ -12,8 +13,14 @@ class CompletionSelector:
     """
     Represents a completion selector
     """
-    def __init__(self, completions: list[str], fragment: str, max_visible=5):
-        self.completions = completions
+    def __init__(self, completions: list[str | Completion], fragment: str, max_visible=5):
+        self.completions = []
+        for completion in completions:
+            if not isinstance(completion, Completion):
+                value = str(completion)
+                completion = Completion(value, value)
+            self.completions.append(completion)
+
         self.max_visible = max_visible
         self.update_fragment(fragment)
 
@@ -21,10 +28,10 @@ class CompletionSelector:
         self.fragment = fragment
         self.visible_completion_index = 0
         self.selected_completion_index = None
-        self.matching_completions = [completion for completion in self.completions if completion.startswith(self.fragment)]
+        self.matching_completions = [completion for completion in self.completions if completion.value.startswith(self.fragment)]
         self.height = max(self.max_visible, len(self.matching_completions))
         if self.matching_completions:
-            self.width = max([len(completion) for completion in self.matching_completions])
+            self.width = max([len(completion.display) for completion in self.matching_completions])
         else:
             self.width = 0
 
@@ -64,7 +71,7 @@ class CompletionSelector:
                 s += "+"
             else:
                 s += " "
-            s += completion + " " * (self.width - len(completion) + 1)
+            s += completion.display + " " * (self.width - len(completion.display) + 1)
             s += ansi.reset + ansi.down(1) + ansi.left(self.width + 2)
 
         s += ansi.restore_cursor
@@ -248,15 +255,15 @@ class Prompt:
         self.input = input
         self.position = len(input)
 
-    def update_fragment(self, s: str):
+    def update_fragment(self, completion: Completion):
         fragment = self.get_current_fragment()
         remaining = self.input[fragment.end:]
-        delta = fragment.start + len(s) - self.position
-        self.input = self.input[:fragment.start] + s + self.input[fragment.end:]
+        delta = fragment.start + len(completion.value) - self.position
+        self.input = self.input[:fragment.start] + completion.value + self.input[fragment.end:]
         if fragment.start < self.position:
             self.display(ansi.left(self.position - fragment.start), False)
         self.position += delta
-        self.display(s, False)
+        self.display(completion.value, False)
         if remaining:
             self.display(remaining + ansi.left(len(remaining)))
         self.flush()

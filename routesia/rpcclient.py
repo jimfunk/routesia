@@ -9,11 +9,9 @@ import uuid
 from routesia.mqtt import MQTT
 from routesia.rpc import (
     RPCUnspecifiedError,
-    RPCInvalidRequest,
     RPCNoSuchMethod,
-    RPCInvalidParameters,
-    RPCEntityNotFound,
-    RPCEntityExists,
+    RPCInvalidArgument,
+    RPCInvalidRequest,
 )
 from routesia.schema.v1 import rpc_pb2
 from routesia.schema.registry import SchemaRegistry
@@ -27,9 +25,7 @@ ERROR_CODE_MAP = {
     rpc_pb2.RPCResponse.UNSPECIFIED_ERROR: RPCUnspecifiedError,
     rpc_pb2.RPCResponse.NO_SUCH_METHOD: RPCNoSuchMethod,
     rpc_pb2.RPCResponse.INVALID_REQUEST: RPCInvalidRequest,
-    rpc_pb2.RPCResponse.INVALID_PARAMETERS: RPCInvalidParameters,
-    rpc_pb2.RPCResponse.ENTITY_NOT_FOUND: RPCEntityNotFound,
-    rpc_pb2.RPCResponse.ENTITY_EXISTS: RPCEntityExists,
+    rpc_pb2.RPCResponse.INVALID_ARGUMENT: RPCInvalidArgument,
 }
 
 

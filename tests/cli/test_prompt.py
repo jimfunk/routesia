@@ -1,6 +1,7 @@
 import pytest
 
 from routesia.cli.ansi import ansi
+from routesia.cli.completion import Completion
 from routesia.cli.prompt import CompletionSelector, Prompt
 
 
@@ -15,9 +16,32 @@ def test_selector_empty_fragment():
     )
     assert selector.fragment == ""
     assert selector.matching_completions == [
-        "one",
-        "two",
-        "three",
+        Completion("one", "one"),
+        Completion("two", "two"),
+        Completion("three", "three"),
+    ]
+    assert selector.view() == \
+        ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
+        ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
+        ansi.reverse + " two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
+        ansi.reverse + " three " + ansi.reset + ansi.down(1) + ansi.left(7) + \
+        ansi.restore_cursor
+
+
+def test_selector_empty_fragment_completions():
+    selector = CompletionSelector(
+        [
+            Completion("1", "one"),
+            Completion("2", "two"),
+            Completion("3", "three"),
+        ],
+        "",
+    )
+    assert selector.fragment == ""
+    assert selector.matching_completions == [
+            Completion("1", "one"),
+            Completion("2", "two"),
+            Completion("3", "three"),
     ]
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
@@ -38,13 +62,34 @@ def test_selector_matching_fragment():
     )
     assert selector.fragment == "t"
     assert selector.matching_completions == [
-        "two",
-        "three",
+        Completion("two", "two"),
+        Completion("three", "three"),
     ]
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(1) + \
         ansi.reverse + " two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
         ansi.reverse + " three " + ansi.reset + ansi.down(1) + ansi.left(7) + \
+        ansi.restore_cursor
+
+
+def test_selector_matching_fragment_completions():
+    selector = CompletionSelector(
+        [
+            Completion("one", "1 (one)"),
+            Completion("two", "2 (two)"),
+            Completion("three", "3 (three)"),
+        ],
+        "t",
+    )
+    assert selector.fragment == "t"
+    assert selector.matching_completions == [
+        Completion("two", "2 (two)"),
+        Completion("three", "3 (three)"),
+    ]
+    assert selector.view() == \
+        ansi.save_cursor + ansi.down(1) + ansi.left(1) + \
+        ansi.reverse + " 2 (two)   " + ansi.reset + ansi.down(1) + ansi.left(11) + \
+        ansi.reverse + " 3 (three) " + ansi.reset + ansi.down(1) + ansi.left(11) + \
         ansi.restore_cursor
 
 
@@ -74,7 +119,7 @@ def test_selector_selection_next():
     assert selector.selection is None
 
     selector.next()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -83,7 +128,7 @@ def test_selector_selection_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "two"
+    assert selector.selection == Completion("two", "two")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -92,7 +137,7 @@ def test_selector_selection_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -101,7 +146,7 @@ def test_selector_selection_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -122,7 +167,7 @@ def test_selector_selection_previous():
     assert selector.selection is None
 
     selector.previous()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -131,7 +176,7 @@ def test_selector_selection_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "two"
+    assert selector.selection == Completion("two", "two")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -140,7 +185,7 @@ def test_selector_selection_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -149,7 +194,7 @@ def test_selector_selection_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -199,7 +244,7 @@ def test_selector_scroll_next():
     assert selector.selection is None
 
     selector.next()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -207,7 +252,7 @@ def test_selector_scroll_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "two"
+    assert selector.selection == Completion("two", "two")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -215,7 +260,7 @@ def test_selector_scroll_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + "+two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -223,7 +268,7 @@ def test_selector_scroll_next():
         ansi.restore_cursor
 
     selector.next()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -244,7 +289,7 @@ def test_selector_scroll_previous():
     assert selector.selection is None
 
     selector.previous()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + "+two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -252,7 +297,7 @@ def test_selector_scroll_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "two"
+    assert selector.selection == Completion("two", "two")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         "+two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -260,7 +305,7 @@ def test_selector_scroll_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "one"
+    assert selector.selection == Completion("one", "one")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         " one   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -268,7 +313,7 @@ def test_selector_scroll_previous():
         ansi.restore_cursor
 
     selector.previous()
-    assert selector.selection == "three"
+    assert selector.selection == Completion("three", "three")
     assert selector.view() == \
         ansi.save_cursor + ansi.down(1) + ansi.left(0) + \
         ansi.reverse + "+two   " + ansi.reset + ansi.down(1) + ansi.left(7) + \
@@ -613,7 +658,7 @@ def test_update_fragment_end(stdout):
 
     stdout.clear()
 
-    prompt.update_fragment("bar")
+    prompt.update_fragment(Completion("bar", "bar"))
     assert prompt.input == "foo bar"
     assert prompt.position == 7
 
@@ -632,7 +677,7 @@ def test_update_fragment_middle(stdout):
 
     stdout.clear()
 
-    prompt.update_fragment("bar")
+    prompt.update_fragment(Completion("bar", "bar"))
     assert prompt.input == "foo bar baz"
     assert prompt.position == 7
 
@@ -645,7 +690,7 @@ def test_update_fragment_empty(stdout):
 
     stdout.clear()
 
-    prompt.update_fragment("bar")
+    prompt.update_fragment(Completion("bar", "bar"))
     assert prompt.input == "foo bar"
     assert prompt.position == 7
 
@@ -690,9 +735,9 @@ async def test_complete_next(stdout):
 
     await prompt.complete(getter.get)
     await prompt.complete(getter.get)
-    assert prompt.selector.selection == "foo"
+    assert prompt.selector.selection == Completion("foo", "foo")
     await prompt.complete(getter.get)
-    assert prompt.selector.selection == "bar"
+    assert prompt.selector.selection == Completion("bar", "bar")
 
 
 async def test_complete_single_result(stdout):
@@ -742,9 +787,9 @@ async def test_complete_previous(stdout):
 
     await prompt.complete(getter.get)
     prompt.complete_previous()
-    assert prompt.selector.selection == "baz"
+    assert prompt.selector.selection == Completion("baz", "baz")
     prompt.complete_previous()
-    assert prompt.selector.selection == "bar"
+    assert prompt.selector.selection == Completion("bar", "bar")
 
 
 async def test_complete_up(stdout):
@@ -758,9 +803,9 @@ async def test_complete_up(stdout):
 
     await prompt.complete(getter.get)
     prompt.up()
-    assert prompt.selector.selection == "baz"
+    assert prompt.selector.selection == Completion("baz", "baz")
     prompt.up()
-    assert prompt.selector.selection == "bar"
+    assert prompt.selector.selection == Completion("bar", "bar")
 
 
 async def test_complete_down(stdout):
@@ -774,9 +819,9 @@ async def test_complete_down(stdout):
 
     await prompt.complete(getter.get)
     prompt.down()
-    assert prompt.selector.selection == "foo"
+    assert prompt.selector.selection == Completion("foo", "foo")
     prompt.down()
-    assert prompt.selector.selection == "bar"
+    assert prompt.selector.selection == Completion("bar", "bar")
 
 
 async def test_complete_no_selection_enter(stdout):
@@ -856,12 +901,12 @@ async def test_complete_insert_ambiguous(stdout):
     prompt.insert("b")
     assert prompt.input == "b"
     assert prompt.selector.matching_completions == [
-        "bar",
-        "baz",
+        Completion("bar", "bar"),
+        Completion("baz", "baz"),
     ]
 
     await prompt.complete(getter.get)
-    assert prompt.selector.selection == "bar"
+    assert prompt.selector.selection == Completion("bar", "bar")
 
 
 async def test_complete_insert_unambiguous(stdout):
@@ -877,7 +922,7 @@ async def test_complete_insert_unambiguous(stdout):
     prompt.insert("f")
     assert prompt.input == "f"
     assert prompt.selector.matching_completions == [
-        "foo",
+        Completion("foo", "foo"),
     ]
 
     await prompt.complete(getter.get)
@@ -918,14 +963,14 @@ async def test_complete_delete_left(stdout):
     prompt.insert("a")
     prompt.insert("r")
     assert prompt.selector.matching_completions == [
-        "bar",
+        Completion("bar", "bar"),
     ]
 
     prompt.delete_left()
     assert prompt.input == "ba"
     assert prompt.selector.matching_completions == [
-        "bar",
-        "baz",
+        Completion("bar", "bar"),
+        Completion("baz", "baz"),
     ]
 
 
@@ -943,8 +988,8 @@ async def test_complete_delete_left_entire_fragment(stdout):
     prompt.insert("b")
     await prompt.complete(getter.get)
     assert prompt.selector.matching_completions == [
-        "bar",
-        "baz",
+        Completion("bar", "bar"),
+        Completion("baz", "baz"),
     ]
 
     prompt.delete_left()
@@ -967,8 +1012,8 @@ async def test_complete_cursor_left_outside_fragment(stdout):
     prompt.insert("b")
     await prompt.complete(getter.get)
     assert prompt.selector.matching_completions == [
-        "bar",
-        "baz",
+        Completion("bar", "bar"),
+        Completion("baz", "baz"),
     ]
 
     prompt.cursor_left()
@@ -992,8 +1037,8 @@ async def test_complete_cursor_right_outside_fragment(stdout):
     prompt.cursor_left()
     await prompt.complete(getter.get)
     assert prompt.selector.matching_completions == [
-        "bar",
-        "baz",
+        Completion("bar", "bar"),
+        Completion("baz", "baz"),
     ]
 
     prompt.cursor_right()

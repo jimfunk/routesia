@@ -6,7 +6,7 @@ from ipaddress import ip_network
 import logging
 
 from routesia.config.provider import ConfigProvider
-from routesia.rpc import RPCInvalidParameters, RPCEntityExists, RPCEntityNotFound
+from routesia.rpc import RPCInvalidArgument, RPCInvalidArgument, RPCInvalidArgument
 from routesia.service import Provider
 from routesia.service import Service
 from routesia.rpc import RPC
@@ -49,20 +49,22 @@ class RouteProvider(Provider):
 
         self.config.register_init_config_handler(self.init_config)
         self.config.register_change_handler(self.handle_config_change)
+
         self.service.subscribe_event(RouteAddEvent, self.handle_route_add)
         self.service.subscribe_event(RouteRemoveEvent, self.handle_route_remove)
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
-        self.rpc.register("/route/list", self.rpc_list_routes)
-        self.rpc.register("/route/table/list", self.rpc_list_tables)
-        self.rpc.register("/route/config/get", self.rpc_get_config)
-        self.rpc.register("/route/config/table/add", self.rpc_add_table)
-        self.rpc.register("/route/config/table/update", self.rpc_update_table)
-        self.rpc.register("/route/config/table/delete", self.rpc_delete_table)
-        self.rpc.register("/route/config/route/get", self.rpc_get_route)
-        self.rpc.register("/route/config/route/add", self.rpc_add_route)
-        self.rpc.register("/route/config/route/update", self.rpc_update_route)
-        self.rpc.register("/route/config/route/delete", self.rpc_delete_route)
+
+        self.rpc.register("route/list", self.rpc_list_routes)
+        self.rpc.register("route/table/list", self.rpc_list_tables)
+        self.rpc.register("route/config/get", self.rpc_get_config)
+        self.rpc.register("route/config/table/add", self.rpc_add_table)
+        self.rpc.register("route/config/table/update", self.rpc_update_table)
+        self.rpc.register("route/config/table/delete", self.rpc_delete_table)
+        self.rpc.register("route/config/route/get", self.rpc_get_route)
+        self.rpc.register("route/config/route/add", self.rpc_add_route)
+        self.rpc.register("route/config/route/update", self.rpc_update_route)
+        self.rpc.register("route/config/route/delete", self.rpc_delete_route)
 
     def init_config(self, config):
         # Set the default tables. These are always present
@@ -153,19 +155,19 @@ class RouteProvider(Provider):
 
     def rpc_add_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidParameters("id not specified")
+            raise RPCInvalidArgument("id not specified")
         for table in self.config.staged_data.route.table:
             if table.id == msg.id:
-                raise RPCEntityExists("id %s" % msg.id)
+                raise RPCInvalidArgument("id %s" % msg.id)
             if msg.name and table.name == msg.name:
-                raise RPCEntityExists("name %s" % msg.name)
+                raise RPCInvalidArgument("name %s" % msg.name)
 
         table = self.config.staged_data.route.table.add()
         table.CopyFrom(msg)
 
     def rpc_update_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidParameters("id not specified")
+            raise RPCInvalidArgument("id not specified")
         for table in self.config.staged_data.route.table:
             if table.id == msg.id:
                 table.name = msg.name
@@ -173,9 +175,9 @@ class RouteProvider(Provider):
 
     def rpc_delete_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidParameters("id not specified")
+            raise RPCInvalidArgument("id not specified")
         if msg.id in DEFAULT_TABLES:
-            raise RPCInvalidParameters("Cannot remove default table")
+            raise RPCInvalidArgument("Cannot remove default table")
         for i, table in enumerate(self.config.staged_data.route.table):
             if table.id == msg.id:
                 del self.config.staged_data.route.table[i]
@@ -190,7 +192,7 @@ class RouteProvider(Provider):
             for table in self.config.staged_data.route.table:
                 if table.name == name:
                     return table
-            raise RPCEntityNotFound(name)
+            raise RPCInvalidArgument(name)
 
         if not id:
             id = 254
@@ -198,7 +200,7 @@ class RouteProvider(Provider):
         for table in self.config.staged_data.route.table:
             if table.id == id:
                 return table
-        raise RPCEntityNotFound(str(id))
+        raise RPCInvalidArgument(str(id))
 
     def rpc_get_route(
         self, msg: route_pb2.RouteTableConfig
@@ -215,7 +217,7 @@ class RouteProvider(Provider):
                 route_route = route_table.route.add()
                 route_route.CopyFrom(route)
                 return route_table
-        raise RPCEntityNotFound(str(destination))
+        raise RPCInvalidArgument(str(destination))
 
     def rpc_add_route(self, msg: route_pb2.RouteTableConfig) -> None:
         table = self.get_table(msg.id, msg.name)
@@ -224,7 +226,7 @@ class RouteProvider(Provider):
 
         for route in table.route:
             if ip_network(route.destination) == destination:
-                raise RPCEntityExists(str(destination))
+                raise RPCInvalidArgument(str(destination))
 
         route = table.route.add()
         route.CopyFrom(msg.route[0])

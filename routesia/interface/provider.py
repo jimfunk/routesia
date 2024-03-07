@@ -4,7 +4,7 @@ routesia/interface/provider.py - Interface support
 
 import logging
 from routesia.config.provider import ConfigProvider
-from routesia.rpc import RPCInvalidParameters, RPCEntityExists
+from routesia.rpc import RPCInvalidArgument
 from routesia.service import Provider
 from routesia.interface.entities import (
     INTERFACE_TYPE_ENTITY_MAP,
@@ -53,13 +53,16 @@ class InterfaceProvider(Provider):
         self.interface_dependencies = {}
         self.running = False
 
+        self.config.register_change_handler(self.on_config_change)
+
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
-        self.rpc.register("/interface/list", self.rpc_list_interfaces)
-        self.rpc.register("/interface/config/list", self.rpc_list_interface_configs)
-        self.rpc.register("/interface/config/add", self.rpc_add_interface_config)
-        self.rpc.register("/interface/config/update", self.rpc_update_interface_config)
-        self.rpc.register("/interface/config/delete", self.rpc_delete_interface_config)
+
+        self.rpc.register("interface/list", self.rpc_list_interfaces)
+        self.rpc.register("interface/config/list", self.rpc_list_interface_configs)
+        self.rpc.register("interface/config/add", self.rpc_add_interface_config)
+        self.rpc.register("interface/config/update", self.rpc_update_interface_config)
+        self.rpc.register("interface/config/delete", self.rpc_delete_interface_config)
 
     def on_config_change(self, config):
         new_interfaces = {}
@@ -120,8 +123,9 @@ class InterfaceProvider(Provider):
             if not interface.config:
                 del self.interfaces[ifname]
 
-    def load(self):
-        self.config.register_change_handler(self.on_config_change)
+    def start(self):
+        self.running = True
+
         for interface in self.config.data.interfaces.interface:
             entity_class = INTERFACE_CONFIG_TYPE_ENTITY_MAP[interface.type]
             entity = entity_class(self, interface.name, config=interface)
@@ -131,10 +135,8 @@ class InterfaceProvider(Provider):
                     self.interface_dependencies[dependent_interface] = []
                 self.interface_dependencies[dependent_interface].append(entity)
 
-    def start(self):
-        self.running = True
         for interface in self.interfaces.values():
-            interface.startup()
+            interface.start()
 
     def stop(self):
         self.running = False
@@ -163,24 +165,24 @@ class InterfaceProvider(Provider):
 
     async def rpc_add_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
-            raise RPCInvalidParameters("name not specified")
+            raise RPCInvalidArgument("name not specified")
         for interface in self.config.staged_data.interfaces.interface:
             if interface.name == msg.name:
-                raise RPCEntityExists(msg.name)
+                raise RPCInvalidArgument(msg.name)
         interface = self.config.staged_data.interfaces.interface.add()
         interface.CopyFrom(msg)
         return interface
 
     async def rpc_update_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
-            raise RPCInvalidParameters("name not specified")
+            raise RPCInvalidArgument("name not specified")
         for interface in self.config.staged_data.interfaces.interface:
             if interface.name == msg.name:
                 interface.CopyFrom(msg)
 
     async def rpc_delete_interface_config(self, msg: interface_pb2.InterfaceConfig) -> None:
         if not msg.name:
-            raise RPCInvalidParameters("name not specified")
+            raise RPCInvalidArgument("name not specified")
         for i, interface in enumerate(self.config.staged_data.interfaces.interface):
             if interface.name == msg.name:
                 del self.config.staged_data.interfaces.interface[i]

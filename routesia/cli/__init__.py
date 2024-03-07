@@ -5,14 +5,17 @@ hosteria/cli/__init__.py - CLI appplication
 import asyncio
 from asyncio import Queue
 from collections import OrderedDict
+import inspect
 import sys
 import termios
 import tty
+import typing
+from types import UnionType
 
 from routesia.cli.history import History
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
-from routesia.rpc import RPCInvalidParameters
+from routesia.rpc import RPCInvalidArgument, RPCUnspecifiedError
 from routesia.rpcclient import RPCClient
 from routesia.service import Provider, ServiceExit
 
@@ -257,6 +260,11 @@ class CLI(Provider):
         All variables and arguments will be passed to the handler as keyword
         arguments, even when defined as positional in the pattern.
 
+        If a handler argument is anotated with a type, the argument value will
+        be coerced to it before passing it. If no annotation is given, a
+        string will be passed. Union types are supported in the case an
+        argument can be one of multiple types.
+
         For example given the pattern:
 
             show foo :selector @location *tag
@@ -289,9 +297,37 @@ class CLI(Provider):
 
     async def handle_command(self, cmd):
         command, args = self.router.get_command_handler(cmd)
+
+        signature = inspect.Signature.from_callable(command)
+        for name, value in args.items():
+            if name not in signature.parameters:
+                raise InvalidArgument(f"Argument {name} not defined by handler")
+            annotation = signature.parameters[name].annotation
+            if annotation == inspect.Parameter.empty:
+                # No annotation defined. Assume string
+                continue
+            errors = []
+            if isinstance(annotation, UnionType):
+                found = False
+                for typeclass in typing.get_args(annotation):
+                    try:
+                        args[name] = typeclass(value)
+                    except ValueError as e:
+                        errors.append(str(e))
+                        continue
+                    found = True
+                    break
+                if not found:
+                    raise InvalidArgument(", ".join(errors))
+            else:
+                try:
+                    args[name] = annotation(value)
+                except ValueError as e:
+                    raise InvalidArgument(str(e))
+
         try:
             return await command(**args)
-        except RPCInvalidParameters as e:
+        except RPCInvalidArgument as e:
             raise InvalidArgument(str(e))
 
     def read_input(self):
@@ -357,6 +393,9 @@ class CLI(Provider):
                 return
             except InvalidArgument as e:
                 prompt.display_message(f"Invalid argument: {e}")
+                return
+            except RPCUnspecifiedError as e:
+                prompt.display_message("An unspecified error occured. See agent log.")
                 return
             except TimeoutError:
                 prompt.display_message("Timed out handling command")

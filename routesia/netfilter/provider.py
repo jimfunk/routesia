@@ -21,8 +21,11 @@ class NetfilterProvider(Provider):
         self.rpc = rpc
         self.nft = Nftables()
         self.applied = False
-        self.rpc.register("/netfilter/config/get", self.rpc_config_get)
-        self.rpc.register("/netfilter/config/update", self.rpc_config_update)
+
+        self.config.register_change_handler(self.on_config_change)
+
+        self.rpc.register("netfilter/config/get", self.rpc_config_get)
+        self.rpc.register("netfilter/config/update", self.rpc_config_update)
 
     def on_config_change(self, config):
         self.apply()
@@ -42,9 +45,6 @@ class NetfilterProvider(Provider):
     def flush(self):
         logger.info("Flushing nftables")
         self.nft.cmd("flush ruleset")
-
-    def load(self):
-        self.config.register_change_handler(self.on_config_change)
 
     def start(self):
         self.apply()

@@ -1,9 +1,7 @@
 import pytest
 
 from routesia.rpc import (
-    RPCEntityExists,
-    RPCEntityNotFound,
-    RPCInvalidParameters,
+    RPCInvalidArgument,
     RPCNoSuchMethod,
     RPCUnspecifiedError,
 )
@@ -40,7 +38,7 @@ async def test_call_with_argument(rpc, rpcclient, schema_registry):
 
     rpc.register("foo", handler)
 
-    with pytest.raises(RPCInvalidParameters):
+    with pytest.raises(RPCInvalidArgument):
         await rpcclient.request("foo")
 
     argument = test_pb2.Test()
@@ -60,31 +58,31 @@ async def test_call_unknown_method(rpc, rpcclient):
 
 async def test_call_invalid_parameters(rpc, rpcclient):
     async def handler():
-        raise RPCInvalidParameters("Bad")
+        raise RPCInvalidArgument("Bad")
 
     rpc.register("foo", handler)
 
-    with pytest.raises(RPCInvalidParameters):
+    with pytest.raises(RPCInvalidArgument):
         await rpcclient.request("foo")
 
 
 async def test_call_entity_not_found(rpc, rpcclient):
     async def handler():
-        raise RPCEntityNotFound("Bad")
+        raise RPCInvalidArgument("Bad")
 
     rpc.register("foo", handler)
 
-    with pytest.raises(RPCEntityNotFound):
+    with pytest.raises(RPCInvalidArgument):
         await rpcclient.request("foo")
 
 
 async def test_call_entity_exists(rpc, rpcclient):
     async def handler():
-        raise RPCEntityExists("Bad")
+        raise RPCInvalidArgument("Bad")
 
     rpc.register("foo", handler)
 
-    with pytest.raises(RPCEntityExists):
+    with pytest.raises(RPCInvalidArgument):
         await rpcclient.request("foo")
 
 

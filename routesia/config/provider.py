@@ -31,10 +31,20 @@ class ConfigProvider(Provider):
         self.init_config_handlers = []
         self.change_handlers = []
 
-        self.rpc.register("/config/running/get", self.rpc_get_running)
-        self.rpc.register("/config/staged/get", self.rpc_get_staged)
-        self.rpc.register("/config/staged/drop", self.rpc_drop_staged)
-        self.rpc.register("/config/staged/commit", self.rpc_commit)
+        if not os.path.isdir(self.location):
+            os.makedirs(self.location, 0o700)
+
+        self.version = self.get_latest_config_version()
+
+        if self.version is not None:
+            self.load_config()
+        else:
+            self.init_config()
+
+        self.rpc.register("config/running/get", self.rpc_get_running)
+        self.rpc.register("config/staged/get", self.rpc_get_staged)
+        self.rpc.register("config/staged/drop", self.rpc_drop_staged)
+        self.rpc.register("config/staged/commit", self.rpc_commit)
 
     @property
     def config_file(self):
@@ -84,27 +94,16 @@ class ConfigProvider(Provider):
         with open(self.config_file) as f:
             text_format.Merge(f.read(), self.data)
 
-    def load(self):
-        if not os.path.isdir(self.location):
-            os.makedirs(self.location, 0o700)
-
-        self.version = self.get_latest_config_version()
-
-        if self.version is not None:
-            self.load_config()
-        else:
-            self.init_config()
-
-    def rpc_get_running(self, msg: None) -> Config:
+    async def rpc_get_running(self) -> Config:
         return self.data
 
-    def rpc_get_staged(self, msg: None) -> Config:
+    async def rpc_get_staged(self) -> Config:
         return self.staged_data
 
-    def rpc_drop_staged(self, msg: None) -> Config:
+    async def rpc_drop_staged(self) -> Config:
         self.staged_data.CopyFrom(self.data)
 
-    def rpc_commit(self, msg: None) -> CommitResult:
+    async def rpc_commit(self) -> CommitResult:
         result = CommitResult()
 
         if self.data.SerializeToString() == self.staged_data.SerializeToString():

@@ -47,10 +47,13 @@ class AuthoritativeDNSProvider(Provider):
 
         self.addresses = set()
 
+        self.config.register_change_handler(self.on_config_change)
+
         self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
-        self.rpc.register("/dns/authoritative/config/get", self.rpc_config_get)
-        self.rpc.register("/dns/authoritative/config/update", self.rpc_config_update)
+
+        self.rpc.register("dns/authoritative/config/get", self.rpc_config_get)
+        self.rpc.register("dns/authoritative/config/update", self.rpc_config_update)
 
     def on_config_change(self, config):
         self.apply()
@@ -76,7 +79,7 @@ class AuthoritativeDNSProvider(Provider):
         config = self.config.data.dns.authoritative
 
         if not config.enabled:
-            self.stop()
+            self.stop_unit()
             return
 
         nsd_config = NSDConfig(config, self.addresses)
@@ -100,23 +103,22 @@ class AuthoritativeDNSProvider(Provider):
 
             shutil.move(temp.name, "%s/%s" % (ZONE_DIR, zone.name))
 
-        self.start()
+        self.start_unit()
 
     def start(self):
-        self.apply()
         if not os.path.exists(NSD_SERVER_KEY):
             try:
                 # subprocess.run([NSD_CONTROL_SETUP], check_returncode=True)
                 subprocess.run([NSD_CONTROL_SETUP])
             except subprocess.CalledProcessError:
                 logger.error("nsd-control-setup failed")
+        self.apply()
+
+    def start_unit(self):
         self.systemd.start_unit("nsd.service")
 
-    def stop(self):
+    def stop_unit(self):
         self.systemd.stop_unit("nsd.service")
-
-    def load(self):
-        self.config.register_change_handler(self.on_config_change)
 
     def rpc_config_get(self, msg: None) -> dns_authoritative_pb2.AuthoritativeDNSConfig:
         return self.config.staged_data.dns.authoritative

@@ -39,10 +39,13 @@ class DNSCacheProvider(Provider):
 
         self.addresses = set()
 
+        self.config.register_change_handler(self.on_config_change)
+
         self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
-        self.rpc.register("/dns/cache/config/get", self.rpc_config_get)
-        self.rpc.register("/dns/cache/config/update", self.rpc_config_update)
+
+        self.rpc.register("dns/cache/config/get", self.rpc_config_get)
+        self.rpc.register("dns/cache/config/update", self.rpc_config_update)
 
     def on_config_change(self, config):
         self.apply()
@@ -96,9 +99,6 @@ class DNSCacheProvider(Provider):
 
     def stop(self):
         self.systemd.stop_unit("unbound.service")
-
-    def load(self):
-        self.config.register_change_handler(self.on_config_change)
 
     def rpc_config_get(self, msg: None) -> dns_cache_pb2.DNSCacheConfig:
         return self.config.staged_data.dns.cache

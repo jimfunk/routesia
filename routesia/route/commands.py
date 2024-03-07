@@ -4,10 +4,9 @@ routesia/route/route/commands.py - Routesia route commands
 from ipaddress import ip_address
 from prompt_toolkit.completion import Completion
 
-from routesia.cli.command import CLICommand, CLICommandSet
-from routesia.cli.parameters import IPNetwork, IPAddress, String, UInt32
-from routesia.interface.commands import ConfiguredInterfaceParameter
-from routesia.schema.v1 import route_pb2
+from routesia.cli import CLI, InvalidArgument
+from routesia.rpcclient import RPCClient
+from routesia.service import Provider
 
 
 DEFAULT_TABLE = 254

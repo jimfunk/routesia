@@ -31,15 +31,7 @@ class RPCInvalidRequest(RPCException):
     pass
 
 
-class RPCInvalidParameters(RPCException):
-    pass
-
-
-class RPCEntityNotFound(RPCException):
-    pass
-
-
-class RPCEntityExists(RPCException):
+class RPCInvalidArgument(RPCException):
     pass
 
 
@@ -85,8 +77,8 @@ class RPC(Provider):
         The handler must return a Protobuf message or None, unless an error
         occurs.
 
-        Handlers may raise RPCEntityNotFound to indicate that a given entity from
-        the request is not found.
+        Handlers may raise RPCInvalidArgument to indicate that a parameter
+        from the request is not correct or available.
         """
         method = method.lstrip('/')
         self.handlers[method] = handler
@@ -106,6 +98,7 @@ class RPC(Provider):
             self.send_response(request, response)
             return
 
+        logger.debug(f"Received request: {request.method}")
         if request.method not in self.handlers:
             response.response_code = rpc_pb2.RPCResponse.NO_SUCH_METHOD
             response.error_detail = f"Method {request.method} does not exist"
@@ -120,7 +113,7 @@ class RPC(Provider):
         args = []
         if signature.parameters:
             if not request.argument.TypeName():
-                response.response_code = rpc_pb2.RPCResponse.INVALID_PARAMETERS
+                response.response_code = rpc_pb2.RPCResponse.INVALID_ARGUMENT
                 response.error_detail = "Call requires argument"
                 self.send_response(request, response)
                 return
@@ -132,18 +125,8 @@ class RPC(Provider):
 
         try:
             result = await handler(*args)
-        except RPCInvalidParameters as e:
-            response.response_code = rpc_pb2.RPCResponse.INVALID_PARAMETERS
-            response.error_detail = str(e)
-            self.send_response(request, response)
-            return
-        except RPCEntityNotFound as e:
-            response.response_code = rpc_pb2.RPCResponse.ENTITY_NOT_FOUND
-            response.error_detail = str(e)
-            self.send_response(request, response)
-            return
-        except RPCEntityExists as e:
-            response.response_code = rpc_pb2.RPCResponse.ENTITY_EXISTS
+        except RPCInvalidArgument as e:
+            response.response_code = rpc_pb2.RPCResponse.INVALID_ARGUMENT
             response.error_detail = str(e)
             self.send_response(request, response)
             return
