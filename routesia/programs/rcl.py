@@ -7,6 +7,7 @@ from routesia.address.cli import AddressCLI
 from routesia.cli import CLI
 from routesia.config.cli import ConfigCLI
 from routesia.dhcp.client.cli import DHCPClientCLI
+from routesia.dhcp.server.cli import DHCPServerCLI
 from routesia.service import Service
 from routesia.mqtt import MQTT
 from routesia.rpcclient import RPCClient
@@ -19,6 +20,7 @@ def main():
     service.add_provider(CLI)
     service.add_provider(ConfigCLI)
     service.add_provider(DHCPClientCLI)
+    service.add_provider(DHCPServerCLI)
     service.add_provider(MQTT)
     service.add_provider(RPCClient, prefix="routesia/agent/rpc")
     service.add_provider(SchemaRegistry)

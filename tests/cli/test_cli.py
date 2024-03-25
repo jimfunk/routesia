@@ -412,6 +412,19 @@ async def test_variable_coercion(cli):
     assert calls == [42]
 
 
+async def test_variable_coercion_dash(cli):
+    calls = []
+
+    async def show_foo(first_arg: int, second_arg: int = None):
+        calls.append((first_arg, second_arg))
+
+    cli.add_command("show foo :first-arg @second-arg", show_foo)
+
+    await cli.handle_command("show foo 42 second-arg 20")
+
+    assert calls == [(42, 20)]
+
+
 async def test_variable_coercion_optional(cli):
     calls = []
 
@@ -443,4 +456,47 @@ async def test_variable_coercion_union(cli):
     assert calls == [
         42,
         4.2,
+    ]
+
+
+async def test_variable_coercion_bool(cli):
+    calls = []
+
+    async def show_foo(arg: bool):
+        calls.append(arg)
+
+    cli.add_command("show foo :arg", show_foo)
+
+    with pytest.raises(InvalidArgument):
+        await cli.handle_command("show foo value")
+
+    with pytest.raises(InvalidArgument):
+        await cli.handle_command("show foo 2")
+
+    await cli.handle_command("show foo 1")
+    await cli.handle_command("show foo t")
+    await cli.handle_command("show foo T")
+    await cli.handle_command("show foo True")
+    await cli.handle_command("show foo yes")
+    await cli.handle_command("show foo on")
+    await cli.handle_command("show foo 0")
+    await cli.handle_command("show foo f")
+    await cli.handle_command("show foo F")
+    await cli.handle_command("show foo False")
+    await cli.handle_command("show foo no")
+    await cli.handle_command("show foo off")
+
+    assert calls == [
+        True,
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
     ]

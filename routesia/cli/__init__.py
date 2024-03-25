@@ -296,7 +296,10 @@ class CLI(Provider):
         self.router.add_argument_completer(name, completer)
 
     async def handle_command(self, cmd):
-        command, args = self.router.get_command_handler(cmd)
+        command, input_args = self.router.get_command_handler(cmd)
+        args = {}
+        for name, value in input_args.items():
+            args[name.replace("-", "_")] = value
 
         signature = inspect.Signature.from_callable(command)
         for name, value in args.items():
@@ -306,29 +309,39 @@ class CLI(Provider):
             if annotation == inspect.Parameter.empty:
                 # No annotation defined. Assume string
                 continue
-            errors = []
-            if isinstance(annotation, UnionType):
-                found = False
-                for typeclass in typing.get_args(annotation):
-                    try:
-                        args[name] = typeclass(value)
-                    except ValueError as e:
-                        errors.append(str(e))
-                        continue
-                    found = True
-                    break
-                if not found:
-                    raise InvalidArgument(", ".join(errors))
-            else:
-                try:
-                    args[name] = annotation(value)
-                except ValueError as e:
-                    raise InvalidArgument(str(e))
+
+            args[name] = self.interpret_argument(annotation, value)
 
         try:
             return await command(**args)
         except RPCInvalidArgument as e:
             raise InvalidArgument(str(e))
+
+    def interpret_argument(self, annotation, value):
+        if isinstance(annotation, UnionType):
+            errors = []
+            for subannotation in typing.get_args(annotation):
+                try:
+                    return self.interpret_argument(subannotation, value)
+                except InvalidArgument as e:
+                    errors.append(str(e))
+                    continue
+            raise InvalidArgument(", ".join(errors))
+        elif annotation == bool:
+            return self.interpret_bool(value)
+        else:
+            try:
+                return annotation(value)
+            except ValueError as e:
+                raise InvalidArgument(str(e))
+
+    def interpret_bool(self, value: str) -> bool:
+        value = value.lower()
+        if value in ("1", "t", "true", "on", "yes"):
+            return True
+        elif value in ("0", "f", "false", "off", "no"):
+            return False
+        raise InvalidArgument(f'"{value}" could not be interpreted as boolean')
 
     def read_input(self):
         self.key_queue.put_nowait(sys.stdin.read(1))

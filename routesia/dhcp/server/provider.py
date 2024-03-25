@@ -165,7 +165,7 @@ class DHCPServerProvider(Provider):
                 break
         return json.loads(data)
 
-    def rpc_v4_subnet_leases(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> dhcp_server_pb2.DHCPv4LeaseList:
+    async def rpc_v4_subnet_leases(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> dhcp_server_pb2.DHCPv4LeaseList:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
 
@@ -187,10 +187,10 @@ class DHCPServerProvider(Provider):
             lease.state = lease_data["state"]
         return leases
 
-    def rpc_v4_config_get(self, msg: None) -> dhcp_server_pb2.DHCPv4Server:
+    async def rpc_v4_config_get(self) -> dhcp_server_pb2.DHCPv4Server:
         return self.config.staged_data.dhcp.server.v4
 
-    def rpc_v4_config_interface_add(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
+    async def rpc_v4_config_interface_add(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
         if not msg.interface:
             raise RPCInvalidArgument("interface not specified")
 
@@ -199,21 +199,21 @@ class DHCPServerProvider(Provider):
                 raise RPCInvalidArgument('%s' % msg.interface[0])
         self.config.staged_data.dhcp.server.v4.interface.append(msg.interface[0])
 
-    def rpc_v4_config_interface_delete(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
+    async def rpc_v4_config_interface_delete(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
         if not msg.interface:
             raise RPCInvalidArgument("interface not specified")
 
         for i, interface in enumerate(self.config.staged_data.dhcp.server.v4.interface):
-            if interface.name == msg.interface[0]:
+            if interface == msg.interface[0]:
                 del self.config.staged_data.dhcp.server.v4.interface[i]
 
-    def rpc_v4_config_global_settings_update(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
+    async def rpc_v4_config_global_settings_update(self, msg: dhcp_server_pb2.DHCPv4Server) -> None:
         self.config.staged_data.dhcp.server.v4.renew_timer = msg.renew_timer
         self.config.staged_data.dhcp.server.v4.rebind_timer = msg.rebind_timer
         self.config.staged_data.dhcp.server.v4.valid_lifetime = msg.valid_lifetime
         self.config.staged_data.dhcp.server.v4.next_server = msg.next_server
 
-    def rpc_v4_config_option_definition_add(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
+    async def rpc_v4_config_option_definition_add(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if not msg.code:
@@ -227,7 +227,7 @@ class DHCPServerProvider(Provider):
         option_definition = self.config.staged_data.dhcp.server.v4.option_definition.add()
         option_definition.CopyFrom(msg)
 
-    def rpc_v4_config_option_definition_update(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
+    async def rpc_v4_config_option_definition_update(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
 
@@ -235,7 +235,7 @@ class DHCPServerProvider(Provider):
             if option_definition.name == msg.name:
                 option_definition.CopyFrom(msg)
 
-    def rpc_v4_config_option_definition_delete(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
+    async def rpc_v4_config_option_definition_delete(self, msg: dhcp_server_pb2.OptionDefinition) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
 
@@ -243,7 +243,7 @@ class DHCPServerProvider(Provider):
             if option_definition.name == msg.name:
                 del self.config.staged_data.dhcp.server.v4.option_definition[i]
 
-    def rpc_v4_config_client_class_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if not msg.test:
@@ -255,7 +255,7 @@ class DHCPServerProvider(Provider):
         client_class = self.config.staged_data.dhcp.server.v4.client_class.add()
         client_class.CopyFrom(msg)
 
-    def rpc_v4_config_client_class_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
 
@@ -263,7 +263,7 @@ class DHCPServerProvider(Provider):
             if client_class.name == msg.name:
                 client_class.CopyFrom(msg)
 
-    def rpc_v4_config_client_class_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
 
@@ -271,7 +271,7 @@ class DHCPServerProvider(Provider):
             if client_class.name == msg.name:
                 del self.config.staged_data.dhcp.server.v4.client_class[i]
 
-    def rpc_v4_config_client_class_option_definition_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_definition_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option_definition) < 1:
@@ -297,7 +297,7 @@ class DHCPServerProvider(Provider):
         option_definition = client_class.option_definition.add()
         option_definition.CopyFrom(msg.option_definition[0])
 
-    def rpc_v4_config_client_class_option_definition_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_definition_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option_definition) < 1:
@@ -317,7 +317,7 @@ class DHCPServerProvider(Provider):
             if option_definition.name == msg.option_definition[0].name:
                 option_definition.CopyFrom(msg.option_definition[0])
 
-    def rpc_v4_config_client_class_option_definition_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_definition_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option_definition) < 1:
@@ -337,7 +337,7 @@ class DHCPServerProvider(Provider):
             if option_definition.name == msg.option_definition[0].name:
                 del client_class.option_definition[i]
 
-    def rpc_v4_config_client_class_option_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_add(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option) < 1:
@@ -361,7 +361,7 @@ class DHCPServerProvider(Provider):
         option = client_class.option.add()
         option.CopyFrom(msg.option[0])
 
-    def rpc_v4_config_client_class_option_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_update(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option) < 1:
@@ -389,7 +389,7 @@ class DHCPServerProvider(Provider):
             if getattr(opt, field) == getattr(option, field):
                 opt.CopyFrom(option)
 
-    def rpc_v4_config_client_class_option_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
+    async def rpc_v4_config_client_class_option_delete(self, msg: dhcp_server_pb2.ClientClass) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         if len(msg.option) < 1:
@@ -417,7 +417,7 @@ class DHCPServerProvider(Provider):
             if getattr(opt, field) == getattr(option, field):
                 del client_class.option[i]
 
-    def rpc_v4_config_option_add(self, msg: dhcp_server_pb2.OptionData) -> None:
+    async def rpc_v4_config_option_add(self, msg: dhcp_server_pb2.OptionData) -> None:
         if not (msg.name or msg.code):
             raise RPCInvalidArgument("name or code not specified")
         if not msg.data:
@@ -429,7 +429,7 @@ class DHCPServerProvider(Provider):
         option = self.config.staged_data.dhcp.server.v4.option.add()
         option.CopyFrom(msg)
 
-    def rpc_v4_config_option_update(self, msg: dhcp_server_pb2.OptionData) -> None:
+    async def rpc_v4_config_option_update(self, msg: dhcp_server_pb2.OptionData) -> None:
         field = None
         if msg.name:
             field = "name"
@@ -443,7 +443,7 @@ class DHCPServerProvider(Provider):
             if getattr(option, field) == getattr(msg, field):
                 option.CopyFrom(msg)
 
-    def rpc_v4_config_option_delete(self, msg: dhcp_server_pb2.OptionData) -> None:
+    async def rpc_v4_config_option_delete(self, msg: dhcp_server_pb2.OptionData) -> None:
         field = None
         if msg.name:
             field = "name"
@@ -457,7 +457,7 @@ class DHCPServerProvider(Provider):
             if getattr(option, field) == getattr(msg, field):
                 del self.config.staged_data.dhcp.server.v4.option[i]
 
-    def rpc_v4_config_subnet_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
 
@@ -467,7 +467,7 @@ class DHCPServerProvider(Provider):
         subnet = self.config.staged_data.dhcp.server.v4.subnet.add()
         subnet.CopyFrom(msg)
 
-    def rpc_v4_config_subnet_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
 
@@ -475,7 +475,7 @@ class DHCPServerProvider(Provider):
             if subnet.address == msg.address:
                 subnet.CopyFrom(msg)
 
-    def rpc_v4_config_subnet_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
 
@@ -483,7 +483,7 @@ class DHCPServerProvider(Provider):
             if subnet.address == msg.address:
                 del self.config.staged_data.dhcp.server.v4.subnet[i]
 
-    def rpc_v4_config_subnet_pool_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_pool_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if not msg.pool:
@@ -501,7 +501,7 @@ class DHCPServerProvider(Provider):
                 raise RPCInvalidArgument('%s' % msg.pool[0])
         subnet.pool.append(msg.pool[0])
 
-    def rpc_v4_config_subnet_pool_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_pool_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if not msg.pool:
@@ -519,7 +519,7 @@ class DHCPServerProvider(Provider):
                 del subnet.pool[i]
                 break
 
-    def rpc_v4_config_subnet_option_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_option_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.option) < 1:
@@ -530,9 +530,9 @@ class DHCPServerProvider(Provider):
             raise RPCInvalidArgument("option.data not specified")
 
         subnet = None
-        for subnet in self.config.staged_data.dhcp.server.v4.subnet:
-            if subnet.address == msg.address:
-                subnet = subnet
+        for sn in self.config.staged_data.dhcp.server.v4.subnet:
+            if sn.address == msg.address:
+                subnet = sn
 
         if not subnet:
             raise RPCInvalidArgument(msg.address)
@@ -543,7 +543,7 @@ class DHCPServerProvider(Provider):
         option = subnet.option.add()
         option.CopyFrom(msg.option[0])
 
-    def rpc_v4_config_subnet_option_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_option_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.option) < 1:
@@ -560,9 +560,9 @@ class DHCPServerProvider(Provider):
             raise RPCInvalidArgument("option.name or option.code not specified")
 
         subnet = None
-        for subnet in self.config.staged_data.dhcp.server.v4.subnet:
-            if subnet.address == msg.address:
-                subnet = subnet
+        for sn in self.config.staged_data.dhcp.server.v4.subnet:
+            if sn.address == msg.address:
+                subnet = sn
 
         if not subnet:
             raise RPCInvalidArgument(msg.address)
@@ -571,7 +571,7 @@ class DHCPServerProvider(Provider):
             if getattr(opt, field) == getattr(option, field):
                 opt.CopyFrom(option)
 
-    def rpc_v4_config_subnet_option_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_option_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.option) < 1:
@@ -588,9 +588,9 @@ class DHCPServerProvider(Provider):
             raise RPCInvalidArgument("option.name or option.code not specified")
 
         subnet = None
-        for subnet in self.config.staged_data.dhcp.server.v4.subnet:
-            if subnet.address == msg.address:
-                subnet = subnet
+        for sn in self.config.staged_data.dhcp.server.v4.subnet:
+            if sn.address == msg.address:
+                subnet = sn
 
         if not subnet:
             raise RPCInvalidArgument(msg.address)
@@ -599,7 +599,7 @@ class DHCPServerProvider(Provider):
             if getattr(opt, field) == getattr(option, field):
                 del subnet.option[i]
 
-    def rpc_v4_config_subnet_reservation_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_reservation_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.reservation) < 1:
@@ -623,7 +623,7 @@ class DHCPServerProvider(Provider):
         reservation = subnet.reservation.add()
         reservation.CopyFrom(msg.reservation[0])
 
-    def rpc_v4_config_subnet_reservation_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_reservation_update(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.reservation) < 1:
@@ -643,7 +643,7 @@ class DHCPServerProvider(Provider):
             if reservation.hardware_address == msg.reservation[0].hardware_address:
                 reservation.CopyFrom(msg.reservation[0])
 
-    def rpc_v4_config_subnet_reservation_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_reservation_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if len(msg.reservation) < 1:
@@ -663,7 +663,7 @@ class DHCPServerProvider(Provider):
             if reservation.hardware_address == msg.reservation[0].hardware_address:
                 del subnet.reservation[i]
 
-    def rpc_v4_config_subnet_relay_address_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_relay_address_add(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if not msg.relay_address:
@@ -681,7 +681,7 @@ class DHCPServerProvider(Provider):
                 raise RPCInvalidArgument('%s' % msg.relay_address[0])
         subnet.relay_address.append(msg.relay_address[0])
 
-    def rpc_v4_config_subnet_relay_address_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
+    async def rpc_v4_config_subnet_relay_address_delete(self, msg: dhcp_server_pb2.DHCPv4Subnet) -> None:
         if not msg.address:
             raise RPCInvalidArgument("address not specified")
         if not msg.relay_address:
