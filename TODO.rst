@@ -6,13 +6,10 @@ TODO
 CLI
 ===
 
-history
--------
-
-* Store previous commands in memory
-* Recall commands via up/down keys
-* Save and load history to/from file
 * Incremental reverse search
+* Show hints describing parameters, particularly where there is no completer
+* Return better error messages for partial command matches
+* Handle ctrl-u and esc-backspace
 
 Config
 ======
@@ -20,6 +17,14 @@ Config
 Move addresses to interfaces
 ----------------------------
 
-Move DHCP clients to interface
-------------------------------
+DHCP
+====
 
+* Move to interface
+* Internal client and server
+
+
+Web
+===
+
+* Create web interface
