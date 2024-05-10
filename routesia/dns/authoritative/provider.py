@@ -120,8 +120,8 @@ class AuthoritativeDNSProvider(Provider):
     def stop_unit(self):
         self.systemd.stop_unit("nsd.service")
 
-    def rpc_config_get(self, msg: None) -> dns_authoritative_pb2.AuthoritativeDNSConfig:
+    async def rpc_config_get(self) -> dns_authoritative_pb2.AuthoritativeDNSConfig:
         return self.config.staged_data.dns.authoritative
 
-    def rpc_config_update(self, msg: dns_authoritative_pb2.AuthoritativeDNSConfig) -> None:
+    async def rpc_config_update(self, msg: dns_authoritative_pb2.AuthoritativeDNSConfig) -> None:
         self.config.staged_data.dns.authoritative.CopyFrom(msg)

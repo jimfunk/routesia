@@ -1,6 +1,7 @@
 """
 routesia/config/commands.py - Routesia config commands
 """
+
 import difflib
 
 from routesia.cli import CLI, InvalidArgument
@@ -11,7 +12,7 @@ from routesia.service import Provider
 class ConfigCLI(Provider):
     def __init__(self, cli: CLI, rpc: RPCClient):
         super().__init__()
-        self.cli = cli
+        self.cli = cli.get_namespace_cli("config")
         self.rpc = rpc
 
         self.cli.add_argument_completer("section", self.complete_sections)
@@ -25,7 +26,7 @@ class ConfigCLI(Provider):
         self.cli.add_command("config drop", self.drop)
         self.cli.add_command("config commit", self.commit)
 
-    async def complete_sections(self, **args):
+    async def complete_sections(self):
         return [
             "addresses",
             "dhcp",
@@ -37,7 +38,7 @@ class ConfigCLI(Provider):
             "system",
         ]
 
-    async def show_running_config(self, section=None):
+    async def show_running_config(self, section: str = None):
         config = await self.rpc.request("config/running/get")
         if section:
             if not hasattr(config, section):
@@ -46,7 +47,7 @@ class ConfigCLI(Provider):
 
         return config
 
-    async def show_staged_config(self, section=None):
+    async def show_staged_config(self, section: str = None):
         config = await self.rpc.request("config/staged/get")
         if section:
             if not hasattr(config, section):
@@ -55,7 +56,7 @@ class ConfigCLI(Provider):
 
         return config
 
-    async def diff(self, section=None):
+    async def diff(self, section: str = None):
         running_config = await self.rpc.request("config/running/get")
         staged_config = await self.rpc.request("config/staged/get")
         if section:

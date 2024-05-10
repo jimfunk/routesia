@@ -5,13 +5,17 @@ hosteria/cli/__init__.py - CLI appplication
 import asyncio
 from asyncio import Queue
 from collections import OrderedDict
-import inspect
 import sys
 import termios
 import tty
-import typing
-from types import UnionType
 
+from routesia.cli.arguments import interpret_arguments
+from routesia.cli.exceptions import (
+    CommandNotFound,
+    InvalidCommandDefinition,
+    InvalidArgument,
+    DuplicateArgument,
+)
 from routesia.cli.history import History
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
@@ -20,54 +24,69 @@ from routesia.rpcclient import RPCClient
 from routesia.service import Provider, ServiceExit
 
 
-class CommandException(Exception):
-    pass
+class Fragment:
+    """
+    Represents a fragment of a command definition
+    """
 
+    def __init__(self, definition: str, namespace: str = None):
+        self.definition: str = definition
+        self.namespace = namespace
 
-class CommandNotFound(CommandException):
-    pass
+        self.name: str
+        self.argument: bool = False
+        self.keyword: bool = False
+        self.repeated: bool = False
+        self.completer: str = None
 
+        if definition[0] in (":", "@", "*"):
+            # Is an argument
+            #  : - positional
+            #  @ - keyword
+            #  * - repeated keyword
+            self.name = definition[1:]
+            self.argument = True
+            self.keyword = definition[0] == "@"
+            self.repeated = definition[0] == "*"
+        else:
+            self.name = definition
 
-class InvalidCommandDefinition(CommandException):
-    pass
+        if "!" in self.name:
+            # Completer option:
+            #  ! - don't complete
+            #  !<name> - use alternative completer name
+            self.name, completer_def = self.name.split("!", 1)
+            if completer_def:
+                completer = completer_def
+            else:
+                completer = None
+        else:
+            completer = self.name
 
+        if self.argument:
+            self.completer = completer
 
-class InvalidArgument(CommandException):
-    pass
-
-
-class DuplicateArgument(CommandException):
-    pass
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 
 class CommandNode:
-    def __init__(self, fragment=None):
+    def __init__(self, fragment: Fragment = None):
         self.fragment = fragment
-        self.children = {}
-        self.handler = None
-        self.keyword_arguments = set()
-        self.keyword_list_arguments = set()
-        self.disabled_completion_arguments = set()
 
-    def set_handler(self, handler, keyword_arguments=None, keyword_list_arguments=None):
+        self.children: dict[str:CommandNode] = {}
+        self.handler: callable = None
+        self.keyword_arguments: dict[str:Fragment] = {}
+
+    def set_handler(self, handler: callable, keyword_arguments: list[Fragment] = None):
         self.handler = handler
         if keyword_arguments is not None:
-            self.keyword_arguments = set()
             for keyword_argument in keyword_arguments:
-                arg = keyword_argument.rstrip("!")
-                if keyword_argument.endswith("!"):
-                    self.disabled_completion_arguments.add(arg)
-                self.keyword_arguments.add(arg)
+                self.keyword_arguments[keyword_argument.name] = keyword_argument
 
-        if keyword_list_arguments is not None:
-            self.keyword_list_arguments = set()
-            for keyword_argument in keyword_list_arguments:
-                arg = keyword_argument.rstrip("!")
-                if keyword_argument.endswith("!"):
-                    self.disabled_completion_arguments.add(arg)
-                self.keyword_list_arguments.add(arg)
-
-    def match(self, fragments: list[str], completion: bool = False) -> tuple["CommandNode", dict[str, str]]:
+    def match(
+        self, fragments: list[str], completion: bool = False
+    ) -> tuple["CommandNode", dict[str, str]]:
         """
         Return the child matching the given fragments.
 
@@ -78,13 +97,17 @@ class CommandNode:
             return self, {}
 
         if fragments[0] in self.children:
-            return self.children[fragments[0]].match(fragments[1:], completion=completion)
+            return self.children[fragments[0]].match(
+                fragments[1:], completion=completion
+            )
         else:
-            for name, child in self.children.items():
-                if name.startswith(":"):
-                    node, args = child.match(fragments[1:], completion=completion)
+            for child in self.children.values():
+                if child.fragment.argument:
+                    args = OrderedDict()
+                    args[child.fragment.name] = fragments[0]
+                    node, child_args = child.match(fragments[1:], completion=completion)
                     if node:
-                        args[name[1:].rstrip("!")] = fragments[0]
+                        args.update(child_args)
                         return node, args
             if self.handler:
                 # Check the remaining fragments for keyword arguments
@@ -102,14 +125,16 @@ class CommandNode:
                     keyword_fragments = keyword_fragments[2:]
 
                     if name in self.keyword_arguments:
-                        if name in args:
-                            raise DuplicateArgument(name)
-                        args[name] = value
-                    elif name in self.keyword_list_arguments:
-                        if name in args:
-                            args[name].append(value)
+                        fragment = self.keyword_arguments[name]
+                        if fragment.repeated:
+                            if name in args:
+                                args[name].append(value)
+                            else:
+                                args[name] = [value]
                         else:
-                            args[name] = [value]
+                            if name in args:
+                                raise DuplicateArgument(name)
+                            args[name] = value
                     else:
                         raise InvalidArgument(name)
 
@@ -121,44 +146,81 @@ class CommandNode:
 class CommandRouter:
     def __init__(self):
         self.root_node = CommandNode()
-        self.argument_completers = {}
+        # Indexed by namespace, then name. Namespace of None is global and
+        # will be looked up if a namespaced completer is not found
+        self.argument_completers: dict[str : dict[str:callable]] = {
+            None: {
+                "bool": self.complete_bool,
+            }
+        }
 
-    def add(self, pattern, handler):
+    def add(self, pattern: str, handler: callable, namespace: str = None):
         node = self.root_node
         keyword_arguments = []
-        keyword_list_arguments = []
 
-        fragments = pattern.split()
-        for i, fragment in enumerate(fragments):
-            if fragment.startswith("@") or fragment.startswith("*"):
-                # Start of keyword arguments
-                for fragment in fragments[i:]:
-                    if fragment.startswith("@"):
-                        keyword_arguments.append(fragment[1:])
-                    elif fragment.startswith("*"):
-                        keyword_list_arguments.append(fragment[1:])
+        fragment_definitions = pattern.split()
+        for i, fragment_definition in enumerate(fragment_definitions):
+            fragment = Fragment(fragment_definition, namespace=namespace)
+
+            # TODO: when there are positionals, the node is on the last
+            # positional. It would be better to have it on the previous
+            # non-argument fragment since we can better report missing
+            # arguments instead of not finding the command at all.
+            # Perhaps we can get the Fragment objects in a first pass and get
+            # the position of the last non-argument node. However, that makes
+            # having different handlers for different numbers of arguments
+            # more difficult. Perhaps we keep it as is and report the
+            # potential commands in the error?
+            if fragment.keyword or fragment.repeated:
+                # Start of keyword arguments. These are not placed in the node
+                # tree since there is no ordering
+                for fragment_definition in fragment_definitions[i:]:
+                    fragment = Fragment(fragment_definition, namespace=namespace)
+                    if fragment.keyword or fragment.repeated:
+                        keyword_arguments.append(fragment)
                     else:
                         raise InvalidCommandDefinition(
-                            f"Positional command fragment '{fragment}' may not be defined after keyword arguments"
+                            f"Positional command fragment '{fragment_definition}' may not be defined after keyword arguments"
                         )
                 break
 
-            if fragment in node.children:
-                node = node.children[fragment]
+            if fragment.name in node.children:
+                node = node.children[fragment.name]
             else:
                 new_node = CommandNode(fragment)
-                node.children[fragment] = new_node
+                node.children[fragment.name] = new_node
                 node = new_node
 
-        node.set_handler(handler, keyword_arguments, keyword_list_arguments)
+        node.set_handler(handler, keyword_arguments)
 
-    def add_argument_completer(self, name: str, completer: callable):
+    def add_argument_completer(
+        self, name: str, completer: callable, namespace: str = None
+    ):
         """
         Add an argument completer
         """
-        self.argument_completers[name] = completer
+        if namespace not in self.argument_completers:
+            self.argument_completers[namespace] = {}
+        self.argument_completers[namespace][name] = completer
 
-    def get_command_handler(self, command) -> tuple[callable, dict]:
+    def get_argument_completer(self, name: str, namespace: str = None) -> callable:
+        """
+        Get an argument completer for the given namespace if present. If
+        namespace is not given, the global namespace is searched.
+
+        If namespace is given and a completer was not found, the global
+        namespace will be searched.
+        """
+        if namespace is None:
+            return self.argument_completers[None].get(name, None)
+        completer = None
+        if namespace in self.argument_completers:
+            completer = self.argument_completers[namespace].get(name, None)
+        if not completer:
+            completer = self.argument_completers[None].get(name, None)
+        return completer
+
+    def get_command_handler(self, command: str) -> tuple[callable, dict]:
         """
         Get command handler and arguments from input command
         """
@@ -178,39 +240,97 @@ class CommandRouter:
             return []
 
         completions = []
-        for child in node.children:
-            if child.startswith(":"):
-                if not child.endswith("!"):
-                    completer = self.argument_completers.get(child[1:])
+        for child in node.children.values():
+            if child.fragment.argument:
+                if child.fragment.completer:
+                    completer = self.get_argument_completer(
+                        child.fragment.completer, child.fragment.namespace
+                    )
                     if completer:
-                        for child_completion in await completer(**args):
-                            completions.append(child_completion)
+                        try:
+                            for child_completion in await completer(
+                                **interpret_arguments(completer, args)
+                            ):
+                                completions.append(child_completion)
+                        except InvalidArgument:
+                            pass
             else:
-                completions.append(child)
+                completions.append(child.fragment.name)
 
         keyword_value = False
         if args:
             last_keyword_arg, last_keyword_value = list(args.items())[-1]
-            if not last_keyword_value:
+            if last_keyword_value is None:
                 keyword_value = True
-                keyword_completer = self.argument_completers.get(last_keyword_arg)
-                if keyword_completer and last_keyword_arg not in node.disabled_completion_arguments:
-                    for arg_completion in await keyword_completer(**args):
-                        completions.append(arg_completion)
+                fragment = node.keyword_arguments[last_keyword_arg]
+                if fragment.completer:
+                    keyword_completer = self.get_argument_completer(
+                        fragment.completer, fragment.namespace
+                    )
+                    if keyword_completer:
+                        try:
+                            for arg_completion in await keyword_completer(
+                                **interpret_arguments(keyword_completer, args)
+                            ):
+                                completions.append(arg_completion)
+                        except InvalidArgument:
+                            pass
 
         if not keyword_value:
             for keyword_argument in node.keyword_arguments:
                 if keyword_argument not in args:
-                    completions.append(keyword_argument.rstrip("!"))
-
-            for keyword_list_argument in node.keyword_list_arguments:
-                completions.append(keyword_list_argument.rstrip("!"))
+                    completions.append(keyword_argument)
 
         return completions
 
+    async def complete_bool(self, **args):
+        return ["true", "false"]
+
+
+class UndefinedNamespace(str):
+    """
+    Represents an undefined namespace
+    """
+
+    pass
+
+
+class CLINamespace:
+    """
+    This represents a cli module. Its main purpose is to act as a namespace
+    for completers and node lookups to avoid accidental overrides on completer
+    definitions.
+    """
+
+    def __init__(self, cli: "CLI", namespace: str):
+        self.cli = cli
+        self.namespace = namespace
+
+    def add_argument_completer(
+        self, name: str, completer: callable, namespace: str = UndefinedNamespace
+    ):
+        self.cli.add_argument_completer.__doc__
+        if namespace is UndefinedNamespace:
+            namespace = self.namespace
+        self.cli.add_argument_completer(name, completer, namespace=namespace)
+
+    def add_command(
+        self, pattern: str, handler: callable, namespace: str = UndefinedNamespace
+    ):
+        self.cli.add_command.__doc__
+        if namespace is UndefinedNamespace:
+            namespace = self.namespace
+        self.cli.add_command(pattern, handler, namespace=namespace)
+
 
 class CLI(Provider):
-    def __init__(self, rpcclient: RPCClient, stdin=sys.stdin, stdout=sys.stdout, operation_timeout=5):
+    def __init__(
+        self,
+        rpcclient: RPCClient,
+        stdin=sys.stdin,
+        stdout=sys.stdout,
+        operation_timeout=5,
+    ):
         super().__init__()
         self.rpcclient = rpcclient
         self.stdin = stdin
@@ -222,7 +342,10 @@ class CLI(Provider):
         self.key_queue = Queue(maxsize=65535)
         self.history = History()
 
-    def add_command(self, pattern: str, handler: callable):
+    def get_namespace_cli(self, namespace: str) -> CLINamespace:
+        return CLINamespace(self, namespace)
+
+    def add_command(self, pattern: str, handler: callable, namespace: str = None):
         """
         Add a command
 
@@ -241,7 +364,9 @@ class CLI(Provider):
         If completion is desired, the argument name without the prefix should
         be added using the ``add_argument_completer()`` method. If you have an
         argument you are using for multiple commands but want to exclude
-        completion for it in one instance, appeng the ``!`` character to it.
+        completion for it in one instance, append the ``!`` character to it.
+        You can also make an argument complete using a different completer
+        name by adding ``!`` followed by the desired completer name.
 
         The ``:`` prefix represents a positional argument. The expected input
         is simply the value. These must always be defined before keyword
@@ -281,9 +406,11 @@ class CLI(Provider):
                 tag=["spam", "eggs"],
             )
         """
-        self.router.add(pattern, handler)
+        self.router.add(pattern, handler, namespace)
 
-    def add_argument_completer(self, name: str, completer: callable):
+    def add_argument_completer(
+        self, name: str, completer: callable, namespace: str = None
+    ):
         """
         Add an argument completer
 
@@ -293,55 +420,16 @@ class CLI(Provider):
         If a command has multiple arguments, arguments defined to the left
         will be passed to the completer.
         """
-        self.router.add_argument_completer(name, completer)
+        self.router.add_argument_completer(name, completer, namespace=namespace)
 
     async def handle_command(self, cmd):
-        command, input_args = self.router.get_command_handler(cmd)
-        args = {}
-        for name, value in input_args.items():
-            args[name.replace("-", "_")] = value
-
-        signature = inspect.Signature.from_callable(command)
-        for name, value in args.items():
-            if name not in signature.parameters:
-                raise InvalidArgument(f"Argument {name} not defined by handler")
-            annotation = signature.parameters[name].annotation
-            if annotation == inspect.Parameter.empty:
-                # No annotation defined. Assume string
-                continue
-
-            args[name] = self.interpret_argument(annotation, value)
+        command, args = self.router.get_command_handler(cmd)
+        args = interpret_arguments(command, args, required=True)
 
         try:
             return await command(**args)
         except RPCInvalidArgument as e:
             raise InvalidArgument(str(e))
-
-    def interpret_argument(self, annotation, value):
-        if isinstance(annotation, UnionType):
-            errors = []
-            for subannotation in typing.get_args(annotation):
-                try:
-                    return self.interpret_argument(subannotation, value)
-                except InvalidArgument as e:
-                    errors.append(str(e))
-                    continue
-            raise InvalidArgument(", ".join(errors))
-        elif annotation == bool:
-            return self.interpret_bool(value)
-        else:
-            try:
-                return annotation(value)
-            except ValueError as e:
-                raise InvalidArgument(str(e))
-
-    def interpret_bool(self, value: str) -> bool:
-        value = value.lower()
-        if value in ("1", "t", "true", "on", "yes"):
-            return True
-        elif value in ("0", "f", "false", "off", "no"):
-            return False
-        raise InvalidArgument(f'"{value}" could not be interpreted as boolean')
 
     def read_input(self):
         self.key_queue.put_nowait(sys.stdin.read(1))

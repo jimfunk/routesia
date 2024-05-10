@@ -100,8 +100,8 @@ class DNSCacheProvider(Provider):
     def stop(self):
         self.systemd.stop_unit("unbound.service")
 
-    def rpc_config_get(self, msg: None) -> dns_cache_pb2.DNSCacheConfig:
+    async def rpc_config_get(self) -> dns_cache_pb2.DNSCacheConfig:
         return self.config.staged_data.dns.cache
 
-    def rpc_config_update(self, msg: dns_cache_pb2.DNSCacheConfig) -> None:
+    async def rpc_config_update(self, msg: dns_cache_pb2.DNSCacheConfig) -> None:
         self.config.staged_data.dns.cache.CopyFrom(msg)

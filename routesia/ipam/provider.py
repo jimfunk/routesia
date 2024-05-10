@@ -43,10 +43,10 @@ class IPAMProvider(Provider):
     def start(self):
         self.update_hosts()
 
-    def rpc_config_list(self, msg: None) -> ipam_pb2.IPAMConfig:
+    async def rpc_config_list(self) -> ipam_pb2.IPAMConfig:
         return self.config.staged_data.ipam
 
-    def rpc_config_host_add(self, msg: ipam_pb2.Host) -> None:
+    async def rpc_config_host_add(self, msg: ipam_pb2.Host) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         for host in self.config.staged_data.ipam.host:
@@ -55,7 +55,7 @@ class IPAMProvider(Provider):
         host = self.config.staged_data.ipam.host.add()
         host.CopyFrom(msg)
 
-    def rpc_config_host_update(self, msg: ipam_pb2.Host) -> None:
+    async def rpc_config_host_update(self, msg: ipam_pb2.Host) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         for host in self.config.staged_data.ipam.host:
@@ -64,7 +64,7 @@ class IPAMProvider(Provider):
                 return
         raise RPCInvalidArgument(msg.name)
 
-    def rpc_config_host_remove(self, msg: ipam_pb2.Host) -> None:
+    async def rpc_config_host_remove(self, msg: ipam_pb2.Host) -> None:
         if not msg.name:
             raise RPCInvalidArgument("name not specified")
         for i, host in enumerate(self.config.staged_data.ipam.host):

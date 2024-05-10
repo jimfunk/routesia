@@ -12,7 +12,7 @@ from routesia.schema.v1 import address_pb2
 class AddressCLI(Provider):
     def __init__(self, cli: CLI, rpc: RPCClient):
         super().__init__()
-        self.cli = cli
+        self.cli = cli.get_namespace_cli("address")
         self.rpc = rpc
 
         self.cli.add_argument_completer("interface", self.complete_interfaces)
@@ -26,21 +26,21 @@ class AddressCLI(Provider):
         self.cli.add_command("address config update :interface :ip @peer @scope", self.update_address_config)
         self.cli.add_command("address config delete :interface :ip", self.delete_address_config)
 
-    async def complete_interfaces(self, **args):
+    async def complete_interfaces(self):
         interfaces = []
         interface_list = await self.rpc.request("interface/list")
         for interface in interface_list.interface:
             interfaces.append(interface.name)
         return interfaces
 
-    async def complete_ips(self, **args):
+    async def complete_ips(self):
         ips = []
         address_list = await self.rpc.request("address/config/list")
         for address in address_list.address:
             ips.append(address.ip)
         return ips
 
-    async def show_addresses(self, interface=None):
+    async def show_addresses(self, interface: str = None):
         addresses = await self.rpc.request("address/list")
         if interface:
             interface_addresses = address_pb2.AddressList()
@@ -51,7 +51,7 @@ class AddressCLI(Provider):
             return interface_addresses
         return addresses
 
-    async def show_address_configs(self, interface=None):
+    async def show_address_configs(self, interface: str = None):
         addresses = await self.rpc.request("address/config/list")
         if interface:
             interface_addresses = address_pb2.AddressConfigList()
@@ -64,7 +64,7 @@ class AddressCLI(Provider):
 
     async def add_address_config(
         self,
-        interface,
+        interface: str,
         ip: IPv4Interface | IPv6Interface,
         peer: IPv4Interface | IPv6Interface = None,
         scope=None,
@@ -79,7 +79,7 @@ class AddressCLI(Provider):
             address.scope = int(scope)
         await self.rpc.request("address/config/add", address)
 
-    async def get_address(self, interface, ip):
+    async def get_address(self, interface: str, ip: IPv4Interface | IPv6Interface):
         addresses = await self.rpc.request("address/config/list")
         address = None
 
@@ -96,7 +96,7 @@ class AddressCLI(Provider):
 
     async def update_address_config(
         self,
-        interface,
+        interface: str,
         ip: IPv4Interface | IPv6Interface,
         peer: IPv4Interface | IPv6Interface = None,
         scope=None,
@@ -112,7 +112,7 @@ class AddressCLI(Provider):
 
     async def delete_address_config(
         self,
-        interface,
+        interface: str,
         ip: IPv4Interface | IPv6Interface,
     ):
         address = address_pb2.AddressConfig()

@@ -52,8 +52,8 @@ class NetfilterProvider(Provider):
     def stop(self):
         self.flush()
 
-    def rpc_config_get(self, msg: None) -> netfilter_pb2.NetfilterConfig:
+    async def rpc_config_get(self) -> netfilter_pb2.NetfilterConfig:
         return self.config.staged_data.netfilter
 
-    def rpc_config_update(self, msg: netfilter_pb2.NetfilterConfig) -> None:
+    async def rpc_config_update(self, msg: netfilter_pb2.NetfilterConfig) -> None:
         self.config.staged_data.netfilter.CopyFrom(msg)

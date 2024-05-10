@@ -134,7 +134,7 @@ class RouteProvider(Provider):
     def start(self):
         self.configure()
 
-    def rpc_list_routes(self, msg: None) -> route_pb2.RouteStateList:
+    async def rpc_list_routes(self) -> route_pb2.RouteStateList:
         routes = route_pb2.RouteStateList()
         for table in self.tables.values():
             for route in table.routes.values():
@@ -142,7 +142,7 @@ class RouteProvider(Provider):
                 route.to_message(route_msg)
         return routes
 
-    def rpc_list_tables(self, msg: None) -> route_pb2.RouteTableConfigList:
+    async def rpc_list_tables(self) -> route_pb2.RouteTableConfigList:
         tables = route_pb2.RouteTableConfigList()
         for table in self.tables.values():
             table_msg = tables.table.add()
@@ -150,32 +150,32 @@ class RouteProvider(Provider):
             table_msg.name = table.name
         return tables
 
-    def rpc_get_config(self, msg: None) -> route_pb2.RouteTableConfigList:
+    async def rpc_get_config(self) -> route_pb2.RouteTableConfigList:
         return self.config.staged_data.route
 
-    def rpc_add_table(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_add_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidArgument("id not specified")
+            raise RPCInvalidArgument("Table id not specified")
         for table in self.config.staged_data.route.table:
             if table.id == msg.id:
-                raise RPCInvalidArgument("id %s" % msg.id)
+                raise RPCInvalidArgument(f"Table id {msg.id} exists")
             if msg.name and table.name == msg.name:
-                raise RPCInvalidArgument("name %s" % msg.name)
+                raise RPCInvalidArgument(f"Table name {msg.name} exists")
 
         table = self.config.staged_data.route.table.add()
         table.CopyFrom(msg)
 
-    def rpc_update_table(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_update_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidArgument("id not specified")
+            raise RPCInvalidArgument("Table id not specified")
         for table in self.config.staged_data.route.table:
             if table.id == msg.id:
                 table.name = msg.name
                 return
 
-    def rpc_delete_table(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_delete_table(self, msg: route_pb2.RouteTableConfig) -> None:
         if not msg.id:
-            raise RPCInvalidArgument("id not specified")
+            raise RPCInvalidArgument("Table id not specified")
         if msg.id in DEFAULT_TABLES:
             raise RPCInvalidArgument("Cannot remove default table")
         for i, table in enumerate(self.config.staged_data.route.table):
@@ -192,7 +192,7 @@ class RouteProvider(Provider):
             for table in self.config.staged_data.route.table:
                 if table.name == name:
                     return table
-            raise RPCInvalidArgument(name)
+            raise RPCInvalidArgument(f"Table name {name} does not exist")
 
         if not id:
             id = 254
@@ -200,9 +200,9 @@ class RouteProvider(Provider):
         for table in self.config.staged_data.route.table:
             if table.id == id:
                 return table
-        raise RPCInvalidArgument(str(id))
+        raise RPCInvalidArgument(f"Table id {id} does not exist")
 
-    def rpc_get_route(
+    async def rpc_get_route(
         self, msg: route_pb2.RouteTableConfig
     ) -> route_pb2.RouteTableConfig:
         table = self.get_table(msg.id, msg.name)
@@ -217,21 +217,21 @@ class RouteProvider(Provider):
                 route_route = route_table.route.add()
                 route_route.CopyFrom(route)
                 return route_table
-        raise RPCInvalidArgument(str(destination))
+        raise RPCInvalidArgument(f"Route {destination} does not exist")
 
-    def rpc_add_route(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_add_route(self, msg: route_pb2.RouteTableConfig) -> None:
         table = self.get_table(msg.id, msg.name)
 
         destination = ip_network(msg.route[0].destination)
 
         for route in table.route:
             if ip_network(route.destination) == destination:
-                raise RPCInvalidArgument(str(destination))
+                raise RPCInvalidArgument(f"Route {destination} exists")
 
         route = table.route.add()
         route.CopyFrom(msg.route[0])
 
-    def rpc_update_route(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_update_route(self, msg: route_pb2.RouteTableConfig) -> None:
         table = self.get_table(msg.id, msg.name)
 
         destination = ip_network(msg.route[0].destination)
@@ -241,7 +241,7 @@ class RouteProvider(Provider):
                 route.CopyFrom(msg.route[0])
                 return
 
-    def rpc_delete_route(self, msg: route_pb2.RouteTableConfig) -> None:
+    async def rpc_delete_route(self, msg: route_pb2.RouteTableConfig) -> None:
         table = self.get_table(msg.id, msg.name)
 
         destination = ip_network(msg.route[0].destination)
