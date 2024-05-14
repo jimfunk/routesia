@@ -66,33 +66,33 @@ class IPAMCLI(Provider):
     async def list_hosts(self):
         return await self.rpc.request("ipam/config/host/list")
 
-    async def get_host(self, hostname):
+    async def get_host(self, hostname: str):
         config = await self.rpc.request("ipam/config/host/list")
         for host in config.host:
             if host.name == hostname:
                 return host
         raise InvalidArgument("Host %s not found" % hostname)
 
-    async def add_host(self, hostname, hardware_address: EUI = None):
+    async def add_host(self, hostname: str, hardware_address: EUI = None):
         host = ipam_pb2.Host()
         host.name = hostname
         if hardware_address is not None:
             host.hardware_address = str(hardware_address)
         await self.rpc.request("ipam/config/host/add", host)
 
-    async def update_host(self, hostname, hardware_address: EUI = None):
+    async def update_host(self, hostname: str, hardware_address: EUI = None):
         host = ipam_pb2.Host()
         host.name = hostname
         if hardware_address is not None:
             host.hardware_address = str(hardware_address)
         await self.rpc.request("ipam/config/host/update", host)
 
-    async def remove_host(self, hostname):
+    async def remove_host(self, hostname: str):
         host = ipam_pb2.Host()
         host.name = hostname
         await self.rpc.request("ipam/config/host/remove", host)
 
-    async def add_alias(self, hostname, alias):
+    async def add_alias(self, hostname: str, alias: str):
         host = await self.get_host(hostname)
         for alias in host.alias:
             if alias == alias:
@@ -100,7 +100,7 @@ class IPAMCLI(Provider):
         host.alias.append(alias)
         await self.rpc.request("ipam/config/host/update", host)
 
-    async def remove_alias(self, hostname, alias):
+    async def remove_alias(self, hostname: str, alias: str):
         host = await self.get_host(hostname)
         for i, alias in enumerate(host.alias):
             if alias == alias:
@@ -108,7 +108,7 @@ class IPAMCLI(Provider):
                 break
         await self.rpc.request("ipam/config/host/update", host)
 
-    async def add_address(self, hostname, address):
+    async def add_address(self, hostname: str, address: str):
         address = str(address)
         host = await self.get_host(hostname)
         for ip_address in host.ip_address:
@@ -117,7 +117,7 @@ class IPAMCLI(Provider):
         host.ip_address.append(str(address))
         await self.rpc.request("ipam/config/host/update", host)
 
-    async def remove_address(self, hostname, address):
+    async def remove_address(self, hostname: str, address: str):
         address = str(address)
         host = await self.get_host(hostname)
         for i, ip_address in enumerate(host.ip_address):

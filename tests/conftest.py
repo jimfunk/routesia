@@ -3,7 +3,7 @@ tests/conftrst.py - Routesia test fixtures
 """
 
 import asyncio
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from ctypes import (
     CDLL,
     CFUNCTYPE,
@@ -23,8 +23,6 @@ from paho.mqtt.client import MQTTMessage, topic_matches_sub
 import pty
 import pytest
 import subprocess
-import queue
-import threading
 import uuid
 
 from routesia.address.provider import AddressProvider
@@ -52,12 +50,12 @@ logger = logging.getLogger("conftest")
 
 
 def pytest_configure(config):
-    if config.option.log_debug:
+    if config.option.logdebug:
         config.option.log_cli_level = "DEBUG"
 
 
 def pytest_addoption(parser):
-    parser.addoption("--log-debug", action="store_true", help="Enable debug logging")
+    parser.addoption("--logdebug", action="store_true", help="Enable debug logging")
 
 
 def create_namespace(name):
@@ -127,6 +125,7 @@ class IP:
     """
     Interface to the IP command
     """
+
     def _ip(self, *args, **kwargs):
         """
         Call ip with arguments.
@@ -177,7 +176,9 @@ class IP:
 
     def get_addresses(self, interface, *args, **kwargs):
         addresses = {}
-        for address in self._ip("address", "show", "dev", interface, *args, **kwargs)[0]["addr_info"]:
+        for address in self._ip("address", "show", "dev", interface, *args, **kwargs)[
+            0
+        ]["addr_info"]:
             addresses[f"{address['local']}/{address['prefixlen']}"] = address
         return addresses
 
@@ -201,20 +202,44 @@ def ip(namespace):
 
 def wrap_async_test(pyfuncitem, test_fn):
     service = pyfuncitem.funcargs.get("service", None)
+    mqttbroker = pyfuncitem.funcargs.get("mqttbroker", None)
 
     @functools.wraps(test_fn)
     def wrapped_async_test(*args, **kwargs):
         async def async_test(*args, **kwargs):
-            if service:
-                service.load_providers()
-                service_task = asyncio.create_task(service.service_main())
-                await service.wait_start()
+            try:
+                async with asyncio.timeout(1):
+                    if mqttbroker:
+                        await mqttbroker.start()
 
-            await asyncio.wait_for(test_fn(*args, **kwargs), timeout=1)
+                    if service:
+                        await service.start_background()
 
-            if service:
-                service_task.cancel()
-                await service_task
+                        for name, value in kwargs.items():
+                            if inspect.iscoroutine(value):
+                                kwargs[name] = await value
+
+                        await service.wait_start()
+
+            except asyncio.TimeoutError:
+                pytest.fail("Timed out during service setup")
+
+            try:
+                async with asyncio.timeout(5):
+                    await test_fn(*args, **kwargs)
+            except asyncio.TimeoutError:
+                logger.error("Timed out during test execution")
+                pytest.fail("Timed out during test execution")
+
+            try:
+                async with asyncio.timeout(1):
+                    if service:
+                        await service.stop_background()
+
+                    if mqttbroker:
+                        await mqttbroker.stop()
+            except asyncio.TimeoutError:
+                pytest.fail("Timed out during service shutdown")
 
         asyncio.run(async_test(*args, **kwargs))
 
@@ -227,13 +252,17 @@ def pytest_pyfunc_call(pyfuncitem):
     if hasattr(pyfuncitem, "hypothesis"):
         if inspect.iscoroutinefunction(pyfuncitem.obj.hypothesis.inner_test):
             is_async = True
-            pyfuncitem.obj.hypothesis.inner_test = wrap_async_test(pyfuncitem, pyfuncitem.obj.hypothesis.inner_test)
+            pyfuncitem.obj.hypothesis.inner_test = wrap_async_test(
+                pyfuncitem, pyfuncitem.obj.hypothesis.inner_test
+            )
     elif inspect.iscoroutinefunction(pyfuncitem.obj):
         is_async = True
         pyfuncitem.obj = wrap_async_test(pyfuncitem, pyfuncitem.obj)
 
     if not is_async:
-        assert pyfuncitem.funcargs.get("service", None) is None, "Test with service fixture must be a coroutine"
+        assert (
+            pyfuncitem.funcargs.get("service", None) is None
+        ), "Test with service fixture must be a coroutine"
 
 
 @pytest.fixture
@@ -312,6 +341,7 @@ class TestService(Service):
     """
     This subclass adds `wait_for_event` which is only useful for tests
     """
+
     def __init__(self):
         super().__init__()
         self.event_waiters = {}
@@ -395,7 +425,7 @@ def wait_for_event(service):
     return waiter
 
 
-class MockMQTTClient():
+class MockMQTTClient:
     def __init__(self, broker, *args, **kwargs):
         self.broker = broker
 
@@ -405,28 +435,27 @@ class MockMQTTClient():
     def publish(self, topic, payload=None, qos=0, retain=False):
         self.broker.publish(topic, payload)
 
-    def connect_async(self, host, port=1883, keepalive=60, bind_address=""):
+    def connect(self, host, port=1883, keepalive=60, bind_address=""):
         cb = getattr(self, "on_connect", None)
         if cb:
             cb(self, None, 0, 0)
 
-    def loop_start(self):
+    def loop_read(self):
         pass
 
-    def loop_stop(self):
+    def loop_write(self):
         pass
+
+    def loop_misc(self) -> int:
+        return 0
 
 
 class MockMQTTBroker:
-    """
-    This mock broker runs in a thread to better emulate the real paho MQTT
-    client the way we use it
-    """
     def __init__(self):
         self.subscriptions = []
-        self.queue = queue.Queue()
+        self.queue = asyncio.Queue()
         self.running = False
-        self.thread = None
+        self.task = None
 
     def get_client(self, *args, **kwargs):
         return MockMQTTClient(self)
@@ -435,96 +464,127 @@ class MockMQTTBroker:
         self.subscriptions.append((topic, client))
 
     def publish(self, topic, payload=None):
-        self.queue.put((topic, payload))
+        self.queue.put_nowait((topic, payload))
 
-    def message_handler(self):
-        while self.running:
-            try:
-                topic, payload = self.queue.get(timeout=0.001)
-            except queue.Empty:
-                continue
+    async def message_handler(self):
+        try:
+            while self.running:
+                topic, payload = await self.queue.get()
 
-            for sub, client in self.subscriptions:
-                if topic_matches_sub(sub, topic):
-                    cb = getattr(client, "on_message", None)
-                    if cb:
-                        msg = MQTTMessage(0, topic.encode())
-                        msg.payload = payload
-                        cb(client, None, msg)
+                for sub, client in self.subscriptions:
+                    if topic_matches_sub(sub, topic):
+                        cb = getattr(client, "on_message", None)
+                        if cb:
+                            msg = MQTTMessage(0, topic.encode())
+                            msg.payload = payload
+                            cb(client, None, msg)
+        except asyncio.CancelledError:
+            pass
 
-    def start(self):
+    async def start(self):
+        loop = asyncio.get_running_loop()
         self.running = True
-        self.thread = threading.Thread(target=self.message_handler)
-        self.thread.start()
+        self.task = loop.create_task(self.message_handler())
 
-    def stop(self):
+    async def stop(self):
         self.running = False
-        self.thread.join()
-        self.thread = None
+        if self.task:
+            self.task.cancel()
+            await self.task
+            self.task = None
 
 
 @pytest.fixture
 def mqttbroker():
-    broker = MockMQTTBroker()
-    broker.start()
-    yield broker
-    broker.stop()
+    return MockMQTTBroker()
 
 
 @pytest.fixture
-def mqtt(service, mqttbroker):
+def mqtt_deps(service, mqttbroker):
     service.add_provider(MQTT, client=mqttbroker.get_client)
-    service.load_providers()
-    return service.providers[MQTT]
+    return True
 
 
 @pytest.fixture
-def schema_registry(service):
+def mqtt(service, mqtt_deps):
+    return service.get_provider(MQTT)
+
+
+@pytest.fixture
+def schema_registry_deps(service):
     service.add_provider(SchemaRegistry)
-    service.load_providers()
-    return service.providers[SchemaRegistry]
+    return True
 
 
 @pytest.fixture
-def rpc(service, mqtt, schema_registry):
+def schema_registry(service, schema_registry_deps):
+    return service.get_provider(SchemaRegistry)
+
+
+@pytest.fixture
+def rpc_deps(service, mqtt_deps, schema_registry_deps):
     service.add_provider(RPC)
-    service.load_providers()
-    return service.providers[RPC]
+    return True
 
 
 @pytest.fixture
-def rpcclient(service, mqtt, schema_registry):
+def rpc(service, rpc_deps):
+    return service.get_provider(RPC)
+
+
+@pytest.fixture
+def rpcclient_deps(service, mqtt_deps, schema_registry_deps):
     service.add_provider(RPCClient)
-    service.load_providers()
-    return service.providers[RPCClient]
+    return True
 
 
 @pytest.fixture
-def cli(service, rpcclient, stdin):
+def rpcclient(service, rpcclient_deps):
+    return service.get_provider(RPCClient)
+
+
+@pytest.fixture
+def cli_deps(service, rpcclient_deps, stdin):
     service.add_provider(CLI, stdin=stdin.reader)
-    service.load_providers()
-    return service.providers[CLI]
+    return True
 
 
 @pytest.fixture
-def iproute_provider(service, rpcclient, stdin):
+def cli(service, cli_deps):
+    return service.get_provider(CLI)
+
+
+@pytest.fixture
+def iproute_provider_deps(service, rpcclient_deps):
     service.add_provider(IPRouteProvider)
-    service.load_providers()
-    return service.providers[IPRouteProvider]
+    return True
 
 
 @pytest.fixture
-def config_provider(service, rpc, tmp_path):
+def iproute_provider(service, iproute_provider_deps):
+    return service.get_provider(IPRouteProvider)
+
+
+@pytest.fixture
+def config_provider_deps(service, rpc_deps, tmp_path):
     service.add_provider(ConfigProvider, location=tmp_path)
-    service.load_providers()
-    return service.providers[ConfigProvider]
+    return True
 
 
 @pytest.fixture
-def address_provider(service, iproute_provider, config_provider, rpc):
+def config_provider(service, config_provider_deps):
+    return service.get_provider(ConfigProvider)
+
+
+@pytest.fixture
+def address_provider_deps(service, iproute_provider_deps, config_provider_deps, rpc_deps):
     service.add_provider(AddressProvider)
-    service.load_providers()
-    return service.providers[AddressProvider]
+    return True
+
+
+@pytest.fixture
+def address_provider(service, address_provider_deps):
+    return service.get_provider(AddressProvider)
 
 
 @pytest.fixture

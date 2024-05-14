@@ -19,11 +19,11 @@ def test_int8():
 
     with pytest.raises(ValueError) as excinfo:
         Int8(-129)
-    assert str(excinfo.value) == "Must be between -128 and 127 inclusive"
+    assert str(excinfo.value) == "must be between -128 and 127 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         Int8(128)
-    assert str(excinfo.value) == "Must be between -128 and 127 inclusive"
+    assert str(excinfo.value) == "must be between -128 and 127 inclusive"
 
 
 def test_int16():
@@ -33,11 +33,11 @@ def test_int16():
 
     with pytest.raises(ValueError) as excinfo:
         Int16(-32769)
-    assert str(excinfo.value) == "Must be between -32768 and 32767 inclusive"
+    assert str(excinfo.value) == "must be between -32768 and 32767 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         Int16(32768)
-    assert str(excinfo.value) == "Must be between -32768 and 32767 inclusive"
+    assert str(excinfo.value) == "must be between -32768 and 32767 inclusive"
 
 
 def test_int32():
@@ -47,11 +47,11 @@ def test_int32():
 
     with pytest.raises(ValueError) as excinfo:
         Int32(-2147483649)
-    assert str(excinfo.value) == "Must be between -2147483648 and 2147483647 inclusive"
+    assert str(excinfo.value) == "must be between -2147483648 and 2147483647 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         Int32(2147483648)
-    assert str(excinfo.value) == "Must be between -2147483648 and 2147483647 inclusive"
+    assert str(excinfo.value) == "must be between -2147483648 and 2147483647 inclusive"
 
 
 def test_int64():
@@ -61,11 +61,11 @@ def test_int64():
 
     with pytest.raises(ValueError) as excinfo:
         Int64(-9223372036854775809)
-    assert str(excinfo.value) == "Must be between -9223372036854775808 and 9223372036854775807 inclusive"
+    assert str(excinfo.value) == "must be between -9223372036854775808 and 9223372036854775807 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         Int64(9223372036854775808)
-    assert str(excinfo.value) == "Must be between -9223372036854775808 and 9223372036854775807 inclusive"
+    assert str(excinfo.value) == "must be between -9223372036854775808 and 9223372036854775807 inclusive"
 
 
 def test_uint8():
@@ -74,11 +74,11 @@ def test_uint8():
 
     with pytest.raises(ValueError) as excinfo:
         UInt8(-1)
-    assert str(excinfo.value) == "Must be between 0 and 255 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 255 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         UInt8(256)
-    assert str(excinfo.value) == "Must be between 0 and 255 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 255 inclusive"
 
 
 def test_uint16():
@@ -87,11 +87,11 @@ def test_uint16():
 
     with pytest.raises(ValueError) as excinfo:
         UInt16(-1)
-    assert str(excinfo.value) == "Must be between 0 and 65535 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 65535 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         UInt16(65536)
-    assert str(excinfo.value) == "Must be between 0 and 65535 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 65535 inclusive"
 
 
 def test_uint32():
@@ -100,11 +100,11 @@ def test_uint32():
 
     with pytest.raises(ValueError) as excinfo:
         UInt32(-1)
-    assert str(excinfo.value) == "Must be between 0 and 4294967295 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 4294967295 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         UInt32(4294967296)
-    assert str(excinfo.value) == "Must be between 0 and 4294967295 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 4294967295 inclusive"
 
 
 def test_uint64():
@@ -113,8 +113,8 @@ def test_uint64():
 
     with pytest.raises(ValueError) as excinfo:
         UInt64(-1)
-    assert str(excinfo.value) == "Must be between 0 and 18446744073709551615 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 18446744073709551615 inclusive"
 
     with pytest.raises(ValueError) as excinfo:
         UInt64(18446744073709551616)
-    assert str(excinfo.value) == "Must be between 0 and 18446744073709551615 inclusive"
+    assert str(excinfo.value) == "must be between 0 and 18446744073709551615 inclusive"

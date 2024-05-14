@@ -23,12 +23,15 @@ class InterfaceCLI(Provider):
         self.cli.add_argument_completer(
             "unconfigured-interface", self.complete_unconfigured_interface
         )
-        self.cli.add_argument_completer("interface", self.complete_interface, namespace=None)
+        self.cli.add_argument_completer(
+            "interface", self.complete_interface, namespace=None
+        )
         self.cli.add_argument_completer("type", self.complete_type)
         self.cli.add_argument_completer(
             "link.addrgenmode", self.complete_link_addrgenmode
         )
 
+        self.cli.add_command("interface show", self.show_interface)
         self.cli.add_command(
             "interface show :interface!system-interface", self.show_interface
         )
@@ -140,9 +143,9 @@ class InterfaceCLI(Provider):
     async def complete_link_addrgenmode(self):
         return interface_pb2.InterfaceLink.AddrGenMode.keys()
 
-    async def show_interface(self, interface=None):
+    async def show_interface(self, interface: str | None = None):
         interfaces = await self.rpc.request("interface/list")
-        if interface:
+        if interface is not None:
             for interface_object in interfaces.interface:
                 if interface_object.name == interface:
                     return interface_object
@@ -191,8 +194,8 @@ class InterfaceCLI(Provider):
 
     async def add_configured_interface(
         self,
-        interface,
-        type="ETHERNET",
+        interface: str,
+        type: str = "ETHERNET",
         link_up: bool = True,
         link_noarp: bool = False,
         link_txqueuelen: UInt32 = None,

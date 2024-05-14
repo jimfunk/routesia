@@ -3,6 +3,7 @@
 # routesia -- Routing system
 #
 
+import asyncio
 import logging
 import os
 import sys
@@ -26,7 +27,7 @@ from routesia.schema.registry import SchemaRegistry
 from routesia.systemd import SystemdProvider
 
 
-def main():
+async def run():
     if "JOURNAL_STREAM" in os.environ:
         handler = JournalHandler()
     else:
@@ -67,6 +68,12 @@ def main():
     logger.info("Starting Routesia")
 
     try:
-        service.run()
+        await service.run()
     except KeyboardInterrupt:
         logger.info("Exiting on keyboard interrupt")
+
+def main():
+    try:
+        sys.exit(asyncio.run(run()))
+    except KeyboardInterrupt:
+        pass

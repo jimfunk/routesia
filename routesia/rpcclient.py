@@ -72,6 +72,12 @@ class RPCClient(Provider):
         self.request_topic = f"{self.prefix}/request"
         self.mqtt.subscribe(f"{self.prefix}/response/{self.client_id}", self.handle_response)
 
+    async def wait_connect(self):
+        """
+        Wait for client to connect. If it is already connected, return immediately.
+        """
+        await self.mqtt.wait_connect()
+
     def get_request_id(self):
         request_id = self.request_id
         self.request_id += 1
@@ -93,7 +99,7 @@ class RPCClient(Provider):
         self.in_flight_requests[request_message.request_id] = request
         return await request.get_response()
 
-    def handle_response(self, message):
+    async def handle_response(self, message):
         response = rpc_pb2.RPCResponse()
         response.ParseFromString(message.payload)
         if response.request_id in self.in_flight_requests:

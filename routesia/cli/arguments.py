@@ -29,10 +29,9 @@ def interpret_arguments(fn: callable, args: dict[str, str], required: bool = Fal
         annotation = signature.parameters[name].annotation
         if annotation == inspect.Parameter.empty:
             # No annotation defined. Assume string
-            continue
+            annotation = str
 
         translated_args[name] = interpret_argument(annotation, value)
-
 
     for argument in signature.parameters.values():
         if argument.default == inspect.Parameter.empty and argument.name not in translated_args:

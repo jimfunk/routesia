@@ -1,9 +1,12 @@
+import asyncio
+
 from routesia.mqtt import MQTTEvent
 
 
 async def test_handler(mqtt, mqttbroker, service):
     events = []
-    future = service.main_loop.create_future()
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
 
     async def handler(event):
         events.append(event)

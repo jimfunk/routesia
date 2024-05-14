@@ -33,7 +33,7 @@ class BarProvider(Provider):
 
 async def test_load_providers(service):
     service.add_provider(FooProvider)
-    service.load_providers()
+    await service.load_providers()
 
     assert len(service.providers) == 2
     assert Service in service.providers
@@ -45,7 +45,7 @@ async def test_load_providers(service):
 async def test_load_providers_requirement(service):
     service.add_provider(BarProvider)
     service.add_provider(FooProvider)
-    service.load_providers()
+    await service.load_providers()
 
     assert len(service.providers) == 3
     assert FooProvider in service.providers

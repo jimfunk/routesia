@@ -4,6 +4,7 @@ routesia/service.py - Main code for a service
 
 import asyncio
 from collections import OrderedDict
+from contextlib import suppress
 import inspect
 import logging
 import systemd.daemon
@@ -25,10 +26,6 @@ class ProviderDependencyMissing(ServiceException):
 
 
 class ProviderDependencyLoop(ServiceException):
-    pass
-
-
-class ServiceExit(ServiceException):
     pass
 
 
@@ -105,14 +102,10 @@ class Service(Provider):
                 self.myprovider = myprovider
 
 
-        async def run():
-            service = Service()
-            service.add_provider(MyProvider)
-            service.add_provider(AnotherProvider)
-            await service.run()
-
-
-        asyncio.run(run)
+        service = Service()
+        service.add_provider(MyProvider)
+        service.add_provider(AnotherProvider)
+        asyncio.run(service.run())
     """
     def __init__(self):
         # Indexed by class, value is kwargs
@@ -129,6 +122,7 @@ class Service(Provider):
 
         self.main_loop = None
         self.main_future = None
+        self.main_task: asyncio.Task | None = None
         self.started = False
         self.event_registry = {}
         self.eventqueue = EventQueue()
@@ -164,7 +158,7 @@ class Service(Provider):
                 kwargs[arg] = self.providers[cls]
         return fn(**kwargs)
 
-    def load_providers(self):
+    async def load_providers(self):
         """
         Load providers in order, according to their __init__ annotations.
 
@@ -198,6 +192,12 @@ class Service(Provider):
                 provider_names = ", ".join([provider.get_name() for provider in pending_providers])
                 raise ProviderDependencyLoop(f"Provider dependency loop detected among {provider_names}")
 
+    async def get_provider(self, cls):
+        """
+        Return the instance of the provider ``cls``.
+        """
+        return self.providers[cls]
+
     async def start_providers(self):
         for provider in self.providers.values():
             if provider != self:
@@ -224,12 +224,10 @@ class Service(Provider):
             self.main_future = loop.create_future()
         await self.main_future
 
-    async def service_main(self):
+    async def service_main(self) -> int:
         """
         Starts and runs all providers
         """
-        self.main_loop = asyncio.get_event_loop()
-
         logger.info("Starting providers")
         await self.start_providers()
 
@@ -245,24 +243,49 @@ class Service(Provider):
             if hasattr(provider, "main"):
                 main_tasks.append(provider.main())
 
+        ret = 0
+
         try:
             await asyncio.gather(*main_tasks)
         except asyncio.exceptions.CancelledError:
             logger.info("Service cancelled")
-        except (KeyboardInterrupt, ServiceExit):
+        except SystemExit as e:
+            ret = e.code
+        except KeyboardInterrupt:
             pass
 
         logger.info("Stopping providers")
         await self.stop_providers()
 
+        return ret
+
     async def stop(self):
         for task in self.event_tasks:
             task.cancel()
 
-    def run(self):
+    async def run(self) -> int:
         "Run the service"
-        self.load_providers()
-        asyncio.run(self.service_main())
+        self.main_loop = asyncio.get_running_loop()
+        await self.load_providers()
+        return await self.service_main()
+
+    async def start_background(self):
+        """
+        Run providers in a background task
+        """
+        self.main_loop = asyncio.get_running_loop()
+        await self.load_providers()
+        self.main_task = self.main_loop.create_task(self.service_main())
+
+    async def stop_background(self):
+        """
+        Stop providers in the background task
+        """
+        if self.main_task:
+            self.main_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.main_task
+            self.main_task = None
 
     def subscribe_event(self, event_class, subscriber):
         """Subscribe to an event. The subscriber must be a callable taking a

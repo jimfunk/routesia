@@ -5,6 +5,7 @@ hosteria/cli/__init__.py - CLI appplication
 import asyncio
 from asyncio import Queue
 from collections import OrderedDict
+import logging
 import sys
 import termios
 import tty
@@ -19,9 +20,13 @@ from routesia.cli.exceptions import (
 from routesia.cli.history import History
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
+from routesia.mqtt import MQTT
 from routesia.rpc import RPCInvalidArgument, RPCUnspecifiedError
 from routesia.rpcclient import RPCClient
-from routesia.service import Provider, ServiceExit
+from routesia.service import Provider
+
+
+logger = logging.getLogger("cli")
 
 
 class Fragment:
@@ -220,11 +225,14 @@ class CommandRouter:
             completer = self.argument_completers[None].get(name, None)
         return completer
 
-    def get_command_handler(self, command: str) -> tuple[callable, dict]:
+    def get_command_handler(self, command: str | list[str]) -> tuple[callable, dict]:
         """
         Get command handler and arguments from input command
         """
-        fragments = command.split()
+        if isinstance(command, str):
+            fragments = command.split()
+        else:
+            fragments = command
 
         result, args = self.root_node.match(fragments)
 
@@ -327,12 +335,14 @@ class CLI(Provider):
     def __init__(
         self,
         rpcclient: RPCClient,
+        mqtt: MQTT,
         stdin=sys.stdin,
         stdout=sys.stdout,
         operation_timeout=5,
     ):
         super().__init__()
         self.rpcclient = rpcclient
+        self.mqtt = mqtt
         self.stdin = stdin
         self.stdout = stdout
         self.operation_timeout = operation_timeout
@@ -341,6 +351,7 @@ class CLI(Provider):
         self.router = CommandRouter()
         self.key_queue = Queue(maxsize=65535)
         self.history = History()
+        self.connected = False
 
     def get_namespace_cli(self, namespace: str) -> CLINamespace:
         return CLINamespace(self, namespace)
@@ -422,7 +433,7 @@ class CLI(Provider):
         """
         self.router.add_argument_completer(name, completer, namespace=namespace)
 
-    async def handle_command(self, cmd):
+    async def handle_command(self, cmd: str | list[str]):
         command, args = self.router.get_command_handler(cmd)
         args = interpret_arguments(command, args, required=True)
 
@@ -505,12 +516,47 @@ class CLI(Provider):
             if output is not None:
                 prompt.display_message(output)
 
-    async def main(self):
-        if not self.stdin.isatty():
-            for line in self.stdin.readlines():
-                await self.handle_command(line)
-            raise ServiceExit()
+    async def run_command(self, command: str | list[str]) -> int:
+        """
+        Run a single command.
 
+        The command may be given as a single string or a list of strings representing
+        the command fragments.
+        """
+        if not self.connected:
+            try:
+                async with asyncio.timeout(self.operation_timeout):
+                    await self.mqtt.wait_connect()
+            except asyncio.Timeout:
+                print("Timed out connecting to broker", file=sys.stderr)
+                return 1
+            self.connected = True
+
+        try:
+            async with asyncio.timeout(self.operation_timeout):
+                output = await self.handle_command(command)
+        except CommandNotFound as e:
+            print(f"Command not found: {e}", file=sys.stderr)
+            return 1
+        except InvalidArgument as e:
+            print(f"Invalid argument: {e}", file=sys.stderr)
+            return 1
+        except RPCUnspecifiedError as e:
+            print("An unspecified error occured. See agent log.", file=sys.stderr)
+            return 1
+        except TimeoutError:
+            print("Timed out handling command", file=sys.stderr)
+            return 1
+
+        if output is not None:
+            print(output)
+
+        return 0
+
+    async def run_repl(self) -> int:
+        """
+        Run the interactive REPL.
+        """
         loop = asyncio.get_running_loop()
         loop.add_reader(self.stdin.fileno(), self.read_input)
 
@@ -522,8 +568,10 @@ class CLI(Provider):
                 try:
                     await self.prompt()
                 except EOFError:
-                    raise ServiceExit()
+                    break
         finally:
             loop.remove_reader(self.stdin.fileno())
             termios.tcsetattr(self.stdin, termios.TCSAFLUSH, term_attrs)
             self.history.save()
+
+        return 0

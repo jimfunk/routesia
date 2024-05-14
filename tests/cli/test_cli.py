@@ -189,7 +189,7 @@ async def test_duplicate_keyword_argument(cli):
 async def test_list_keyword_arguments(cli):
     foo_calls = []
 
-    async def show_foo(arg):
+    async def show_foo(arg: list[str]):
         foo_calls.append(arg)
 
     cli.add_command("show foo *arg", show_foo)
@@ -239,7 +239,7 @@ async def test_argument_completions(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg", foo)
@@ -256,7 +256,7 @@ async def test_namespace_argument_completions(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg", foo, namespace="food")
@@ -273,7 +273,7 @@ async def test_argument_completions_different_namespace(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg", foo, namespace="animals")
@@ -287,7 +287,7 @@ async def test_namespace_argument_completions_global_fallback(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg", foo, namespace="food")
@@ -304,7 +304,7 @@ async def test_argument_disabled_completions(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg!", foo)
@@ -318,7 +318,7 @@ async def test_argument_alternative_completions(cli):
     def foo(arg):
         pass
 
-    async def complete_arg(**args):
+    async def complete_arg():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg!ingredients", foo)
@@ -332,10 +332,10 @@ async def test_keyword_argument_completions(cli):
     def foo(arg1=None, arg2=None):
         pass
 
-    async def complete_arg1(**args):
+    async def complete_arg1():
         return ["foo", "bar"]
 
-    async def complete_arg2(**args):
+    async def complete_arg2():
         return ["spam", "eggs"]
 
     cli.add_command("show foo @arg1 @arg2", foo)
@@ -367,10 +367,10 @@ async def test_keyword_argument_after_positional_argument_completions(cli):
     def foo(arg1=None, arg2=None):
         pass
 
-    async def complete_arg1(**args):
+    async def complete_arg1():
         return ["foo", "bar"]
 
-    async def complete_arg2(**args):
+    async def complete_arg2():
         return ["spam", "eggs"]
 
     cli.add_command("show foo :arg1 @arg2", foo)
@@ -397,10 +397,10 @@ async def test_keyword_argument_disabled_completions(cli):
     def foo(arg1=None, arg2=None):
         pass
 
-    async def complete_arg1(**args):
+    async def complete_arg1():
         return ["foo", "bar"]
 
-    async def complete_arg2(**args):
+    async def complete_arg2():
         return ["spam", "eggs"]
 
     cli.add_command("show foo @arg1 @arg2!", foo)
@@ -441,10 +441,10 @@ async def test_argument_completions_multiple_completers(cli):
     def bar(arg2):
         pass
 
-    async def complete_arg1(**args):
+    async def complete_arg1():
         return ["spam", "eggs"]
 
-    async def complete_arg2(**args):
+    async def complete_arg2():
         return ["bar", "baz"]
 
     cli.add_command("show :arg1 foo", foo)
@@ -467,8 +467,13 @@ async def test_argument_completions_previous_args(cli):
 
     completion_calls = []
 
-    async def complete_arg3(**args):
-        completion_calls.append(args)
+    async def complete_arg3(arg1: str | None = None, arg2: str | None = None):
+        completion_calls.append(
+            {
+                "arg1": arg1,
+                "arg2": arg2,
+            }
+        )
         return ["spam", "eggs"]
 
     cli.add_command("show :arg1 :arg2 foo :arg3", foo)

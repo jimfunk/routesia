@@ -81,7 +81,7 @@ class DHCPClientProvider(Provider):
             client.stop()
         self.v4_clients = {}
 
-    async def rpc_v4_list(self, msg: None) -> dhcp_client_pb2.DHCPv4ClientStatusList:
+    async def rpc_v4_list(self) -> dhcp_client_pb2.DHCPv4ClientStatusList:
         status_list = dhcp_client_pb2.DHCPv4ClientStatusList()
         for client in self.v4_clients.values():
             status = status_list.client.add()
@@ -98,7 +98,7 @@ class DHCPClientProvider(Provider):
             return
         self.v4_clients[msg.interface].on_event(msg)
 
-    async def rpc_config_get(self, msg: None) -> dhcp_client_pb2.DHCPClientConfig:
+    async def rpc_config_get(self) -> dhcp_client_pb2.DHCPClientConfig:
         return self.config.staged_data.dhcp.client
 
     async def rpc_config_v4_add(self, msg: dhcp_client_pb2.DHCPv4ClientConfig) -> None:
