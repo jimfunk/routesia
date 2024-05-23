@@ -145,7 +145,7 @@ class DHCPServerProvider(Provider):
             self.systemd.stop_unit("kea.service")
         except DBusException as e:
             if "NoSuchUnit" in e.get_dbus_name():
-                logger.warning("kea.service does not exist. DHCP server will be disabled")
+                pass
             else:
                 raise
 

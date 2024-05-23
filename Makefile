@@ -2,6 +2,7 @@ PYTHON_VERSION = 3.11
 
 PROTO_SOURCES := $(shell find routesia* -type f -name '*.proto')
 PROTO_MODULES := $(PROTO_SOURCES:%.proto=%_pb2.py)
+# PROTO_MODULE_STUBS := $(PROTO_SOURCES:%.proto=%_pb2.pyi)
 TEST_PROTO_SOURCES := $(shell find tests* -type f -name '*.proto')
 TEST_PROTO_MODULES := $(TEST_PROTO_SOURCES:%.proto=%_pb2.py)
 PYTHON_SOURCES := $(shell find routesia* -type f -name '*.py')
@@ -11,12 +12,15 @@ PYTEST = pytest-$(PYTHON_VERSION)
 
 all: build
 
-proto: $(PROTO_MODULES)
+proto: $(PROTO_MODULES) $(PROTO_MODULE_STUBS)
 
 testproto: $(TEST_PROTO_MODULES)
 
 %_pb2.py: %.proto
 	protoc -I. --python_out=. $<
+
+%_pb2.pyi: %.proto
+	protoc -I. --mypy_out=. $<
 
 build: setup.py $(PYTHON_SOURCES) proto
 	$(PYTHON) setup.py build
@@ -38,6 +42,6 @@ install: proto
 	install -D -m 0644 systemd/routesia-dhcpv4-client@.service $(DESTDIR)/usr/lib/systemd/system/routesia-dhcpv4-client@.service
 
 clean:
-	rm -rf build $(PROTO_MODULES)
+	rm -rf build $(PROTO_MODULES) $(PROTO_MODULE_STUBS)
 
 .PHONY: clean build proto install test

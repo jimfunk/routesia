@@ -8,6 +8,7 @@ import logging
 from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.config.provider import InvalidConfig
+from routesia.dhcp.client.events import DHCPv4LeasePreinit
 from routesia.interface import interface_flags
 from routesia.interface import interface_types
 from routesia.schema.v1 import interface_pb2
@@ -88,6 +89,10 @@ class InterfaceEntity:
     def on_config_removed(self):
         self.config = None
         self.remove()
+
+    async def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
+        if not self.state.up:
+            self.link("set", state="up")
 
     def link(self, *args, **kwargs):
         if "add" not in args:

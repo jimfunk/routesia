@@ -2,12 +2,13 @@
 routesia/interface/address/provider.py - Interface address support
 """
 
-from ipaddress import ip_interface
+from ipaddress import ip_interface, IPv4Interface, IPv6Interface
 import logging
 
+from routesia.address.entity import AddressEntity, DHCPAddressEntity
 from routesia.config.provider import ConfigProvider
+from routesia.dhcp.client.events import DHCPv4LeaseAcquired, DHCPv4LeaseLost, DHCPv4LeasePreinit
 from routesia.service import Provider
-from routesia.address.entity import AddressEntity
 from routesia.rpc import RPC, RPCInvalidArgument
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.rtnetlink.events import (
@@ -40,7 +41,9 @@ class AddressProvider(Provider):
         self.addresses = {}
 
         # Track interfaces for use by configured addresses
-        self.interfaces = {}
+        self.interfaces: dict[tuple[IPv4Interface | IPv6Interface], AddressEntity] = {}
+
+        self.dhcp_addresses: dict[str, DHCPAddressEntity] = {}
 
         self.config.register_change_handler(self.on_config_change)
 
@@ -48,6 +51,9 @@ class AddressProvider(Provider):
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(DHCPv4LeasePreinit, self.handle_dhcp_lease_preinit)
+        self.service.subscribe_event(DHCPv4LeaseAcquired, self.handle_dhcp_lease_acquired)
+        self.service.subscribe_event(DHCPv4LeaseLost, self.handle_dhcp_lease_lost)
 
         self.rpc.register("address/list", self.rpc_list_addresses)
         self.rpc.register("address/config/list", self.rpc_list_address_configs)
@@ -98,7 +104,7 @@ class AddressProvider(Provider):
             self.addresses[(ifname, ip)] = address
         else:
             address = self.addresses[(ifname, ip)]
-        address.update_state(address_event)
+        address.handle_add(address_event)
 
     async def handle_address_remove(self, address_event):
         ifname = address_event.ifname
@@ -123,31 +129,27 @@ class AddressProvider(Provider):
         if interface_event.ifname in self.interfaces:
             del self.interfaces[interface_event.ifname]
 
-    def add_dynamic_address(self, interface, address):
-        """
-        Add a dynamic address. Note that a prefix route will NOT be added. The
-        caller is responsible for handling it
-        """
-        key = (interface, str(address))
-        if key not in self.addresses:
-            if interface in self.interfaces:
-                ifindex = self.interfaces[interface].ifindex
+    async def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
+        if event.address:
+            address = self.addresses.get((event.interface, event.address), None)
+            if address:
+                address.remove_dynamic()
+
+    async def handle_dhcp_lease_acquired(self, event: DHCPv4LeaseAcquired):
+        if event.interface in self.dhcp_addresses:
+            self.dhcp_addresses[event.interface].handle_dhcp_lease_acquired(event)
+        else:
+            if event.interface in self.interfaces:
+                ifindex = self.interfaces[event.interface].ifindex
             else:
                 ifindex = None
+            logger.debug(f"Adding DHCP entity for {event.interface}")
+            self.dhcp_addresses[event.interface] = DHCPAddressEntity(event, self.iproute, ifindex)
 
-            logger.debug("Adding dynamic address %s to %s" % (address, interface))
-            self.addresses[key] = AddressEntity(
-                interface,
-                self.iproute,
-                ifindex,
-                dynamic=ip_interface(address),
-            )
-
-    def remove_dynamic_address(self, interface, address):
-        key = (interface, str(address))
-        if key in self.addresses:
-            logger.debug("Removing dynamic address %s to %s" % (address, interface))
-            self.addresses[key].remove_dynamic()
+    async def handle_dhcp_lease_lost(self, event: DHCPv4LeaseLost):
+        if event.interface in self.dhcp_addresses:
+            self.dhcp_addresses[event.interface].remove()
+            del self.dhcp_addresses[event.interface]
 
     def start(self):
         for config in self.config.data.addresses.address:

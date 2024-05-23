@@ -2,11 +2,10 @@
 routesia/dhcp/client/provider.py - Routesia DHCP clients
 """
 
-from routesia.address.provider import AddressProvider
 from routesia.config.provider import ConfigProvider
 from routesia.dhcp.client.entities import DHCPv4Client
 from routesia.rpc import RPCInvalidArgument
-from routesia.service import Provider
+from routesia.service import Provider, Service
 from routesia.interface.provider import InterfaceProvider
 from routesia.route.provider import RouteProvider
 from routesia.rpc import RPC
@@ -20,14 +19,14 @@ class DHCPClientProvider(Provider):
         config: ConfigProvider,
         systemd: SystemdProvider,
         rpc: RPC,
-        address_provider: AddressProvider,
+        service: Service,
         interface_provider: InterfaceProvider,
         route_provider: RouteProvider,
     ):
         self.config = config
         self.systemd = systemd
         self.rpc = rpc
-        self.address_provider = address_provider
+        self.service = service
         self.interface_provider = interface_provider
         self.route_provider = route_provider
         self.v4_clients = {}
@@ -67,16 +66,14 @@ class DHCPClientProvider(Provider):
                 self.v4_clients[interface] = DHCPv4Client(
                     self.systemd,
                     client_config,
-                    self.address_provider,
-                    self.interface_provider,
-                    self.route_provider,
+                    self.service,
                 )
                 self.v4_clients[interface].start()
 
     def start(self):
         self.apply()
 
-    def shutdown(self):
+    def stop(self):
         for client in self.v4_clients.values():
             client.stop()
         self.v4_clients = {}
@@ -96,7 +93,7 @@ class DHCPClientProvider(Provider):
     async def rpc_v4_event(self, msg: dhcp_client_pb2.DHCPv4ClientEvent) -> None:
         if msg.interface not in self.v4_clients:
             return
-        self.v4_clients[msg.interface].on_event(msg)
+        await self.v4_clients[msg.interface].on_event(msg)
 
     async def rpc_config_get(self) -> dhcp_client_pb2.DHCPClientConfig:
         return self.config.staged_data.dhcp.client

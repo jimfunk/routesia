@@ -16,11 +16,12 @@ class DHCPClientCLI(Provider):
         self.cli = cli.get_namespace_cli("dhcp-client")
         self.rpc = rpc
 
-        self.cli.add_argument_completer("interface", self.complete_interfaces)
-        self.cli.add_argument_completer("table", self.complete_tables)
+        self.cli.add_argument_completer("system-interface", self.complete_system_interface)
+        self.cli.add_argument_completer("interface", self.complete_interface)
+        self.cli.add_argument_completer("table", self.complete_table)
 
         self.cli.add_command("dhcp client config get", self.get_config)
-        self.cli.add_command("dhcp client v4 add :interface @table", self.add_config)
+        self.cli.add_command("dhcp client v4 add :interface!system-interface @table", self.add_config)
         self.cli.add_command(
             "dhcp client v4 config update :interface @table", self.update_config
         )
@@ -31,14 +32,21 @@ class DHCPClientCLI(Provider):
         self.cli.add_command("dhcp client v4 show :interface", self.show)
         self.cli.add_command("dhcp client v4 restart :interface", self.restart)
 
-    async def complete_interfaces(self):
+    async def complete_system_interface(self):
         interfaces = []
         interface_list = await self.rpc.request("interface/list")
         for interface in interface_list.interface:
             interfaces.append(interface.name)
         return interfaces
 
-    async def complete_tables(self):
+    async def complete_interface(self):
+        completions = []
+        statuslist = await self.rpc.request("dhcp/client/v4/list")
+        for client in statuslist.client:
+            completions.append(client.interface)
+        return completions
+
+    async def complete_table(self):
         completions = []
         config = await self.rpc.request("route/table/list", None)
         for table in config.v4:

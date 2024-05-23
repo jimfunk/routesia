@@ -6,6 +6,7 @@ from ipaddress import ip_network
 import logging
 
 from routesia.config.provider import ConfigProvider
+from routesia.dhcp.client.events import DHCPv4LeaseAcquired, DHCPv4LeaseLost, DHCPv4LeasePreinit
 from routesia.rpc import RPCInvalidArgument, RPCInvalidArgument, RPCInvalidArgument
 from routesia.service import Provider
 from routesia.service import Service
@@ -54,6 +55,9 @@ class RouteProvider(Provider):
         self.service.subscribe_event(RouteRemoveEvent, self.handle_route_remove)
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(DHCPv4LeasePreinit, self.handle_dhcp_lease_preinit)
+        self.service.subscribe_event(DHCPv4LeaseAcquired, self.handle_dhcp_lease_acquired)
+        self.service.subscribe_event(DHCPv4LeaseLost, self.handle_dhcp_lease_lost)
 
         self.rpc.register("route/list", self.rpc_list_routes)
         self.rpc.register("route/table/list", self.rpc_list_tables)
@@ -112,24 +116,17 @@ class RouteProvider(Provider):
         for table in self.tables.values():
             table.handle_interface_remove(event)
 
-    def add_dynamic_route(
-        self, destination, gateway=None, interface=None, prefsrc=None, table=None, scope=None
-    ):
-        table = self.tables.get(table) if table else self.tables[254]
-        if table:
-            logging.debug(
-                "Adding dynamic route %s gateway=%s interface=%s prefsrc=%s scope=%s table=%s"
-                % (destination, gateway, interface, prefsrc, scope, table.id)
-            )
-            table.add_dynamic_route(
-                destination, gateway=gateway, interface=interface, prefsrc=prefsrc, scope=scope
-            )
+    async def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
+        table = self.tables.get(table) if event.table else self.tables[254]
+        table.handle_dhcp_lease_preinit(event)
 
-    def remove_dynamic_route(self, destination, table=None):
-        table = self.tables.get(table) if table else self.tables[254]
-        if table:
-            logging.debug("Removing dynamic route %s table=%s" % (destination, table.id))
-            table.remove_dynamic_route(destination)
+    async def handle_dhcp_lease_acquired(self, event: DHCPv4LeaseAcquired):
+        table = self.tables.get(table) if event.table else self.tables[254]
+        table.handle_dhcp_lease_acquired(event)
+
+    async def handle_dhcp_lease_lost(self, event: DHCPv4LeaseLost):
+        table = self.tables.get(table) if event.table else self.tables[254]
+        table.handle_dhcp_lease_lost(event)
 
     def start(self):
         self.configure()

@@ -4,6 +4,7 @@ routesia/interface/provider.py - Interface support
 
 import logging
 from routesia.config.provider import ConfigProvider
+from routesia.dhcp.client.events import DHCPv4LeasePreinit
 from routesia.rpc import RPCInvalidArgument
 from routesia.service import Provider
 from routesia.interface.entities import (
@@ -57,6 +58,7 @@ class InterfaceProvider(Provider):
 
         self.service.subscribe_event(InterfaceAddEvent, self.handle_interface_add)
         self.service.subscribe_event(InterfaceRemoveEvent, self.handle_interface_remove)
+        self.service.subscribe_event(DHCPv4LeasePreinit, self.handle_dhcp_lease_preinit)
 
         self.rpc.register("interface/list", self.rpc_list_interfaces)
         self.rpc.register("interface/config/list", self.rpc_list_interface_configs)
@@ -122,6 +124,10 @@ class InterfaceProvider(Provider):
             interface.on_interface_remove()
             if not interface.config:
                 del self.interfaces[ifname]
+
+    async def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
+        if event.interface in self.interfaces:
+            await self.interfaces[event.interface].handle_dhcp_lease_preinit(event)
 
     def start(self):
         self.running = True

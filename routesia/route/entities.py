@@ -2,9 +2,17 @@
 routesia/route/route.py - Route support
 """
 
-from ipaddress import ip_address, ip_network
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+    ip_address,
+    ip_network,
+)
 import logging
 
+from routesia.dhcp.client.events import DHCPv4LeasePreinit
 from routesia.schema.v1.route_pb2 import RouteState
 
 
@@ -12,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 PROTO_ID = 52
+
+RT_SCOPE_UNIVERSE = 0
+RT_SCOPE_SITE = 200
+RT_SCOPE_LINK = 253
+RT_SCOPE_HOST = 254
+RT_SCOPE_NOWHERE = 255
 
 
 class TableEntity:
@@ -24,6 +38,9 @@ class TableEntity:
         if self.config and self.config.name:
             self.name = self.config.name
         self.routes = {}
+        self.dhcp_routes: dict[
+            str, dict[IPv4Address | IPv6Address, DHCPRouteEntity]
+        ] = {}
         self.interfaces = set()
 
     def handle_config_change(self, config):
@@ -73,49 +90,63 @@ class TableEntity:
                 return True
         return False
 
-    def dynamic_accessible(self, dynamic):
+    def gateway_accessible(self, gateway: IPv4Address | IPv6Address):
         """
-        Returns True if the dynamic route is accessible
+        Returns True if the gateway is accessible
         """
-        interface = dynamic["interface"]
-        if interface:
-            # Interface route
-            return dynamic["interface"] in self.interfaces
-
-        gateway = ip_address(dynamic["gateway"])
-
         for destination, route in self.routes.items():
             if gateway not in destination:
                 continue
             for candidate in route.state.nexthop:
                 if not candidate.interface:
                     continue
-                if interface and candidate.interface != interface:
-                    continue
                 return True
         return False
 
-    def add_dynamic_route(
-        self, destination, gateway=None, interface=None, prefsrc=None, scope=None
-    ):
-        if destination in self.routes:
-            # Don't overwrite an existing route
-            return
-        self.routes[destination] = RouteEntity(
-            self.iproute,
-            self,
-            destination,
-            dynamic={
-                "gateway": gateway,
-                "interface": interface,
-                "prefsrc": prefsrc,
-                "scope": scope,
-            },
-        )
+    def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
+        if event.address and event.interface in self.dhcp_routes:
+            if event.address.network in self.dhcp_routes[event.interface]:
+                route = self.dhcp_routes[event.interface][event.address.network]
+                route.remove()
+                del self.dhcp_routes[event.interface][event.address.network]
+                if not self.dhcp_routes[event.interface]:
+                    del self.dhcp_routes[event.interface]
 
-    def remove_dynamic_route(self, destination):
-        if destination in self.routes:
-            self.routes[destination].handle_dynamic_remove()
+    def handle_dhcp_lease_acquired(self, event: DHCPv4LeasePreinit):
+        existing = set()
+        new = set()
+        if event.interface in self.dhcp_routes:
+            for route in self.dhcp_routes[event.interface].values():
+                existing.add((route.destination, route.gateway))
+        else:
+            self.dhcp_routes[event.interface] = {}
+        new.add((event.address.network, None))
+        if event.gateway:
+            new.add((ip_network("0.0.0.0/0"), event.gateway))
+        for route in event.routes:
+            new.add((route.destination, route.gateway))
+
+        for destination, _ in existing - new:
+            route = self.dhcp_routes[event.interface].pop(destination)
+            route.remove()
+
+        for destination, gateway in new - existing:
+            logger.info(f"Adding DHCP route {destination} via {gateway or event.interface}")
+            self.dhcp_routes[event.interface][destination] = DHCPRouteEntity(
+                self.iproute,
+                self,
+                event.interface,
+                destination,
+                gateway,
+                event.address.ip,
+            )
+            self.dhcp_routes[event.interface][destination].apply()
+
+    def handle_dhcp_lease_lost(self, event: DHCPv4LeasePreinit):
+        if event.interface in self.dhcp_routes:
+            for route in self.dhcp_routes[event.interface].values():
+                route.remove()
+            del self.dhcp_routes[event.interface]
 
     def handle_route_add_event(self, event):
         if event.destination not in self.routes:
@@ -156,20 +187,16 @@ class TableEntity:
 
 
 class RouteEntity:
-    def __init__(self, iproute, table: TableEntity, destination, dynamic=None):
+    def __init__(self, iproute, table: TableEntity, destination):
         super().__init__()
         self.config = None
         self.table = table
         self.destination = destination
-        self.dynamic = dynamic
         self.iproute = iproute
         self.ifindex = None
         self.carrier = False
         self.state = RouteState()
         self.route_args = None
-        if dynamic:
-            self.state.dynamic = True
-            self.apply()
 
     def handle_add_event(self, event):
         self.state.present = True
@@ -205,8 +232,6 @@ class RouteEntity:
             "Route %s removed from table %s" % (self.destination, self.table.id)
         )
         self.state.Clear()
-        if self.dynamic:
-            self.state.dynamic = True
         self.apply()
 
     def handle_config_change(self, config):
@@ -227,15 +252,6 @@ class RouteEntity:
         self.config = None
         self.remove()
 
-    def handle_dynamic_remove(self):
-        if self.dynamic:
-            logger.debug(
-                "Removed dynamic route %s in table %s"
-                % (self.destination, self.table.id)
-            )
-            self.dynamic = None
-            self.remove()
-
     def link(self, *args, **kwargs):
         if "add" not in args:
             kwargs["index"] = self.ifindex
@@ -246,8 +262,6 @@ class RouteEntity:
         """
         Returns whether the route can be inserted
         """
-        if self.dynamic:
-            return self.table.dynamic_accessible(self.dynamic)
         if self.config is None:
             return False
         for nexthop in self.config.nexthop:
@@ -311,25 +325,57 @@ class RouteEntity:
 
                 self.iproute.iproute.route("replace", **kwargs)
                 self.route_args = kwargs
-        elif self.dynamic:
-            kwargs = {
-                "table": self.table.id,
-                "dst": str(self.destination),
-                "proto": PROTO_ID,
-            }
-            if self.dynamic["interface"]:
-                kwargs["oif"] = self.iproute.interface_name_map[
-                    self.dynamic["interface"]
-                ]
-            if self.dynamic["gateway"]:
-                kwargs["gateway"] = self.dynamic["gateway"]
-            if self.dynamic["prefsrc"]:
-                kwargs["prefsrc"] = self.dynamic["prefsrc"]
-            if self.dynamic["scope"]:
-                kwargs["scope"] = self.dynamic["scope"]
-            self.iproute.iproute.route("replace", **kwargs)
-            self.route_args = kwargs
 
     def to_message(self, message):
         "Set message parameters from entity state"
         message.CopyFrom(self.state)
+
+
+class DHCPRouteEntity(RouteEntity):
+    def __init__(
+        self,
+        iproute,
+        table: TableEntity,
+        interface: str,
+        destination: IPv4Network | IPv6Network,
+        gateway: IPv4Address | IPv6Address,
+        prefsrc: IPv4Address | IPv6Address,
+    ):
+        self.interface = interface
+        self.gateway = gateway
+        self.prefsrc = prefsrc
+        super().__init__(iproute, table, destination)
+
+    @property
+    def insertable(self):
+        """
+        Returns whether the route can be inserted
+        """
+        if self.gateway:
+            return self.table.gateway_accessible(self.gateway)
+        return True
+
+    def apply(self):
+        if not self.insertable:
+            return
+
+        kwargs = {
+            "table": self.table.id,
+            "dst": str(self.destination),
+            "proto": PROTO_ID,
+        }
+        kwargs["oif"] = self.iproute.interface_name_map[self.interface]
+        if self.gateway:
+            kwargs["gateway"] = str(self.gateway)
+        kwargs["prefsrc"] = str(self.prefsrc)
+
+        if not self.gateway:
+            kwargs["scope"] = RT_SCOPE_LINK
+
+        self.iproute.iproute.route("replace", **kwargs)
+        self.route_args = kwargs
+
+    def to_message(self, message):
+        "Set message parameters from entity state"
+        self.state.dynamic = True
+        super().to_message(message)

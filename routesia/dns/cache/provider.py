@@ -63,9 +63,10 @@ class DNSCacheProvider(Provider):
             self.apply()
 
     async def handle_address_remove(self, address_event):
-        self.addresses.remove(address_event.ip.ip)
-        if self.has_listen_address(address_event.ip.ip):
-            self.apply()
+        if address_event.ip.ip in self.addresses:
+            self.addresses.remove(address_event.ip.ip)
+            if self.has_listen_address(address_event.ip.ip):
+                self.apply()
 
     def apply(self):
         config = self.config.data.dns.cache

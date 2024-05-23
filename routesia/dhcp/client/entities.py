@@ -5,21 +5,28 @@ routesia/dhcp/client/entities.py - DHCP client entities
 from ipaddress import ip_address, ip_interface, ip_network
 import logging
 
-from routesia.schema.v1.dhcp_client_pb2 import DHCPClientEventType, DHCPv4ClientStatus
+from routesia.dhcp.client.events import (
+    DHCPv4LeasePreinit,
+    DHCPv4LeaseAcquired,
+    DHCPv4LeaseLost,
+    DHCPv4Route,
+)
+from routesia.schema.v1.dhcp_client_pb2 import (
+    DHCPClientEventType,
+    DHCPv4ClientEvent,
+    DHCPv4ClientStatus,
+)
+from routesia.service import Service
 
 
 logger = logging.getLogger("dhcp-client")
 
 
 class DHCPv4Client:
-    def __init__(
-        self, systemd, config, address_provider, interface_provider, route_provider
-    ):
+    def __init__(self, systemd, config, service: Service):
         self.systemd = systemd
         self.config = config
-        self.address_provider = address_provider
-        self.interface_provider = interface_provider
-        self.route_provider = route_provider
+        self.service = service
         self.interface = config.interface
         self.status = DHCPv4ClientStatus()
         self.status.interface = self.interface
@@ -34,175 +41,88 @@ class DHCPv4Client:
         if old_config is None:
             self.start()
         elif old_config.SerializeToString() != self.config.SerializeToString():
-            if old_config.interface != self.config.interface:
+            if (
+                old_config.interface != self.config.interface
+                or old_config.table != self.config.table
+            ):
                 self.stop()
                 self.interface = self.config.interface
                 self.start()
             else:
                 self.start()
 
-    def on_event(self, event):
+    async def on_event(self, event: DHCPv4ClientEvent):
         self.status.last_event.CopyFrom(event)
-        if event.type == DHCPClientEventType.Value("PREINIT"):
-            self.on_preinit(event)
-        elif event.type in (
-            DHCPClientEventType.Value("BOUND"),
-            DHCPClientEventType.Value("RENEW"),
-            DHCPClientEventType.Value("REBIND"),
-            DHCPClientEventType.Value("REBOOT"),
-        ):
-            self.on_update(event)
-        elif event.type in (
-            DHCPClientEventType.Value("EXPIRE"),
-            DHCPClientEventType.Value("FAIL"),
-            DHCPClientEventType.Value("RELEASE"),
-            DHCPClientEventType.Value("STOP"),
-            DHCPClientEventType.Value("TIMEOUT"),
-        ):
-            self.on_remove(event)
 
-    def on_preinit(self, event):
-        if event.alias_ip_address:
-            self.address_provider.remove_dynamic_address(
-                self.interface,
-                ip_interface(event.alias_ip_address)
-            )
-        self.interface_provider.set_dynamic_config(self.interface, {"state": "up"})
-
-    def on_update(self, event):
-        # Remove address(es) if necessary
-        if (
-            event.alias_ip_address
-            and event.alias_ip_address != event.old.ip_address
-            and event.new.ip_address != event.old.ip_address
-        ):
-            self.address_provider.remove_dynamic_address(
-                self.interface,
-                ip_interface(event.alias_ip_address)
-            )
-
-        if event.old.ip_address and event.old.ip_address != event.new.ip_address:
-            self.address_provider.remove_dynamic_address(
-                self.interface,
-                ip_interface(event.old.ip_address)
-            )
-
-        # Set MTU if given
-        if event.new.mtu and event.new.mtu != event.old.mtu:
-            self.interface_provider.set_dynamic_config(
-                self.interface, {"state": "up", "mtu": event.new.mtu}
-            )
-
-        # Add address if new or changed
-        if event.new.ip_address and event.new.ip_address != event.old.ip_address:
-            self.address_provider.add_dynamic_address(
-                self.interface,
-                ip_interface(event.new.ip_address)
-            )
-
-        # Determine the ip networks
-        if event.old.ip_address:
-            old_network = ip_interface(event.old.ip_address).network
-        else:
-            old_network = None
-        if event.new.ip_address:
-            new_network = ip_interface(event.new.ip_address).network
-        else:
-            new_network = None
-
-        # Add interface route if new or changed
-        if event.new.ip_address and event.new.ip_address != event.old.ip_address:
-            if event.old.ip_address:
-                self.route_provider.remove_dynamic_route(
-                    old_network, table=self.config.table
-                )
-            self.route_provider.add_dynamic_route(
-                new_network,
-                interface=self.interface,
-                prefsrc=str(ip_interface(event.new.ip_address).ip),
-                scope="link",
-                table=self.config.table,
-            )
-
-        # Add or update gateway if given and within the ip network.
-        old_gateway = None
-        for gateway in event.old.gateway:
-            if ip_address(gateway) in old_network:
-                old_gateway = gateway
-                break
-        new_gateway = None
-        for gateway in event.new.gateway:
-            if ip_address(gateway) in new_network:
-                new_gateway = gateway
-                break
-        if new_gateway and new_gateway != old_gateway:
-            if old_gateway:
-                self.route_provider.remove_dynamic_route(
-                    ip_network("0.0.0.0/0"), table=self.config.table
-                )
-            self.route_provider.add_dynamic_route(
-                ip_network("0.0.0.0/0"), gateway=new_gateway, table=self.config.table,
-            )
-
-        # Update routes
-        old_routes = set()
-        new_routes = set()
-        for route in event.old.route:
-            old_routes.add((route.destination, route.gateway))
+        routes = []
         for route in event.new.route:
-            new_routes.add((route.destination, route.gateway))
-        for destination, gateway in old_routes - new_routes:
-            self.route_provider.remove_dynamic_route(
-                ip_network(destination), table=self.config.table
-            )
-        for destination, gateway in new_routes - old_routes:
-            self.route_provider.add_dynamic_route(
-                ip_network(destination), gateway=gateway, table=self.config.table
-            )
-
-    def on_remove(self, event):
-        # Remove routes
-        for route in event.old.route:
-            self.route_provider.remove_dynamic_route(
-                ip_network(route.destination), table=self.config.table
-            )
-
-        # Determine the ip networks
-        if event.old.ip_address:
-            old_network = ip_interface(event.old.ip_address).network
-        else:
-            old_network = None
-
-        # Remove gateway
-        for gateway in event.old.gateway:
-            if ip_address(gateway) in old_network:
-                self.route_provider.remove_dynamic_route(
-                    ip_network("0.0.0.0/0"), table=self.config.table
+            routes.append(
+                DHCPv4Route(
+                    destination=ip_network(route.destination),
+                    gateway=ip_address(route.gateway),
                 )
-                break
-
-        # Remove interface route
-        if event.old.ip_address:
-            self.route_provider.remove_dynamic_route(
-                old_network, table=self.config.table
             )
+        alias_ip_address = (
+            ip_interface(event.alias_ip_address) if event.alias_ip_address else None
+        )
+        address = ip_interface(event.new.ip_address) if event.new.ip_address else None
+        gateway = ip_address(event.new.gateway[0]) if event.new.gateway else None
+        domain_name_servers = [
+            ip_address(server) for server in event.new.domain_name_server
+        ]
+        ntp_servers = [ip_address(server) for server in event.new.ntp_server]
 
-        # Remove addresses
-        if event.alias_ip_address and event.alias_ip_address != event.old.ip_address:
-            self.address_provider.remove_dynamic_address(
-                self.interface,
-                ip_interface(event.alias_ip_address)
+        if event.type == DHCPClientEventType.PREINIT:
+            self.service.publish_event(
+                DHCPv4LeasePreinit(
+                    interface=self.interface,
+                    table=self.config.table,
+                    address=alias_ip_address,
+                )
             )
-
-        if event.old.ip_address:
-            self.address_provider.remove_dynamic_address(
-                self.interface,
-                ip_interface(event.old.ip_address)
+        elif event.type in (
+            DHCPClientEventType.BOUND,
+            DHCPClientEventType.RENEW,
+            DHCPClientEventType.REBIND,
+            DHCPClientEventType.REBOOT,
+        ):
+            self.service.publish_event(
+                DHCPv4LeaseAcquired(
+                    interface=self.interface,
+                    table=self.config.table,
+                    address=address,
+                    gateway=gateway,
+                    routes=routes,
+                    mtu=event.new.mtu,
+                    domain_name=event.new.domain_name,
+                    domain_name_servers=domain_name_servers,
+                    search_domains=event.new.domain_search,
+                    ntp_servers=ntp_servers,
+                    server_identifier=event.new.server_identifier,
+                )
             )
-
-        # Remove interface dynamic config
-        if event.old.mtu:
-            self.interface_provider.set_dynamic_config(self.interface, None)
+        elif event.type in (
+            DHCPClientEventType.EXPIRE,
+            DHCPClientEventType.FAIL,
+            DHCPClientEventType.RELEASE,
+            DHCPClientEventType.STOP,
+            DHCPClientEventType.TIMEOUT,
+        ):
+            self.service.publish_event(
+                DHCPv4LeaseLost(
+                    interface=self.interface,
+                    table=self.config.table,
+                    address=address,
+                    gateway=gateway,
+                    routes=routes,
+                    mtu=event.new.mtu,
+                    domain_name=event.new.domain_name,
+                    domain_name_servers=domain_name_servers,
+                    search_domains=event.new.domain_search,
+                    ntp_servers=ntp_servers,
+                    server_identifier=event.new.server_identifier,
+                )
+            )
 
     def start(self):
         logger.info("Starting DHCPv4 client on %s" % self.interface)
