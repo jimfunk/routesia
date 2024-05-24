@@ -1,5 +1,7 @@
 from setuptools import setup, find_packages
 
+from routesia import VERSION
+
 setup(
     name='routesia',
     description='Configuration system for Linux-based routers',
@@ -13,4 +15,5 @@ setup(
         'paho-mqtt',
         'protobuf',
     ],
+    version=VERSION,
 )
