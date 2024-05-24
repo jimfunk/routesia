@@ -58,14 +58,14 @@ def address_with_config(address_config):
 
 
 def test_initial_with_config(address_with_config):
-    assert address_with_config.state.state == address_pb2.Address.INTERFACE_MISSING
-    assert address_with_config.state.address.ip == ""
+    assert address_with_config.status.state == address_pb2.Address.INTERFACE_MISSING
+    assert address_with_config.status.address.ip == ""
 
 
 def test_set_ifindex(address_with_config):
     address_with_config.set_ifindex(2)
     assert address_with_config.ifindex == 2
-    assert address_with_config.state.state == address_pb2.Address.ADDRESS_MISSING
+    assert address_with_config.status.state == address_pb2.Address.ADDRESS_MISSING
     assert address_with_config.iproute.iproute.addresses == [
         {
             "index": 2,
@@ -78,18 +78,18 @@ def test_set_ifindex(address_with_config):
 
 def test_update_state(address_with_config):
     address_with_config.set_ifindex(2)
-    address_with_config.update_state(
+    address_with_config.handle_add(
         FakeAddressAddEvent(2, ipaddress.ip_interface("10.1.2.3/24"))
     )
-    assert address_with_config.state.state == address_pb2.Address.PRESENT
-    assert address_with_config.state.address.ip == "10.1.2.3/24"
-    assert address_with_config.state.address.peer == ""
-    assert address_with_config.state.address.scope == 0
+    assert address_with_config.status.state == address_pb2.Address.PRESENT
+    assert address_with_config.status.address.ip == "10.1.2.3/24"
+    assert address_with_config.status.address.peer == ""
+    assert address_with_config.status.address.scope == 0
 
 
 def test_update_config(address_with_config):
     address_with_config.set_ifindex(2)
-    address_with_config.update_state(
+    address_with_config.handle_add(
         FakeAddressAddEvent(2, ipaddress.ip_interface("10.1.2.3/24"))
     )
     config = address_pb2.AddressConfig()
