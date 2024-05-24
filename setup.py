@@ -1,5 +1,7 @@
 from setuptools import setup, find_packages
 
+from routesia import VERSION
+
 setup(
     name='routesia',
     description='Configuration system for Linux-based routers',
@@ -11,4 +13,5 @@ setup(
             "routesia-dhcpv4-event = routesia.programs.routesia_dhcpv4_event:main",
         ],
     },
+    version=VERSION,
 )
