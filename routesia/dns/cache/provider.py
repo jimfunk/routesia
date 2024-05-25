@@ -3,6 +3,7 @@ routesia/dns/cache/provider.py - DNS caching with Unbound
 """
 
 from ipaddress import ip_address
+import os
 import shutil
 import tempfile
 
@@ -83,6 +84,7 @@ class DNSCacheProvider(Provider):
         temp.close()
 
         shutil.move(temp.name, LOCAL_CONF)
+        os.chmod(LOCAL_CONF, 0o644)
 
         forward_config = DNSCacheForwardConfig(config)
 
@@ -92,6 +94,7 @@ class DNSCacheProvider(Provider):
         temp.close()
 
         shutil.move(temp.name, FORWARD_CONF)
+        os.chmod(FORWARD_CONF, 0o644)
 
         self.start()
 
