@@ -60,8 +60,6 @@ class InterfaceEntity:
                 self.state.addrgenmode = af_inet6_attrs["IFLA_INET6_ADDR_GEN_MODE"]
                 self.state.token = af_inet6_attrs["IFLA_INET6_TOKEN"]
 
-        self.apply(new)
-
     def start(self):
         self.apply()
 
