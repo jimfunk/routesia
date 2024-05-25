@@ -71,7 +71,7 @@ class AddressCLI(Provider):
     ):
         address = address_pb2.AddressConfig()
         address.interface = interface
-        address.ip = ip
+        address.ip = str(ip)
         if peer is not None:
             address.peer = peer
         if scope is not None:
