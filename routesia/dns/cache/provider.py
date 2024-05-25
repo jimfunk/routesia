@@ -2,6 +2,7 @@
 routesia/dns/cache/provider.py - DNS caching with Unbound
 """
 
+import asyncio
 from ipaddress import ip_address
 import os
 import shutil
@@ -24,6 +25,15 @@ from routesia.systemd import SystemdProvider
 
 
 class DNSCacheProvider(Provider):
+    """
+    Manages the Unbound caching DNS server.
+    """
+
+    ADDRESS_RESTART_DELAY: float = 1
+    """
+    Delay service restarts for this amount of time after an address change.
+    """
+
     def __init__(
         self,
         service: Service,
@@ -39,6 +49,8 @@ class DNSCacheProvider(Provider):
         self.rpc = rpc
 
         self.addresses = set()
+
+        self.update_timer: asyncio.TimerHandle | None = None
 
         self.config.register_change_handler(self.on_config_change)
 
@@ -59,17 +71,28 @@ class DNSCacheProvider(Provider):
         return False
 
     async def handle_address_add(self, address_event):
-        self.addresses.add(address_event.ip.ip)
-        if self.has_listen_address(address_event.ip.ip):
-            self.apply()
+        if address_event.ip.ip not in self.addresses:
+            self.addresses.add(address_event.ip.ip)
+            if self.has_listen_address(address_event.ip.ip):
+                await self.schedule_apply()
 
     async def handle_address_remove(self, address_event):
         if address_event.ip.ip in self.addresses:
             self.addresses.remove(address_event.ip.ip)
             if self.has_listen_address(address_event.ip.ip):
-                self.apply()
+                await self.schedule_apply()
+
+    async def schedule_apply(self):
+        loop = asyncio.get_running_loop()
+        if self.update_timer:
+            self.update_timer.cancel()
+        self.update_timer = loop.call_later(self.ADDRESS_RESTART_DELAY, self.apply)
 
     def apply(self):
+        if self.update_timer:
+            self.update_timer.cancel()
+            self.update_timer = None
+
         config = self.config.data.dns.cache
 
         if not config.enabled:
