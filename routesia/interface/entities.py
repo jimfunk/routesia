@@ -354,7 +354,6 @@ class SITInterface(VirtualInterface):
             "sit_local": str(local),
             "sit_ttl": ttl,
         }
-
         try:
             self.link("add", ifname=self.name, kind="sit", **args)
         except NetlinkError as e:

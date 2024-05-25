@@ -95,7 +95,7 @@ class InterfaceProvider(Provider):
                 entity_class = INTERFACE_CONFIG_TYPE_ENTITY_MAP[interface.type]
                 entity = entity_class(self, ifname, config=interface)
                 self.interfaces[ifname] = entity
-                entity.startup()
+                entity.start()
 
     async def handle_interface_add(self, interface_event):
         map_type = (interface_event.iftype, interface_event.kind)

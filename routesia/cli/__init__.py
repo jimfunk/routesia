@@ -268,7 +268,7 @@ class CommandRouter:
         keyword_value = False
         if args:
             last_keyword_arg, last_keyword_value = list(args.items())[-1]
-            if last_keyword_value is None:
+            if last_keyword_value is None and last_keyword_arg in node.keyword_arguments:
                 keyword_value = True
                 fragment = node.keyword_arguments[last_keyword_arg]
                 if fragment.completer:

@@ -77,7 +77,7 @@ class InterfaceCLI(Provider):
             self.add_configured_interface,
         )
         self.cli.add_command(
-            "interface config update",
+            "interface config update "
             ":interface "
             "@type "
             "@link.up!bool "
@@ -305,10 +305,10 @@ class InterfaceCLI(Provider):
 
     async def update_configured_interface(
         self,
-        interface,
-        type="ETHERNET",
-        link_up: bool = True,
-        link_noarp: bool = False,
+        interface: str,
+        type=None,
+        link_up: bool = None,
+        link_noarp: bool = None,
         link_txqueuelen: UInt32 = None,
         link_mtu: UInt32 = None,
         link_address: str = None,
@@ -320,14 +320,14 @@ class InterfaceCLI(Provider):
         bridge_forward_delay: UInt32 = None,
         bridge_hello_time: UInt32 = None,
         bridge_max_age: UInt32 = None,
-        bridge_stp: bool = False,
+        bridge_stp: bool = None,
         bridge_priority: UInt32 = None,
-        bridge_vlan_filtering: bool = False,
+        bridge_vlan_filtering: bool = None,
         bridge_default_pvid: UInt32 = None,
         vlan_trunk: str = None,
         vlan_id: UInt32 = None,
-        vlan_gvrp: bool = False,
-        vlan_mvrp: bool = False,
+        vlan_gvrp: bool = None,
+        vlan_mvrp: bool = None,
         sit_remote: IPv4Address = None,
         sit_local: IPv4Address = None,
         sit_ttl: UInt8 = None,
