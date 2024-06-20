@@ -117,5 +117,5 @@ class AddressCLI(Provider):
     ):
         address = address_pb2.AddressConfig()
         address.interface = interface
-        address.ip = ip
+        address.ip = str(ip)
         await self.rpc.request("address/config/delete", address)
