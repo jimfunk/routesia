@@ -15,7 +15,7 @@ from routesia.mqtt import MQTT
 from routesia.rpcclient import RPCClient
 from routesia.schema.registry import SchemaRegistry
 
-from routesia.schema.v1 import dhcp_client_pb2
+from routesia.schema.v2 import dhcp_client_pb2
 
 
 logger = logging.getLogger("dhcp-event")

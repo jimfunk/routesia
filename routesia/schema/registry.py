@@ -7,7 +7,7 @@ import importlib
 import inspect
 import pkgutil
 
-import routesia.schema.v1
+import routesia.schema.v2
 from routesia.service import Provider
 
 
@@ -19,7 +19,7 @@ class SchemaRegistry(Provider):
     def __init__(self):
         super().__init__()
         self.types = {}
-        self.load_schema_package(routesia.schema.v1)
+        self.load_schema_package(routesia.schema.v2)
 
     def load_schema_package(self, package):
         for module_info in pkgutil.iter_modules(package.__path__):

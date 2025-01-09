@@ -8,8 +8,8 @@ import os
 import shutil
 import tempfile
 
-from routesia.config.provider import ConfigProvider
-from routesia.dns.cache.config import (
+from routesia.config.configprovider import ConfigProvider
+from routesia.dns.cache.dnscacheconfig import (
     DNSCacheLocalConfig,
     DNSCacheForwardConfig,
     LOCAL_CONF,
@@ -18,8 +18,8 @@ from routesia.dns.cache.config import (
 from routesia.service import Provider
 from routesia.ipam.provider import IPAMProvider
 from routesia.rpc import RPC
-from routesia.rtnetlink.events import AddressAddEvent, AddressRemoveEvent
-from routesia.schema.v1 import dns_cache_pb2
+from routesia.netlink.events import AddressAddEvent, AddressRemoveEvent
+from routesia.schema.v2 import dns_cache_pb2
 from routesia.service import Service
 from routesia.systemd import SystemdProvider
 
@@ -52,7 +52,7 @@ class DNSCacheProvider(Provider):
 
         self.update_timer: asyncio.TimerHandle | None = None
 
-        self.config.register_change_handler(self.on_config_change)
+        self.config.register_change_handler(self.handle_config_change)
 
         self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
@@ -60,7 +60,7 @@ class DNSCacheProvider(Provider):
         self.rpc.register("dns/cache/config/get", self.rpc_config_get)
         self.rpc.register("dns/cache/config/update", self.rpc_config_update)
 
-    def on_config_change(self, config):
+    def handle_config_change(self, config):
         self.apply()
 
     def has_listen_address(self, address):

@@ -1,0 +1,337 @@
+syntax = "proto3";
+
+package routesia.interface;
+
+/**
+ * Address configuration
+ */
+message AddressConfig {
+    /**
+     * IP as a CIDR string
+     */
+    string ip = 1;
+
+    /**
+     * Peer address
+     */
+    string peer = 2;
+
+    /**
+     * Scope
+     */
+    uint32 scope = 3;
+}
+
+/**
+ * Address status
+ */
+message AddressStatus {
+    /**
+     * State
+     */
+    enum AddressState {
+        STOPPED = 0;
+        WAITING = 1;
+        STARTING = 2;
+        STARTED = 3;
+        STOPPING = 4;
+    }
+    AddressState state = 1;
+}
+
+/**
+ * Interface type
+ */
+enum InterfaceType {
+    UNDEFINED = 0;
+    LOOPBACK = 1;
+    ETHERNET = 2;
+    BRIDGE = 3;
+    VLAN = 4;
+    SIT = 5;
+    VXLAN = 6;
+}
+
+message InterfaceLink {
+    /**
+     * Don't accept ARP
+     */
+    bool noarp = 1;
+
+    /**
+     * Transmit queue length
+     */
+    uint32 txqueuelen = 2;
+
+    /**
+     * Maximum transmission unit
+     */
+    uint32 mtu = 3;
+
+    /**
+     * Link layer address
+     */
+    string address = 4;
+
+    /**
+     * Link layer broadcast address
+     */
+    string broadcast = 5;
+
+    /**
+     * Master device for interface (bridge, bond, etc.)
+     */
+    string master = 6;
+
+    /**
+     * IPv6 address generation mode
+     */
+    enum AddrGenMode {
+        EUI64 = 0;
+        NONE = 1;
+        STABLE_PRIVACY = 2;
+        RANDOM = 3;
+    }
+    AddrGenMode addrgenmode = 7;
+
+    /**
+     * IPv6 address token
+     */
+    string token = 8;
+}
+
+/**
+ * Bridge configuration
+ */
+message BridgeInterfaceConfig {
+    /**
+     * Ageing time
+     */
+    uint32 ageing_time = 1;
+
+    /**
+     * Forward delay
+     */
+    uint32 forward_delay = 2;
+
+    /**
+     * Hello time
+     */
+    uint32 hello_time = 3;
+
+    /**
+     * Max age
+     */
+    uint32 max_age = 4;
+
+    /**
+     * Spanning tree protocol (STP)
+     */
+    bool stp = 5;
+
+    /**
+     * STP priority (Actually u16)
+     */
+    int32 priority = 6;
+
+    /**
+     * VLAN filtering
+     */
+    bool vlan_filtering = 7;
+
+    /**
+     * Default PVID of any new ports
+     */
+    int32 default_pvid = 8;
+}
+
+/**
+ * VLAN configuration
+ */
+message VLANInterfaceConfig {
+    /**
+     * Trunk interface
+     */
+    string trunk = 1;
+
+    /**
+     * VLAN ID
+     */
+    uint32 id = 2;
+
+    /**
+     * Group VLAN Registration Protocol (GVRP)
+     */
+    bool gvrp = 3;
+
+    /**
+     * Multiple VLAN Registration Protocol (MVRP)
+     */
+    bool mvrp = 4;
+}
+
+/**
+ * SIT configuration
+ */
+message SITInterfaceConfig {
+    /**
+     * Remote address
+     */
+    string remote = 1;
+
+    /**
+     * Local address
+     */
+    string local = 2;
+
+    /**
+     * TTL
+     */
+    uint32 ttl = 3;
+}
+
+/**
+ * VXLAN endpoint configuration
+ */
+message VXLANEndpointConfig {
+    /**
+     * Remote address
+     */
+    string remote = 1;
+
+    /**
+     * Remote port
+     */
+    uint32 port = 2;
+
+    /**
+     * Remote VNI
+     */
+    uint32 vni = 3;
+}
+
+/**
+ * VXLAN configuration
+ */
+message VXLANInterfaceConfig {
+    /**
+     * Port
+     */
+    uint32 port = 1;
+
+    /**
+     * Multicast group address
+     */
+    string group = 2;
+
+    /**
+     * Remote address
+     */
+    string remote = 3;
+
+    /**
+     * Local address
+     */
+    string local = 4;
+
+    /**
+     * Interface
+     */
+    string interface = 5;
+
+    /**
+     * TTL
+     */
+    uint32 ttl = 6;
+
+    /**
+     * VNI
+     */
+    uint32 vni = 7;
+
+    /**
+     * Endpoints
+     */
+    repeated VXLANEndpointConfig endpoint = 9;
+}
+
+/**
+ * Interface module config
+ */
+message InterfaceConfig {
+    /**
+     * Name
+     */
+    string name = 1;
+
+    /**
+     * Interface type
+     */
+    InterfaceType type = 2;
+
+    /**
+     * Disable the interface
+     */
+    bool disable = 3;
+
+    /**
+     * Link config parameters
+     */
+    InterfaceLink link = 4;
+
+    /**
+     * Persist configuration.
+     *
+     * If set the configuration will remain when the service is stopped.
+     */
+    bool persist = 5;
+
+    /**
+     * Address configurations
+     */
+    repeated AddressConfig address = 6;
+
+    /**
+     * Type-specific options
+     */
+    BridgeInterfaceConfig bridge = 100;
+    VLANInterfaceConfig vlan = 101;
+    SITInterfaceConfig sit = 102;
+    VXLANInterfaceConfig vxlan = 103;
+}
+
+/**
+ * List of interface configurations
+ */
+message InterfaceConfigList {
+    repeated InterfaceConfig interface = 1;
+}
+
+message InterfaceStatus {
+    /**
+     * Config
+     */
+    InterfaceConfig config = 1;
+
+    /**
+     * State
+     */
+    enum InterfaceState {
+        STOPPED = 0;
+        WAITING = 1;
+        CREATING = 2;
+        CONFIGURING = 3;
+        CONFIGURED = 4;
+        DECONFIGURING = 5;
+        DESTROYING = 6;
+        STOPPING = 7;
+    }
+    InterfaceState state = 2;
+}
+
+/**
+ * A list of interface statuses
+ */
+message InterfaceStatusList {
+    repeated InterfaceStatus interface = 1;
+}

@@ -1,5 +1,5 @@
 """
-routesia/service.py - Main code for a service
+Base service and provider framework
 """
 
 import asyncio
@@ -8,6 +8,7 @@ from contextlib import suppress
 import inspect
 import logging
 import systemd.daemon
+from typing import Callable, Type
 
 from routesia.event import Event
 from routesia.eventqueue import EventQueue
@@ -49,10 +50,11 @@ class Provider:
     should be passed to that argument. As such, these annotations influence
     the order in which providers are initialised.
 
-    Each Provider may implement ``start()`` or ``stop()`` methods which will
+    Each provider may implement ``start()`` or ``stop()`` methods which will
     be executed before and after the main loop, respectively. The ``start()``
     methods are executed in the same order as the providers are initialized
-    and the ``stop()`` methods are executed in the reverse order.
+    and the ``stop()`` methods are executed in the reverse order. These
+    methods may optionally be async.
 
     For testing, it is sometimes useful to replace the implementation of a
     provider with a different or modified one. To make the replacement class
@@ -83,6 +85,27 @@ class Provider:
         pass
 
 
+class EventSubscription:
+    """
+    Represents an event subscription.
+    """
+    def __init__(self, callback: Callable, params: dict):
+        self.callback = callback
+        self.params = params
+
+    def match(self, event: Event):
+        """
+        Mach the event params.
+
+        Only params that have been specified will be considered. If no params were
+        given, all events will match.
+        """
+        for item, value in self.params.items():
+            if getattr(event, item) != value:
+                return False
+        return True
+
+
 class Service(Provider):
     """
     Service with dependency injected providers.
@@ -109,26 +132,26 @@ class Service(Provider):
     """
     def __init__(self):
         # Indexed by class, value is kwargs
-        self.provider_classes = {
+        self.provider_classes: dict[Type[Provider], dict] = {
             self.__class__: {},
         }
         # Indexed by provider class, value is real class. Allows for provider
         # impersonation for testing
-        self.provider_class_map = {
+        self.provider_class_map: dict[Type[Provider], Type[Provider]] = {
             self.get_provider_class(): self.__class__,
         }
         # Provider instances, indexed by class, value is instance
-        self.providers = OrderedDict()
+        self.providers: OrderedDict[Type[Provider], Provider] = OrderedDict()
 
-        self.main_loop = None
-        self.main_future = None
+        self.main_loop: asyncio.AbstractEventLoop | None = None
+        self.main_future: asyncio.Future | None = None
         self.main_task: asyncio.Task | None = None
-        self.started = False
-        self.event_registry = {}
+        self.started: bool = False
+        self.event_registry: dict[Type[Event], EventSubscription] = {}
         self.eventqueue = EventQueue()
-        self.event_tasks = []
+        self.event_tasks: list[asyncio.Task] = []
 
-    def add_provider(self, cls, **kwargs):
+    def add_provider(self, cls: Type[Event], **kwargs):
         """
         Add a provider class.
 
@@ -140,7 +163,7 @@ class Service(Provider):
         self.provider_class_map[cls.get_provider_class()] = cls
         self.provider_classes[cls] = kwargs
 
-    def exec(self, fn, **kwargs):
+    def exec(self, fn: Callable, **kwargs):
         """
         Execuite callable fn with context and providers. If an argument is
         provided via kwargs, it will be passed to the function, otherwise, the
@@ -192,7 +215,7 @@ class Service(Provider):
                 provider_names = ", ".join([provider.get_name() for provider in pending_providers])
                 raise ProviderDependencyLoop(f"Provider dependency loop detected among {provider_names}")
 
-    async def get_provider(self, cls):
+    async def get_provider(self, cls: Type[Provider]):
         """
         Return the instance of the provider ``cls``.
         """
@@ -262,6 +285,9 @@ class Service(Provider):
     async def stop(self):
         for task in self.event_tasks:
             task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        self.event_tasks = []
 
     async def run(self) -> int:
         "Run the service"
@@ -287,13 +313,38 @@ class Service(Provider):
                 await self.main_task
             self.main_task = None
 
-    def subscribe_event(self, event_class, subscriber):
-        """Subscribe to an event. The subscriber must be a callable taking a
-        single parameter for the event instance."""
+    def subscribe_event(self, event_class: Type[Event], callback: Callable, **params):
+        """
+        Subscribe to an event. The callback must be a callable taking a single
+        parameter for the event instance.
+
+        If any ``params`` are given, the callback will only be called if the given
+        parameters match the respective event properties.
+        """
+        if not inspect.iscoroutinefunction(callback):
+            raise ServiceException("callback must be a coroutine")
+        subscription = EventSubscription(callback, params)
         if event_class in self.event_registry:
-            self.event_registry[event_class].append(subscriber)
+            self.event_registry[event_class].append(subscription)
         else:
-            self.event_registry[event_class] = [subscriber]
+            self.event_registry[event_class] = [subscription]
+
+    def unsubscribe_event(self, event_class: Type[Event], callback: Callable, **params):
+        """
+        Unsubscribe to an event. Parameters must match the one used for ``subscribe()``
+        """
+        if event_class in self.event_registry:
+            subscriptions = self.event_registry[event_class]
+            for index, subscription in enumerate(subscriptions):
+                if subscription.callback == callback and subscription.params == params:
+                    break
+            else:
+                # Not found
+                return
+            subscriptions.pop(index)
+
+            if not subscriptions:
+                del self.event_registry[event_class]
 
     def publish_event(self, event: Event):
         "Publish an event to listening providers"
@@ -314,12 +365,13 @@ class Service(Provider):
             if task.done():
                 self.event_tasks.remove(task)
 
-    async def handle_event(self, event):
+    async def handle_event(self, event: Event):
         "Handle an event. Only called in the main thread"
         logger.debug(f"Handling event: {event}")
         if event.__class__ in self.event_registry:
             for subscriber in self.event_registry[event.__class__]:
-                try:
-                    await subscriber(event)
-                except Exception:
-                    logger.exception("Failure in event handler for %s" % event)
+                if subscriber.match(event):
+                    try:
+                        await subscriber.callback(event)
+                    except Exception:
+                        logger.exception("Failure in event handler for %s" % event)

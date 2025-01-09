@@ -4,8 +4,6 @@ routesia/mqtt.py - MQTT broker
 
 import asyncio
 from dataclasses import dataclass
-from enum import IntEnum
-import inspect
 import logging
 import paho.mqtt.client as mqtt
 

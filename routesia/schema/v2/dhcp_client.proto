@@ -1,0 +1,205 @@
+syntax = "proto3";
+
+package routesia.dhcp;
+
+/**
+ * DHCPv4 client config
+ */
+message DHCPv4ClientConfig {
+    /**
+     * Interface
+     */
+    string interface = 1;
+
+    /**
+     * Routing table to insert routes into
+     */
+    uint32 table = 2;
+}
+
+/**
+ * DHCP client config
+ */
+message DHCPClientConfig { repeated DHCPv4ClientConfig v4 = 1; }
+
+/**
+ * DHCP client event type
+ */
+enum DHCPClientEventType {
+    /**
+     * Client requests that the interface's media type be set
+     */
+    MEDIUM = 0;
+
+    /**
+     * Client requests pre-initialisation. May request that an alias IP
+     * address be removed.
+     */
+    PREINIT = 1;
+
+    /**
+     * New address bound
+     */
+    BOUND = 2;
+
+    /**
+     * Lease renewed. May indicate change
+     */
+    RENEW = 3;
+
+    /**
+     * Lease rebound. If address changed, related neighbor table entries
+     * should be flushed
+     */
+    REBIND = 4;
+
+    /**
+     * Lease bound after reboot. Should be handled same as BOUND
+     */
+    REBOOT = 5;
+
+    /**
+     * Lease expired with no replacement. Address must be removed
+     */
+    EXPIRE = 6;
+
+    /**
+     * Failed to contact DHCP server. Should be handled same as EXPIRE
+     */
+    FAIL = 7;
+
+    /**
+     * Client stopped
+     */
+    STOP = 8;
+
+    /**
+     * Explicit release requested
+     */
+    RELEASE = 9;
+
+    /**
+     * Timed out, but lease may still be valid
+     */
+    TIMEOUT = 10;
+}
+
+/**
+ * RFC3442 route
+ */
+message DHCPv4ClientEventRoute {
+    /**
+     * Network destination
+     */
+    string destination = 1;
+
+    /**
+     * Gateway
+     */
+    string gateway = 2;
+}
+
+/**
+ * DHCPv4 client event
+ */
+message DHCPv4ClientEventParameters {
+    /**
+     * IP address
+     */
+    string ip_address = 1;
+
+    /**
+     * MTU
+     */
+    uint32 mtu = 2;
+
+    /**
+     * Static routes
+     */
+    repeated DHCPv4ClientEventRoute route = 3;
+
+    /**
+     * Gateways
+     */
+    repeated string gateway = 4;
+
+    /**
+     * Search domains
+     */
+    repeated string domain_search = 5;
+
+    /**
+     * Domain name
+     */
+    string domain_name = 6;
+
+    /**
+     * Domain name servers
+     */
+    repeated string domain_name_server = 7;
+
+    /**
+     * NTP servers
+     */
+    repeated string ntp_server = 8;
+
+    /**
+     * DHCP server identifier
+     */
+    string server_identifier = 9;
+}
+
+/**
+ * DHCPv4 client event
+ */
+message DHCPv4ClientEvent {
+    /**
+     * Interface
+     */
+    string interface = 1;
+
+    /**
+     * Event type
+     */
+    DHCPClientEventType type = 2;
+
+    /**
+     * Media type
+     */
+    string medium = 3;
+
+    /**
+     * Alias IP address. If present it should be removed from the interface
+     */
+    string alias_ip_address = 4;
+
+    /**
+     * New lease parameters. Present when parameters should be configured
+     */
+    DHCPv4ClientEventParameters new = 5;
+
+    /**
+     * Old lease parameters. Present when parameters may be changed or removed
+     */
+    DHCPv4ClientEventParameters old = 6;
+}
+
+/**
+ * DHCPv4 client status
+ */
+message DHCPv4ClientStatus {
+    /**
+     * Interface
+     */
+    string interface = 1;
+
+    /**
+     * Last event
+     */
+    DHCPv4ClientEvent last_event = 2;
+}
+
+/**
+ * DHCPv4 client status list
+ */
+message DHCPv4ClientStatusList { repeated DHCPv4ClientStatus client = 1; }

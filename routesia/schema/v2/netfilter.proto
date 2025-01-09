@@ -1,0 +1,337 @@
+syntax = "proto3";
+
+package routesia.netfilter;
+
+/**
+ * Zone configuration
+ */
+message Zone {
+    /**
+     * Name of zone
+     */
+    string name = 1;
+
+    /**
+     * Interfaces in the zone
+     */
+    repeated string interface = 2;
+}
+
+enum IPForwardProtocol {
+    TCP = 0;
+    UDP = 1;
+    SCTP = 2;
+}
+
+/**
+ * IP forward port map
+ */
+message IPForwardPortMap {
+    /**
+     * Protocol
+     */
+    IPForwardProtocol protocol = 1;
+
+    /**
+     * Original port
+     */
+    string port = 2;
+
+    /**
+     * Destination port
+     */
+    string destination_port = 3;
+}
+
+/**
+ * IP forwarding rule
+ */
+message IPForward {
+    /**
+     * Destination IP
+     */
+    string destination = 1;
+
+    /**
+     * Port map
+     */
+    repeated IPForwardPortMap port_map = 2;
+}
+
+/**
+ * Masquerade configuration
+ */
+message Masquerade {
+    /**
+     * Interface name
+     */
+    string interface = 1;
+
+    repeated IPForward ip_forward = 2;
+}
+
+/**
+ * Policy types
+ */
+enum Policy {
+    ACCEPT = 0;
+    DROP = 1;
+}
+
+/**
+ * IP match
+ * TODO: support all the fields:
+ * https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes#Matches
+ */
+message IPMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Protocol
+     */
+    repeated string protocol = 2;
+
+    /**
+     * Source address
+     */
+    repeated string source = 3;
+
+    /**
+     * Destination address
+     */
+    repeated string destination = 4;
+}
+
+/**
+ * IP6 match
+ */
+message IP6Match {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Protocol
+     */
+    repeated string protocol = 2;
+
+    /**
+     * Source address
+     */
+    repeated string source = 3;
+
+    /**
+     * Destination address
+     */
+    repeated string destination = 4;
+}
+
+/**
+ * TCP match
+ */
+message TCPMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Source port
+     */
+    repeated string source = 2;
+
+    /**
+     * Destination port
+     */
+    repeated string destination = 3;
+}
+
+/**
+ * UDP match
+ */
+message UDPMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Source port
+     */
+    repeated string source = 2;
+
+    /**
+     * Destination port
+     */
+    repeated string destination = 3;
+}
+
+/**
+ * ICMP match
+ */
+message ICMPMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Type
+     */
+    repeated string type = 2;
+
+    /**
+     * Destination port
+     */
+    repeated uint32 code = 3;
+}
+
+/**
+ * ICMPv6 match
+ */
+message ICMP6Match {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Type
+     */
+    repeated string type = 2;
+
+    /**
+     * Destination port
+     */
+    repeated uint32 code = 3;
+}
+
+/**
+ * Connection tracking match
+ */
+message CTMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * State
+     */
+    repeated string state = 2;
+}
+
+/**
+ * Metadata match
+ */
+message MetaMatch {
+    /**
+     * Negate match
+     */
+    bool negate = 1;
+
+    /**
+     * Input interface name
+     */
+    repeated string input_interface = 2;
+
+    /**
+     * Output interface name
+     */
+    repeated string output_interface = 3;
+
+    /**
+     * Protocol
+     */
+    repeated string protocol = 4;
+}
+
+/**
+ * Rule
+ */
+message Rule {
+    /**
+     * Description
+     */
+    string description = 1;
+
+    /**
+     * Source zones
+     */
+    repeated string source_zone = 2;
+
+    /**
+     * Destination zones
+     */
+    repeated string destination_zone = 3;
+
+    /**
+     * Matches
+     */
+    repeated IPMatch ip = 10;
+    repeated IP6Match ip6 = 11;
+    repeated TCPMatch tcp = 12;
+    repeated UDPMatch udp = 13;
+    repeated ICMPMatch icmp = 14;
+    repeated ICMP6Match icmp6 = 15;
+    repeated CTMatch ct = 16;
+    repeated MetaMatch meta = 17;
+
+    /**
+     * Verdict
+     */
+    enum Verdict {
+        ACCEPT = 0;
+        DROP = 1;
+    }
+    Verdict verdict = 100;
+}
+
+/**
+ * Input
+ */
+message Input {
+    /**
+     * Policy, accept or drop
+     */
+    Policy policy = 1;
+
+    /**
+     * Rules
+     */
+    repeated Rule rule = 2;
+}
+
+/**
+ * Forward
+ */
+message Forward {
+    /**
+     * Policy, accept or drop
+     */
+    Policy policy = 1;
+
+    /**
+     * Rules
+     */
+    repeated Rule rule = 2;
+}
+
+/**
+ * Netfilter module config
+ */
+message NetfilterConfig {
+    /**
+     * Enable netfilter
+     */
+    bool enabled = 1;
+
+    repeated Zone zone = 2;
+    repeated Masquerade masquerade = 3;
+    Input input = 4;
+    Forward forward = 5;
+}

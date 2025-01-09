@@ -5,19 +5,19 @@ routesia/interface/address/provider.py - Interface address support
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface
 import logging
 
-from routesia.address.entity import AddressEntity, DHCPAddressEntity
-from routesia.config.provider import ConfigProvider
-from routesia.dhcp.client.events import DHCPv4LeaseAcquired, DHCPv4LeaseLost, DHCPv4LeasePreinit
+from routesia.interface.addressentities import AddressEntity, DHCPAddressEntity
+from routesia.config.configprovider import ConfigProvider
+from routesia.dhcp.client.dhcpclientevents import DHCPv4LeaseAcquired, DHCPv4LeaseLost, DHCPv4LeasePreinit
 from routesia.service import Provider
 from routesia.rpc import RPC, RPCInvalidArgument
-from routesia.rtnetlink.provider import IPRouteProvider
-from routesia.rtnetlink.events import (
+from routesia.netlink.netlinkprovider import IPRouteProvider
+from routesia.netlink.netlinkevents import (
     AddressAddEvent,
     AddressRemoveEvent,
     InterfaceAddEvent,
     InterfaceRemoveEvent,
 )
-from routesia.schema.v1 import address_pb2
+from routesia.schema.v2 import address_pb2
 from routesia.service import Service
 
 
@@ -45,7 +45,7 @@ class AddressProvider(Provider):
 
         self.dhcp_addresses: dict[str, DHCPAddressEntity] = {}
 
-        self.config.register_change_handler(self.on_config_change)
+        self.config.register_change_handler(self.handle_config_change)
 
         self.service.subscribe_event(AddressAddEvent, self.handle_address_add)
         self.service.subscribe_event(AddressRemoveEvent, self.handle_address_remove)
@@ -61,7 +61,7 @@ class AddressProvider(Provider):
         self.rpc.register("address/config/update", self.rpc_update_address)
         self.rpc.register("address/config/delete", self.rpc_delete_address)
 
-    def on_config_change(self, config):
+    def handle_config_change(self, config):
         new_addresses = {}
         for address in config.addresses.address:
             new_addresses[(address.interface, address.ip)] = address
@@ -75,7 +75,7 @@ class AddressProvider(Provider):
         # Add/update the rest
         for key in new_address_keys:
             if key in self.addresses:
-                self.addresses[key].on_config_change(new_addresses[key])
+                self.addresses[key].handle_config_change(new_addresses[key])
             else:
                 config = new_addresses[key]
                 if config.interface in self.interfaces:

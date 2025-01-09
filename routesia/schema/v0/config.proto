@@ -1,0 +1,22 @@
+/**
+ * Confioguration schema version 0
+ *
+ * This version is only used to detect the real schema version
+ */
+
+syntax = "proto3";
+
+package routesia.config;
+
+message Config {
+    /**
+     * System schema
+     *
+     * Important: Do not change the field IDs even across schema versions
+     */
+    message System {
+        string schema = 1;
+        int64 version = 2;
+    }
+    System system = 1;
+}
