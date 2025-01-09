@@ -1,0 +1,2 @@
+class NetlinkMessageException(Exception):
+    pass

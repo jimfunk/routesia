@@ -79,19 +79,48 @@ async def test_event_subscriber(service):
     assert event.data == "foo"
 
 
-async def test_event_subscriber_wait_event(service, wait_for_event):
-    async with wait_for_event(FooEvent) as waiter:
-        service.publish_event(FooEvent("foo"))
+async def test_event_subscriber_params(service):
+    future = service.main_loop.create_future()
 
-    assert waiter.done()
-    assert isinstance(waiter.result(), FooEvent)
-    assert waiter.result().data == "foo"
+    async def handler(event):
+        future.set_result(event)
 
-
-async def test_event_subscriber_eventwatcher(service, eventwatcher):
-    eventwatcher.subscribe(FooEvent)
-    service.publish_event(FooEvent("foo"))
-    event = await eventwatcher.wait_for(FooEvent)
-
+    service.subscribe_event(FooEvent, handler, data="spam")
+    service.publish_event(FooEvent("eggs"))
+    service.publish_event(FooEvent("spam"))
+    await future
+    assert future.done()
+    event = future.result()
     assert isinstance(event, FooEvent)
-    assert event.data == "foo"
+    assert event.data == "spam"
+
+
+async def test_event_unsubscribe(service):
+    async def handler(event):
+        pass
+
+    service.subscribe_event(FooEvent, handler, data="spam")
+
+    assert FooEvent in service.event_registry
+
+    service.unsubscribe_event(FooEvent, handler)
+    assert FooEvent in service.event_registry
+
+    service.unsubscribe_event(FooEvent, handler, data="spam")
+    assert FooEvent not in service.event_registry
+
+
+async def test_wait_for(service, wait_for):
+    waiter = await wait_for(FooEvent)
+    service.publish_event(FooEvent("foo"))
+    await waiter.wait()
+    assert waiter.result
+    assert waiter.result == FooEvent("foo")
+
+
+async def test_wait_for_context(service, wait_for):
+    async with await wait_for(FooEvent) as waiter:
+        service.publish_event(FooEvent("foo"))
+    assert isinstance(waiter.result, FooEvent)
+    assert waiter.result
+    assert waiter.result == FooEvent("foo")

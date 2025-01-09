@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package routesia.dhcp;
+
+import "routesia/schema/v2/dhcp_server.proto";
+import "routesia/schema/v2/dhcp_client.proto";
+
+/**
+ * DHCP module config
+ */
+message DHCPConfig {
+    DHCPServerConfig server = 1;
+    DHCPClientConfig client = 2;
+}

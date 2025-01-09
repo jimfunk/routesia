@@ -1,4 +1,5 @@
 protobuf-devel
 python311-devel
+python311-mypy-protobuf
 python311-pytest
 python311-pytest-cov

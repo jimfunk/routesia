@@ -7,7 +7,7 @@ import inspect
 import logging
 
 from routesia.mqtt import MQTT
-from routesia.schema.v1 import rpc_pb2
+from routesia.schema.v2 import rpc_pb2
 from routesia.schema.registry import SchemaRegistry
 from routesia.service import Provider
 
