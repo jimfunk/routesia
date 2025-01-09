@@ -1,5 +1,5 @@
 """
-routesia/event.py - Base event
+Base event type
 """
 
 from dataclasses import dataclass

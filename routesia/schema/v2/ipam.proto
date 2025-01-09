@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package routesia.ipam;
+
+/**
+ * Host entry
+ */
+message Host {
+    /**
+     * Name
+     */
+    string name = 1;
+
+    /**
+     * Alias
+     */
+    repeated string alias = 2;
+
+    /**
+     * Hardware address
+     */
+    string hardware_address = 3;
+
+    /**
+     * IP addresses
+     */
+    repeated string ip_address = 4;
+}
+
+/**
+ * Interface module config
+ */
+message IPAMConfig { repeated Host host = 1; }

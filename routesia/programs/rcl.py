@@ -8,20 +8,20 @@ import asyncio
 import logging
 import sys
 
-from routesia.address.cli import AddressCLI
+from routesia.interface.addresscli import AddressCLI
 from routesia.cli import CLI
-from routesia.config.cli import ConfigCLI
-from routesia.dhcp.client.cli import DHCPClientCLI
-from routesia.dhcp.server.cli import DHCPServerCLI
-from routesia.dns.authoritative.cli import DNSAuthoritativeCLI
-from routesia.dns.cache.cli import DNSCacheCLI
-from routesia.interface.cli import InterfaceCLI
-from routesia.ipam.cli import IPAMCLI
+from routesia.config.configcli import ConfigCLI
+from routesia.dhcp.dhcpclientcli import DHCPClientCLI
+from routesia.dhcp.dhcpservercli import DHCPServerCLI
+from routesia.dns.authoritativednscli import DNSAuthoritativeCLI
+from routesia.dns.dnscachecli import DNSCacheCLI
+from routesia.interface.interfacecli import InterfaceCLI
+from routesia.ipam.ipamcli import IPAMCLI
 from routesia.service import Service
 from routesia.mqtt import MQTT
-from routesia.netfilter.cli import NetfilterCLI
+from routesia.netfilter.netfiltercli import NetfilterCLI
 from routesia.rpcclient import RPCClient
-from routesia.route.cli import RouteCLI
+from routesia.route.routecli import RouteCLI
 from routesia.schema.registry import SchemaRegistry
 
 

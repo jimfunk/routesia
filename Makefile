@@ -2,7 +2,7 @@ PYTHON_VERSION = 3.11
 
 PROTO_SOURCES := $(shell find routesia* -type f -name '*.proto')
 PROTO_MODULES := $(PROTO_SOURCES:%.proto=%_pb2.py)
-# PROTO_MODULE_STUBS := $(PROTO_SOURCES:%.proto=%_pb2.pyi)
+PROTO_MODULE_STUBS := $(PROTO_SOURCES:%.proto=%_pb2.pyi)
 TEST_PROTO_SOURCES := $(shell find tests* -type f -name '*.proto')
 TEST_PROTO_MODULES := $(TEST_PROTO_SOURCES:%.proto=%_pb2.py)
 PYTHON_SOURCES := $(shell find routesia* -type f -name '*.py')
@@ -23,13 +23,17 @@ testproto: $(TEST_PROTO_MODULES)
 	protoc -I. --mypy_out=. $<
 
 build: setup.py $(PYTHON_SOURCES) proto
+	$(PYTHON) setup.py build_ext --inplace
 	$(PYTHON) setup.py build
 
 test: proto testproto
 	$(PYTEST) $(ARGS)
 
 coverage: proto
-	$(PYTEST) --cov=routesia $(ARGS)
+	$(PYTEST) --cov=routesia --cov-report html --cov-report term $(ARGS)
+
+coverage-report:
+
 
 install: proto
 	$(PYTHON) setup.py install

@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+
+package routesia.rpc;
+
+message RPCRequest {
+    /**
+     * Client ID
+     */
+    string client_id = 1;
+
+    /**
+     * Request ID
+     */
+    uint64 request_id = 2;
+
+    /**
+     * Method name
+     */
+    string method = 3;
+
+    /**
+     * Method argument. Must be a single message if given
+     */
+    google.protobuf.Any argument = 4;
+}
+
+message RPCResponse {
+    /**
+     * Request ID
+     */
+    uint64 request_id = 1;
+
+    /**
+     * Response codes
+     */
+    enum ResponseCode {
+        SUCCESS = 0;
+        UNSPECIFIED_ERROR = 1;
+        NO_SUCH_METHOD = 2;
+        INVALID_REQUEST = 3;
+        INVALID_ARGUMENT = 4;
+    }
+    ResponseCode response_code = 2;
+
+    /**
+     * Method response data. Must be a single message if given
+     */
+    google.protobuf.Any response = 3;
+
+    /**
+     * If there was an error, this will contain more information about the
+     * error
+     */
+    string error_detail = 4;
+}

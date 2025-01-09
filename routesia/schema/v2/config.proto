@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package routesia.config;
+
+import "routesia/schema/v2/dhcp.proto";
+import "routesia/schema/v2/dns.proto";
+import "routesia/schema/v2/interface.proto";
+import "routesia/schema/v2/ipam.proto";
+import "routesia/schema/v2/netfilter.proto";
+import "routesia/schema/v2/route.proto";
+
+message Config {
+    /**
+     * System schema
+     *
+     * Important: Do not change the field IDs even across schema versions
+     */
+    message System {
+        string schema = 1;
+        int64 version = 2;
+    }
+    System system = 1;
+
+    /**
+     * IP address management module
+     */
+    routesia.ipam.IPAMConfig ipam = 2;
+
+    /**
+     * Interface module
+     */
+    routesia.interface.InterfaceConfigList interfaces = 3;
+
+    /**
+     * Route module
+     */
+    routesia.route.RouteTableConfigList route = 5;
+
+    /**
+     * Netfilter module
+     */
+    routesia.netfilter.NetfilterConfig netfilter = 6;
+
+    /**
+     * DHCP module
+     */
+    routesia.dhcp.DHCPConfig dhcp = 7;
+
+    /**
+     * DNS cache module
+     */
+    routesia.dns.DNSConfig dns = 8;
+}
+
+message CommitResult {
+    /**
+     * Result codes
+     */
+    enum CommitResultCode {
+        COMMIT_SUCCESS = 0;
+        COMMIT_UNCHANGED = 1;
+        COMMIT_ERROR = 2;
+    }
+    CommitResultCode result_code = 1;
+
+    /**
+     * Extra message as a string
+     */
+    string message = 2;
+}

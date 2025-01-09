@@ -13,7 +13,7 @@ from routesia.rpc import (
     RPCInvalidArgument,
     RPCInvalidRequest,
 )
-from routesia.schema.v1 import rpc_pb2
+from routesia.schema.v2 import rpc_pb2
 from routesia.schema.registry import SchemaRegistry
 from routesia.service import Service, Provider
 

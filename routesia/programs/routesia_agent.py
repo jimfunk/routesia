@@ -9,19 +9,19 @@ import os
 import sys
 from systemd.journal import JournalHandler
 
-from routesia.address.provider import AddressProvider
-from routesia.config.provider import ConfigProvider
-from routesia.dhcp.client.provider import DHCPClientProvider
-from routesia.dhcp.server.provider import DHCPServerProvider
-from routesia.dns.authoritative.provider import AuthoritativeDNSProvider
-from routesia.dns.cache.provider import DNSCacheProvider
-from routesia.interface.provider import InterfaceProvider
-from routesia.ipam.provider import IPAMProvider
+from routesia.interface.addressprovider import AddressProvider
+from routesia.config.configprovider import ConfigProvider
+from routesia.dhcp.dhcpclientprovider import DHCPClientProvider
+from routesia.dhcp.dhcpserverprovider import DHCPServerProvider
+from routesia.dns.authoritativednsprovider import AuthoritativeDNSProvider
+from routesia.dns.dnscacheprovider import DNSCacheProvider
+from routesia.interface.interfaceprovider import InterfaceProvider
+from routesia.ipam.ipamprovider import IPAMProvider
 from routesia.mqtt import MQTT
-from routesia.netfilter.provider import NetfilterProvider
-from routesia.route.provider import RouteProvider
+from routesia.netfilter.netfilterprovider import NetfilterProvider
+from routesia.route.routeprovider import RouteProvider
 from routesia.rpc import RPC
-from routesia.rtnetlink.provider import IPRouteProvider
+from routesia.netlink.netlinkprovider import IPRouteProvider
 from routesia.service import Service
 from routesia.schema.registry import SchemaRegistry
 from routesia.systemd import SystemdProvider
