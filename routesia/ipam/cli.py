@@ -94,16 +94,16 @@ class IPAMCLI(Provider):
 
     async def add_alias(self, hostname: str, alias: str):
         host = await self.get_host(hostname)
-        for alias in host.alias:
-            if alias == alias:
+        for existing_alias in host.alias:
+            if existing_alias == alias:
                 raise InvalidArgument("Alias %s already exists for host %s" % (alias, host))
         host.alias.append(alias)
         await self.rpc.request("ipam/config/host/update", host)
 
     async def remove_alias(self, hostname: str, alias: str):
         host = await self.get_host(hostname)
-        for i, alias in enumerate(host.alias):
-            if alias == alias:
+        for i, existing_alias in enumerate(host.alias):
+            if existing_alias == alias:
                 del host.alias[i]
                 break
         await self.rpc.request("ipam/config/host/update", host)
