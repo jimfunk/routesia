@@ -140,11 +140,11 @@ class RouteCLI(Provider):
         return completions
 
     async def delete_route(self, destination: IPv4Network | IPv6Network, table: UInt32 = DEFAULT_TABLE):
-        table = route_pb2.RouteTableConfig()
-        table.id = table
-        route = table.route.add()
+        table_obj = route_pb2.RouteTableConfig()
+        table_obj.id = table
+        route = table_obj.route.add()
         route.destination = str(destination)
-        await self.rpc.request("route/config/route/delete", table)
+        await self.rpc.request("route/config/route/delete", table_obj)
 
     async def add_nexthop(
         self,
