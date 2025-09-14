@@ -6,7 +6,7 @@ from ipaddress import ip_network
 
 
 DHCP4_CONF = '/etc/kea/kea-dhcp4.conf'
-DHCP4_CONTROL_SOCK = '/tmp/kea-dhcp4-ctrl.sock'
+DHCP4_CONTROL_SOCK = '/var/run/kea/kea-dhcp4-ctrl.sock'
 DHCP4_LEASE_DB = '/var/lib/kea/dhcp4.leases'
 
 
@@ -79,9 +79,10 @@ class DHCP4Config:
                         break
         return reservations
 
-    def generate_subnet(self, config):
+    def generate_subnet(self, config, id):
         subnet = ip_network(config.address)
         data = {
+            "id": id,
             'subnet': str(subnet),
         }
 
@@ -137,11 +138,6 @@ class DHCP4Config:
                 'persist': True,
                 'name': DHCP4_LEASE_DB,
             },
-            'hooks-libraries': [
-                {
-                    "library": "/usr/lib64/kea/hooks/libdhcp_lease_cmds.so",
-                }
-            ]
         }
         if config.renew_timer:
             data['renew-timer'] = config.renew_timer
@@ -162,8 +158,8 @@ class DHCP4Config:
             data['option-data'] = self.generate_options(config.option)
 
         subnets = []
-        for subnet_config in config.subnet:
-            subnets.append(self.generate_subnet(subnet_config))
+        for i, subnet_config in enumerate(config.subnet):
+            subnets.append(self.generate_subnet(subnet_config, i+1))
         data['subnet4'] = subnets
 
         return data

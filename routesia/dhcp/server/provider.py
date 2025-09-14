@@ -5,6 +5,8 @@ routesia/dhcp/provider.py - DHCP support using ISC Kea
 from dbus.exceptions import DBusException
 import json
 import logging
+import os
+import pwd
 import shutil
 import socket
 import tempfile
@@ -122,6 +124,8 @@ class DHCPServerProvider(Provider):
         temp.close()
 
         shutil.move(temp.name, DHCP4_CONF)
+        user = pwd.getpwnam("keadhcp")
+        os.chown(DHCP4_CONF, user.pw_uid, user.pw_gid)
 
         self.start_unit()
 
@@ -133,16 +137,16 @@ class DHCPServerProvider(Provider):
 
     def start_unit(self):
         try:
-            self.systemd.start_unit("kea.service")
+            self.systemd.start_unit("kea-dhcp4.service")
         except DBusException as e:
             if "NoSuchUnit" in e.get_dbus_name():
-                logger.warning("kea.service does not exist. DHCP server will be disabled")
+                logger.warning("kea-dhcp4.service does not exist. DHCP server will be disabled")
             else:
                 raise
 
     def stop_unit(self):
         try:
-            self.systemd.stop_unit("kea.service")
+            self.systemd.stop_unit("kea-dhcp4.service")
         except DBusException as e:
             if "NoSuchUnit" in e.get_dbus_name():
                 pass
