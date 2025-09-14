@@ -110,7 +110,7 @@ class NetfilterCLI(Provider):
         )
         self.cli.add_command(
             "netfilter config masquerade remove :interface!masquerade-interface",
-            self.add_masquerade,
+            self.remove_masquerade,
         )
         self.cli.add_command(
             "netfilter config masquerade ip-forward add :interface!masquerade-interface :destination",
