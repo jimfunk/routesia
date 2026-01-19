@@ -14,9 +14,9 @@ from routesia.service import Provider
 from routesia.interface.interface import Interface
 from routesia.interface import interface_types
 from routesia.rpc import RPC
-from routesia.netlinkprovider import (
-    NetlinkInterfaceAddEvent,
-    NetlinkInterfaceDeleteEvent,
+from routesia.rtnetlinkprovider import (
+    NetlinkLinkAddEvent,
+    NetlinkLinkDeleteEvent,
 )
 from routesia.schema.v2 import interface_pb2
 from routesia.service import Service
@@ -56,7 +56,7 @@ class InterfaceProvider(Provider):
 
         # Interface add events from netlink
         #
-        self.interface_events: dict[str, NetlinkInterfaceAddEvent] = {}
+        self.interface_events: dict[str, NetlinkLinkAddEvent] = {}
 
         # Interface entities from configuration
         #
@@ -66,8 +66,10 @@ class InterfaceProvider(Provider):
 
         self.config.register_change_handler(self.handle_config_change)
 
-        self.service.subscribe_event(NetlinkInterfaceAddEvent, self.handle_interface_add)
-        self.service.subscribe_event(NetlinkInterfaceDeleteEvent, self.handle_interface_delete)
+        self.service.subscribe_event(NetlinkLinkAddEvent, self.handle_interface_add)
+        self.service.subscribe_event(
+            NetlinkLinkDeleteEvent, self.handle_interface_delete
+        )
         self.service.subscribe_event(DHCPv4LeasePreinit, self.handle_dhcp_lease_preinit)
         self.service.subscribe_event(
             DHCPv4LeaseAcquired, self.handle_dhcp_lease_acquired
@@ -108,15 +110,17 @@ class InterfaceProvider(Provider):
         # Add/update the rest
         for interface_config in self.config.data.interfaces.interface:
             if interface_config.name in self.interfaces:
-                await self.interfaces[name].handle_config_change(interface_config, self.interface_events)
+                await self.interfaces[name].handle_config_change(
+                    interface_config, self.interface_events
+                )
             else:
                 self.interfaces[config.name] = Interface(
                     config, event=self.interface_events.get(config.name, None)
                 )
                 await self.interfaces[config.name].start(self.interface_events)
 
-    async def handle_interface_add(self, interface_event: NetlinkInterfaceAddEvent):
-        ifname = interface_event.ifname
+    async def handle_interface_add(self, interface_event: NetlinkLinkAddEvent):
+        ifname = interface_event.name
         self.interface_events[ifname] = interface_event
 
         # We pass all interface events to all interfaces since some of them, such as
@@ -124,8 +128,8 @@ class InterfaceProvider(Provider):
         for interface in self.interfaces.values():
             await interface.handle_interface_add(interface_event)
 
-    async def handle_interface_delete(self, interface_event: NetlinkInterfaceDeleteEvent):
-        ifname = interface_event.ifname
+    async def handle_interface_delete(self, interface_event: NetlinkLinkDeleteEvent):
+        ifname = interface_event.name
 
         if ifname in self.interface_events:
             del self.interface_events[ifname]

@@ -215,7 +215,7 @@ class Service(Provider):
                 provider_names = ", ".join([provider.get_name() for provider in pending_providers])
                 raise ProviderDependencyLoop(f"Provider dependency loop detected among {provider_names}")
 
-    async def get_provider(self, cls: Type[Provider]):
+    def get_provider(self, cls: Type[Provider]):
         """
         Return the instance of the provider ``cls``.
         """

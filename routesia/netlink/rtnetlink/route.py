@@ -1,15 +1,33 @@
-from ctypes import Structure, c_int, c_uint8, c_ushort, sizeof
 from enum import IntEnum, IntFlag
 from ipaddress import IPv4Address, IPv6Address
+from typing import Annotated, Any, Union
+
 from socket import AddressFamily
 
 from routesia.netlink import constants
-from routesia.netlink.rtnetlink.attribute import RTAttribute
-from routesia.netlink.rtnetlink.message import RTNetlinkMessage
-from routesia.netlink.types import Int8, Int32
+from routesia.protoclass import (
+    UInt8Base,
+    UInt16Base,
+    ProtoClass,
+    protoclass,
+    VariableLengthData,
+    FixedLengthData,
+)
+from routesia.protoclass.types import (
+    UInt,
+    UInt8,
+    UInt16,
+    UInt32,
+    Int32,
+    IPv4,
+    IPv6,
+    Bytes,
+)
+from routesia.netlink.rtnetlink.link import InterfaceAttributeType
+from routesia.netlink.rtnetlink.rtnexthop import RTNexthopAttribute
 
 
-class RouteProtocol(IntEnum):
+class RouteProtocol(UInt8Base, IntEnum):
     RTPROT_UNSPEC = constants.RTPROT_UNSPEC
     RTPROT_REDIRECT = constants.RTPROT_REDIRECT
     RTPROT_KERNEL = constants.RTPROT_KERNEL
@@ -36,7 +54,7 @@ class RouteProtocol(IntEnum):
     RTPROT_ROUTESIA = 52  # Currently unassigned
 
 
-class RouteScope(IntEnum):
+class RouteScope(UInt8Base, IntEnum):
     RT_SCOPE_UNIVERSE = constants.RT_SCOPE_UNIVERSE
     RT_SCOPE_SITE = constants.RT_SCOPE_SITE
     RT_SCOPE_LINK = constants.RT_SCOPE_LINK
@@ -44,7 +62,7 @@ class RouteScope(IntEnum):
     RT_SCOPE_NOWHERE = constants.RT_SCOPE_NOWHERE
 
 
-class RouteType(IntEnum):
+class RouteType(UInt8Base, IntEnum):
     RTN_UNSPEC = constants.RTN_UNSPEC
     RTN_UNICAST = constants.RTN_UNICAST
     RTN_LOCAL = constants.RTN_LOCAL
@@ -59,7 +77,7 @@ class RouteType(IntEnum):
     RTN_XRESOLVE = constants.RTN_XRESOLVE
 
 
-class RouteAttributeType(IntEnum):
+class RouteAttributeType(UInt16Base, IntEnum):
     RTA_UNSPEC = constants.RTA_UNSPEC
     RTA_DST = constants.RTA_DST
     RTA_SRC = constants.RTA_SRC
@@ -93,197 +111,127 @@ class RouteAttributeType(IntEnum):
     RTA_NH_ID = constants.RTA_NH_ID
 
 
-class RTNexthopVia(Structure):
-    _fields_ = [
-        ("family", c_ushort),
-    ]
+@protoclass()
+class RTNexthopVia(ProtoClass):
+    family: Annotated[AddressFamily, UInt16]
+    addr: Annotated[bytes, VariableLengthData()]
 
-    def __init__(self, address: IPv4Address | IPv6Address):
-        super().__init__()
-        self.address = address
+    def __init__(
+        self,
+        address: IPv4Address | IPv6Address | bytes | None = None,
+        family: AddressFamily | None = None,
+        **kwargs,
+    ):
+        if address is not None:
+            if isinstance(address, (IPv4Address, IPv6Address)):
+                if isinstance(address, IPv4Address):
+                    family = AddressFamily.AF_INET
+                else:
+                    family = AddressFamily.AF_INET6
+                kwargs["addr"] = address.packed
+            else:
+                kwargs["addr"] = address
+        if family is not None:
+            kwargs["family"] = family
+        ProtoClass.__init__(self, **kwargs)
 
     @property
-    def address(self) -> IPv4Address | IPv6Address:
+    def address(self) -> IPv4Address | IPv6Address | bytes:
         if self.family == AddressFamily.AF_INET:
-            return IPv4Address(bytes(self._addr_data))
-        else:
-            return IPv6Address(bytes(self._addr_data))
+            return IPv4Address(self.addr)
+        elif self.family == AddressFamily.AF_INET6:
+            return IPv6Address(self.addr)
+        return self.addr
 
-    @address.setter
-    def address(self, value: IPv4Address | IPv6Address):
-        if value.version == 4:
-            self.family = AddressFamily.AF_INET
-        elif value.version == 6:
-            self.family = AddressFamily.AF_INET6
-        else:
-            raise ValueError("Invalid IP version")
-        self._addr_data = value
-
-    def __len__(self):
-        return sizeof(self) + len(self._addr_data)
-
-    @classmethod
-    def from_buffer(cls, buffer: bytes | bytearray | memoryview) -> "RTNexthopVia":
-        obj = type(Structure).from_buffer(cls, buffer)
-        addr_data = buffer[sizeof(RTNexthopVia):]
-        if obj.family == AddressFamily.AF_INET:
-            obj._addr_data = addr_data[:4]
-        elif obj.family == AddressFamily.AF_INET6:
-            obj._addr_data = IPv6Address(addr_data[:16])
-        else:
-            raise ValueError("Invalid address family")
-        return obj
-
-    @classmethod
-    def from_buffer_copy(cls, buffer: bytes | bytearray | memoryview) -> "RTNexthopVia":
-        obj = type(Structure).from_buffer_copy(cls, buffer)
-        addr_data = bytes(buffer[sizeof(RTNexthopVia):])
-        if obj.family == AddressFamily.AF_INET:
-            obj._addr_data = addr_data[:4]
-        elif obj.family == AddressFamily.AF_INET6:
-            obj._addr_data = IPv6Address(addr_data[:16])
-        else:
-            raise ValueError("Invalid address family")
-        return obj
-
-    def __bytes__(self) -> bytes:
-        return bytes(memoryview(self)) + self._addr_data
+    def __str__(self):
+        return f"<RTNexthopVia family={self.family.name} address={self.address}>"
 
 
-class RTNexthopFlag(IntFlag):
-    RTNH_F_DEAD = constants.RTNH_F_DEAD
-    RTNH_F_PERVASIVE = constants.RTNH_F_PERVASIVE
-    RTNH_F_ONLINK = constants.RTNH_F_ONLINK
-    RTNH_F_OFFLOAD = constants.RTNH_F_OFFLOAD
-    RTNH_F_LINKDOWN = constants.RTNH_F_LINKDOWN
-    RTNH_F_UNRESOLVED = constants.RTNH_F_UNRESOLVED
-    RTNH_F_TRAP = constants.RTNH_F_TRAP
-
-
-class RTNexthopAttribute(RTAttribute):
-    _fields_ = [
-        ("rtnh_len", c_ushort),
-        ("rtnh_flags", c_uint8),
-        ("rtnh_hops", c_uint8),
-        ("rtnh_ifindex", c_int),
+@protoclass()
+class RouteAttribute(ProtoClass):
+    rta_len: UInt16
+    rta_type: UInt16
+    payload: Annotated[
+        Union[
+            UInt32,
+            IPv4,
+            IPv6,
+            RTNexthopAttribute,
+            RTNexthopVia,
+            Bytes,
+        ],
+        VariableLengthData(
+            length_field="rta_len",
+            length_offset=-4,
+            type_field="rta_type",
+            type_map={
+                RouteAttributeType.RTA_DST: IPv4 | IPv6,
+                RouteAttributeType.RTA_SRC: IPv4 | IPv6,
+                RouteAttributeType.RTA_GATEWAY: IPv4 | IPv6,
+                RouteAttributeType.RTA_IIF: UInt32,
+                RouteAttributeType.RTA_OIF: UInt32,
+                RouteAttributeType.RTA_PREF: UInt8,
+                RouteAttributeType.RTA_PREFSRC: IPv4 | IPv6,
+                RouteAttributeType.RTA_METRICS: UInt32,
+                RouteAttributeType.RTA_TABLE: UInt32,
+                RouteAttributeType.RTA_MULTIPATH: RTNexthopAttribute,
+                RouteAttributeType.RTA_VIA: RTNexthopVia,
+            },
+            align=4,
+        ),
     ]
 
-    def __init__(
-        self,
-        rtnh_flags: RTNexthopFlag = RTNexthopFlag(0),
-        rtnh_hops: int = 0,
-        rtnh_ifindex: int = 0,
-        rtvias: list[RTNexthopVia] | None = None,
-    ):
-        self.rtnh_flags = rtnh_flags
-        self.rtnh_hops = rtnh_hops
-        self.rtnh_ifindex = rtnh_ifindex
-        self.rtvias = rtvias or []
-
     @property
-    def rtvias(self) -> list[RTNexthopVia]:
-        vias = []
-        idx = sizeof(self)
-        while idx < self.rtnh_len:
-            if self.rta_len < idx + sizeof(RTNexthopVia):
-                raise ValueError("Buffer is too small for rtvia")
-            via = RTNexthopVia.from_buffer(self.payload, idx)
-            vias.append(via)
-            idx += len(via)
-        return vias
-
-    @rtvias.setter
-    def rtvias(self, value: list[RTNexthopVia]):
-        self.payload = b"".join(bytes(via) for via in value)
+    def type(self) -> int:
+        return self.rta_type & ~constants.NLA_F_NESTED
 
 
-class RouteMessage(RTNetlinkMessage):
-    _fields_ = [
-        ("_rtm_family", c_uint8),
-        ("rtm_dst_len", c_uint8),
-        ("rtm_src_len", c_uint8),
-        ("rtm_tos", c_uint8),
-        ("rtm_table", c_uint8),
-        ("_rtm_protocol", c_uint8),
-        ("_rtm_scope", c_uint8),
-        ("_rtm_type", c_uint8),
+@protoclass()
+class RouteMessage(ProtoClass):
+    rtm_family: Annotated[AddressFamily, UInt8]
+    rtm_dst_len: UInt8
+    rtm_src_len: UInt8
+    rtm_tos: UInt8
+    rtm_table: UInt8
+    rtm_protocol: Annotated[RouteProtocol, UInt8]
+    rtm_scope: Annotated[RouteScope, UInt8]
+    rtm_type: Annotated[RouteType, UInt8]
+
+    attrs: Annotated[
+        list[RouteAttribute], VariableLengthData(item_type=RouteAttribute, align=4)
     ]
 
-    rtm_dst_len: int
-    rtm_src_len: int
-    rtm_tos: int
-    rtm_table: int
-
-    _rtattr_type_map = {
-        RouteAttributeType.RTA_DST: IPv4Address | IPv6Address,
-        RouteAttributeType.RTA_SRC: IPv4Address | IPv6Address,
-        RouteAttributeType.RTA_IIF: Int32,
-        RouteAttributeType.RTA_OIF: Int32,
-        RouteAttributeType.RTA_GATEWAY: IPv4Address | IPv6Address,
-        RouteAttributeType.RTA_PRIORITY: Int32,
-        RouteAttributeType.RTA_PREFSRC: IPv4Address | IPv6Address,
-        RouteAttributeType.RTA_METRICS: Int32,
-        RouteAttributeType.RTA_MULTIPATH: RTNexthopAttribute,
-        RouteAttributeType.RTA_TABLE: Int32,
-        RouteAttributeType.RTA_VIA: IPv4Address | IPv6Address,
-        RouteAttributeType.RTA_PREF: Int8,
-    }
-
-    def __init__(
-        self,
-        rtm_family: AddressFamily = AddressFamily.AF_INET,
-        rtm_dst_len: int = 0,
-        rtm_src_len: int = 0,
-        rtm_tos: int = 0,
-        rtm_table: int = 0,
-        rtm_protocol: RouteProtocol | int = RouteProtocol.RTPROT_UNSPEC,
-        rtm_scope: RouteScope | int = RouteScope.RT_SCOPE_UNIVERSE,
-        rtm_type: RouteType = RouteType.RTN_UNSPEC,
-    ):
-        super().__init__()
-        self.rtm_family = rtm_family
-        self.rtm_dst_len = rtm_dst_len
-        self.rtm_src_len = rtm_src_len
-        self.rtm_tos = rtm_tos
-        self.rtm_table = rtm_table
-        self.rtm_protocol = rtm_protocol
-        self.rtm_scope = rtm_scope
-        self.rtm_type = rtm_type
+    @property
+    def dst(self) -> IPv4Address | IPv6Address | None:
+        for attr in self.attrs:
+            if attr.type == RouteAttributeType.RTA_DST:
+                return attr.payload
+        return None
 
     @property
-    def rtm_family(self) -> AddressFamily:
-        return AddressFamily(self._rtm_family)
-
-    @rtm_family.setter
-    def rtm_family(self, value: AddressFamily):
-        self._rtm_family = value
-
-    @property
-    def rtm_protocol(self) -> RouteProtocol | int:
-        try:
-            return RouteProtocol(self._rtm_protocol)
-        except ValueError:
-            return self._rtm_protocol
-
-    @rtm_protocol.setter
-    def rtm_protocol(self, value: RouteProtocol | int):
-        self._rtm_protocol = value
+    def gateway(self) -> IPv4Address | IPv6Address | None:
+        for attr in self.attrs:
+            if attr.type == RouteAttributeType.RTA_GATEWAY:
+                return attr.payload
+        return None
 
     @property
-    def rtm_scope(self) -> RouteScope | int:
-        try:
-            return RouteScope(self._rtm_scope)
-        except ValueError:
-            return self._rtm_scope
-
-    @rtm_scope.setter
-    def rtm_scope(self, value: RouteScope | int):
-        self._rtm_scope = value
+    def oif(self) -> int | None:
+        for attr in self.attrs:
+            if attr.type == RouteAttributeType.RTA_OIF:
+                return attr.payload
+        return None
 
     @property
-    def rtm_type(self) -> RouteType:
-        return RouteType(self._rtm_type)
+    def attributes(self):
+        res = {}
+        for attr in self.attrs:
+            res.setdefault(attr.type, []).append(attr.payload)
+        return res
 
-    @rtm_type.setter
-    def rtm_type(self, value: RouteType):
-        self._rtm_type = value
+    def add_attribute(self, attr_type, value):
+        attr = RouteAttribute(rta_type=attr_type, payload=value)
+        self.attrs.append(attr)
+
+    def __str__(self):
+        return f"<RouteMessage family={self.rtm_family.name} table={self.rtm_table} protocol={self.rtm_protocol.name} scope={self.rtm_scope.name} type={self.rtm_type.name}>"

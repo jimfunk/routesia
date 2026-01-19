@@ -8,7 +8,7 @@ from pyroute2 import NetlinkError
 from pyroute2.netlink.rtnl.ifaddrmsg import IFA_F_NOPREFIXROUTE
 
 from routesia.dhcp.dhcpclientevents import DHCPv4LeaseAcquired
-from routesia.netlinkevents import AddressAddEvent
+from routesia.rtnetlinkevents import AddressAddEvent
 from routesia.schema.v2 import address_pb2
 
 

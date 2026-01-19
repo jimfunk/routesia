@@ -13,7 +13,10 @@ import pytest
 import traceback
 
 from tests.buffers import HexBuffer
+from tests.conftest_mqtt import *
+from tests.conftest_network import *
 from tests.conftest_providers import *
+from tests.conftest_service import *
 
 
 collect_ignore = ["test_pb2.py"]
@@ -173,17 +176,33 @@ def pytest_assertrepr_compare(op, left, right):
         right_lines = repr(hex_right).splitlines()
         min_len = min(len(hex_left), len(hex_right))
 
-        diff_index = next((i for i in range(min_len) if hex_left[i] != hex_right[i]), None)
+        diff_index = next(
+            (i for i in range(min_len) if hex_left[i] != hex_right[i]), None
+        )
 
-        extra_item = hex_left[min_len] if len(hex_left) > len(hex_right) else hex_right[min_len] if min_len < max(len(hex_left), len(hex_right)) else None
-        extra_msg = f", first extra item: {extra_item}" if extra_item is not None else ""
+        extra_item = (
+            hex_left[min_len]
+            if len(hex_left) > len(hex_right)
+            else (
+                hex_right[min_len]
+                if min_len < max(len(hex_left), len(hex_right))
+                else None
+            )
+        )
+        extra_msg = (
+            f", first extra item: {extra_item}" if extra_item is not None else ""
+        )
 
         return [
             f"{left_lines[0]} == {right_lines[0]}",
             *(f"                         {line}" for line in right_lines[1:]),
-            f"At index {diff_index} diff: {hex_left[diff_index]} (0x{hex_left[diff_index]:02x}) != {hex_right[diff_index]} (0x{hex_right[diff_index]:02x})" if diff_index is not None else "",
+            (
+                f"At index {diff_index} diff: {hex_left[diff_index]} (0x{hex_left[diff_index]:02x}) != {hex_right[diff_index]} (0x{hex_right[diff_index]:02x})"
+                if diff_index is not None
+                else ""
+            ),
             f"{'Left' if len(hex_left) > len(hex_right) else 'Right'} contains {abs(len(hex_left) - len(hex_right))} more items{extra_msg}",
             "Full diff:",
             *(f"- {line}" for line in left_lines),
-            *(f"+ {line}" for line in right_lines)
+            *(f"+ {line}" for line in right_lines),
         ]
