@@ -1,18 +1,25 @@
-from ctypes import (
-    Structure,
-    c_uint16,
-    c_uint32,
-    sizeof,
-)
+from typing import Annotated, Union
 from enum import IntEnum, IntFlag
 
 from routesia.netlink import constants
-from routesia.netlink.rtnetlink.message import RTNetlinkMessage
-from routesia.netlink.rtnetlink.interface import InterfaceInfoMessage
+from routesia.netlink.rtnetlink.link import InterfaceInfoMessage
 from routesia.netlink.rtnetlink.route import RouteMessage
+from routesia.protoclass import (
+    Bytes,
+    protoclass,
+    UInt,
+    UInt8,
+    UInt1,
+    UInt16,
+    UInt16Base,
+    UInt32,
+    UInt32Base,
+    Int32,
+    VariableLengthData,
+)
 
 
-class NetlinkMessageType(IntEnum):
+class NetlinkMessageType(UInt16Base, IntEnum):
     """
     Netlink message type
     """
@@ -90,11 +97,12 @@ class NetlinkMessageType(IntEnum):
     RTM_GETNEXTHOPBUCKET = constants.RTM_GETNEXTHOPBUCKET
 
 
-class NetlinkMessageFlags(IntFlag):
+class NetlinkMessageFlags(UInt16Base, IntFlag):
     """
     Netlink message flags
     """
 
+    NONE = 0
     NLM_F_REQUEST = constants.NLM_F_REQUEST
     NLM_F_MULTI = constants.NLM_F_MULTI
     NLM_F_ACK = constants.NLM_F_ACK
@@ -114,6 +122,29 @@ class NetlinkMessageFlags(IntFlag):
     NLM_F_ACK_TLVS = constants.NLM_F_ACK_TLVS
 
 
+class NetlinkGroup(UInt32Base, IntFlag):
+    """
+    Netlink multicast groups
+    """
+
+    NONE = 0
+    RTMGRP_LINK = 1
+    RTMGRP_NOTIFY = 2
+    RTMGRP_NEIGH = 4
+    RTMGRP_TC = 8
+    RTMGRP_IPV4_IFADDR = 0x10
+    RTMGRP_IPV4_MROUTE = 0x20
+    RTMGRP_IPV4_ROUTE = 0x40
+    RTMGRP_IPV4_RULE = 0x80
+    RTMGRP_IPV6_IFADDR = 0x100
+    RTMGRP_IPV6_MROUTE = 0x200
+    RTMGRP_IPV6_ROUTE = 0x400
+    RTMGRP_IPV6_IFINFO = 0x800
+    RTMGRP_DECnet_IFADDR = 0x1000
+    RTMGRP_DECnet_ROUTE = 0x4000
+    RTMGRP_IPV6_PREFIX = 0x20000
+
+
 def nlmsg_align(length: int) -> int:
     """
     Get the space required for nlmsg length after alignment
@@ -121,11 +152,64 @@ def nlmsg_align(length: int) -> int:
     return (length + 3) & ~3
 
 
+@protoclass()
+class NetlinkErrorMessage:
+    error: Int32
+    # The header of the message that caused the error is also included,
+    # but we can treat it as raw bytes for now.
+    msg: Annotated[bytes, VariableLengthData()]
+
+
+@protoclass()
+class NetlinkMessage:
+    """
+    Netlink message header with variable payload
+    """
+
+    nlmsg_len: UInt32
+    nlmsg_type: Annotated[NetlinkMessageType, UInt16]
+    nlmsg_flags: Annotated[NetlinkMessageFlags, UInt16]
+    nlmsg_seq: UInt32
+    nlmsg_pid: UInt32
+    payload: Annotated[
+        Union[Bytes, NetlinkErrorMessage, InterfaceInfoMessage, RouteMessage],
+        VariableLengthData(
+            length_field="nlmsg_len",
+            length_offset=-16,  # subtract header size
+            type_field="nlmsg_type",
+            type_map={
+                NetlinkMessageType.NLMSG_ERROR: NetlinkErrorMessage,
+                NetlinkMessageType.RTM_NEWLINK: InterfaceInfoMessage,
+                NetlinkMessageType.RTM_DELLINK: InterfaceInfoMessage,
+                NetlinkMessageType.RTM_GETLINK: InterfaceInfoMessage,
+                NetlinkMessageType.RTM_SETLINK: InterfaceInfoMessage,
+                NetlinkMessageType.RTM_NEWROUTE: RouteMessage,
+                NetlinkMessageType.RTM_DELROUTE: RouteMessage,
+                NetlinkMessageType.RTM_GETROUTE: RouteMessage,
+            },
+            align=4,
+        ),
+    ]
+
+    def __str__(self) -> str:
+        return f"<NetlinkMessage type={self.nlmsg_type.name} flags={self.nlmsg_flags.name} payload={self.payload}>"
+
+    @property
+    def attributes(self):
+        if hasattr(self.payload, "attributes"):
+            return self.payload.attributes
+        return {}
+
+    @property
+    def aligned_nlmsg_len(self) -> int:
+        return nlmsg_align(self.nlmsg_len)
+
+
 def nlmsg_length(payload_len: int) -> int:
     """
     Get the length of nlmsg payload plus header
     """
-    return payload_len + sizeof(NetlinkMessage)
+    return payload_len + 16  # Fixed header size
 
 
 def nlmsg_space(payload_len: int) -> int:
@@ -133,111 +217,3 @@ def nlmsg_space(payload_len: int) -> int:
     Get the full space required for nlmsg payload plus header after alignment
     """
     return nlmsg_align(nlmsg_length(payload_len))
-
-
-class NetlinkMessage(Structure):
-    _fields_ = [
-        ("nlmsg_len", c_uint32),
-        ("_nlmsg_type", c_uint16),
-        ("_nlmsg_flags", c_uint16),
-        ("nlmsg_seq", c_uint32),
-        ("nlmsg_pid", c_uint32),
-    ]
-    nlmsg_len: int
-    nlmsg_seq: int
-    nlmsg_pid: int
-
-    _nlmsg_type_map = {
-        NetlinkMessageType.RTM_NEWLINK: InterfaceInfoMessage,
-        NetlinkMessageType.RTM_DELLINK: InterfaceInfoMessage,
-        NetlinkMessageType.RTM_GETLINK: InterfaceInfoMessage,
-        NetlinkMessageType.RTM_SETLINK: InterfaceInfoMessage,
-        NetlinkMessageType.RTM_NEWROUTE: RouteMessage,
-        NetlinkMessageType.RTM_DELROUTE: RouteMessage,
-        NetlinkMessageType.RTM_GETROUTE: RouteMessage,
-    }
-
-    def __init__(
-        self,
-        nlmsg_type: NetlinkMessageType | None = None,
-        nlmsg_flags: NetlinkMessageFlags | None = None,
-        nlmsg_seq: int = 0,
-        nlmsg_pid: int = 0,
-        payload: RTNetlinkMessage | bytes = b"",
-    ):
-        super().__init__(
-
-        )
-        self.payload = payload
-        if nlmsg_type is not None:
-            self.nlmsg_type = nlmsg_type
-        if nlmsg_flags is not None:
-            self.nlmsg_flags = nlmsg_flags
-        self.nlmsg_seq = nlmsg_seq
-        self.nlmsg_pid = nlmsg_pid
-
-    def __len__(self):
-        return nlmsg_align(self.nlmsg_len)
-
-    def __bytes__(self) -> bytes:
-        padding = nlmsg_align(self.nlmsg_len) - self.nlmsg_len
-        return bytes(memoryview(self)) + bytes(self._payload) + b"\x00" * padding
-
-    @classmethod
-    def from_buffer(cls, buf: bytes, offset: int = 0) -> "NetlinkMessage":
-        nlmsg = type(Structure).from_buffer(cls, buf, offset)
-        if nlmsg.nlmsg_len > len(buf):
-            raise ValueError("Buffer too small for nlmsg_len")
-
-        payload_class = cls._nlmsg_type_map.get(nlmsg._nlmsg_type)
-        payload_offset = offset + sizeof(cls)
-
-        if payload_class:
-            nlmsg._payload = payload_class.from_buffer(buf, offset=payload_offset)
-        else:
-            nlmsg._payload = buf[payload_offset:payload_offset + nlmsg.nlmsg_len]
-        return nlmsg
-
-    @classmethod
-    def from_buffer_copy(cls, buf: bytes, offset: int = 0) -> "NetlinkMessage":
-        nlmsg = type(Structure).from_buffer_copy(cls, buf, offset)
-        if nlmsg.nlmsg_len > len(buf):
-            raise ValueError("Buffer too small for nlmsg_len")
-
-        payload_class = cls._nlmsg_type_map.get(nlmsg._nlmsg_type)
-        payload_offset = offset + sizeof(cls)
-
-        if payload_class:
-            nlmsg._payload = payload_class.from_buffer_copy(buf, offset=payload_offset)
-        else:
-            nlmsg._payload = buf[payload_offset:payload_offset + nlmsg.nlmsg_len]
-        return nlmsg
-
-    @property
-    def payload(self) -> RTNetlinkMessage | bytes:
-        return self._payload
-
-    @payload.setter
-    def payload(self, payload: RTNetlinkMessage | bytes):
-        self._payload = payload
-        self.nlmsg_len = sizeof(self) + len(payload)
-
-    @property
-    def aligned_nlmsg_len(self) -> int:
-        return nlmsg_space(self.nlmsg_len)
-
-    @property
-    def nlmsg_type(self) -> NetlinkMessageType:
-        return NetlinkMessageType(self._nlmsg_type)
-
-    @nlmsg_type.setter
-    def nlmsg_type(self, value: NetlinkMessageType):
-        self._nlmsg_type = value
-
-    @property
-    def nlmsg_flags(self) -> NetlinkMessageFlags:
-        return NetlinkMessageFlags(self._nlmsg_flags)
-
-    @nlmsg_flags.setter
-    def nlmsg_flags(self, value: NetlinkMessageFlags):
-        self._nlmsg_flags = value

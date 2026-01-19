@@ -45,7 +45,7 @@ def test_rta_length(value, expected):
         (4, 8),
         (5, 12),
         (8, 12),
-    )
+    ),
 )
 def test_rta_space(value, expected):
     assert rta_space(value) == expected
@@ -77,7 +77,7 @@ def test_attribute_from_buffer(input, rta_len, rta_type, payload):
 )
 def test_attribute_from_buffer_copy(input, rta_len, rta_type, payload):
     buf = HexBuffer(input)
-    attr = RTAttribute.from_buffer_copy(buf)
+    attr = RTAttribute.from_buffer(buf)
     assert attr.rta_len == rta_len
     assert attr.rta_type == rta_type
     assert attr.payload == payload

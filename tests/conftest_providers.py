@@ -9,7 +9,6 @@ from routesia.config.configprovider import ConfigProvider
 from routesia.mqtt import MQTT
 from routesia.rpc import RPC
 from routesia.rpcclient import RPCClient
-from routesia.netlinkprovider import NetlinkProvider
 from routesia.schema.registry import SchemaRegistry
 
 
@@ -66,17 +65,6 @@ def cli_deps(service, rpcclient_deps, stdin):
 @pytest.fixture
 def cli(service, cli_deps):
     return service.get_provider(CLI)
-
-
-@pytest.fixture
-def netlink_provider_deps(service, rpcclient_deps):
-    service.add_provider(NetlinkProvider)
-    return True
-
-
-@pytest.fixture
-def netlink_provider(service, netlink_provider_deps):
-    return service.get_provider(NetlinkProvider)
 
 
 @pytest.fixture

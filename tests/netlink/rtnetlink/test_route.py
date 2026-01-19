@@ -10,7 +10,7 @@ from routesia.netlink.rtnetlink.route import (
     RouteScope,
     RouteType,
 )
-from routesia.netlink.types import Int8, Int32
+from routesia.protoclass.types import Int8, Int32
 
 from tests.buffers import HexBuffer
 
@@ -95,7 +95,7 @@ def test_rtnetlink_message_from_buffer(rtmsgbuf):
 
 
 def test_rtnetlink_message_from_buffer_copy(rtmsgbuf):
-    rtmsg = RouteMessage.from_buffer_copy(rtmsgbuf)
+    rtmsg = RouteMessage.from_buffer(rtmsgbuf)
 
     assert rtmsg.rtm_family == AddressFamily.AF_INET
     assert rtmsg.rtm_dst_len == 24
@@ -133,8 +133,8 @@ def test_encode_rtnetlink_message(rtmsgbuf):
         rtm_scope=RouteScope.RT_SCOPE_UNIVERSE,
         rtm_type=RouteType.RTN_UNICAST,
     )
-    msg.add_attribute(constants.RTA_TABLE, Int32(254))
-    msg.add_attribute(constants.RTA_PREF, Int8(16))
-    msg.add_attribute(constants.RTA_OIF, Int32(2))
+    msg.add_attribute(constants.RTA_TABLE, 254)
+    msg.add_attribute(constants.RTA_PREF, 16)
+    msg.add_attribute(constants.RTA_OIF, 2)
     msg.add_attribute(constants.RTA_DST, IPv4Address("10.1.2.0"))
     assert bytes(msg) == rtmsgbuf

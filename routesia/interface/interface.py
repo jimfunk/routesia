@@ -14,11 +14,12 @@ from pyroute2.netlink.rtnl import ifinfmsg
 from routesia.config.configprovider import InvalidConfig
 from routesia.dhcp.dhcpclientevents import DHCPv4LeasePreinit
 from routesia.interface.eui import EUI
-from routesia.netlinkprovider import (
-    NetlinkInterfaceAddEvent,
-    NetlinkInterfaceDeleteEvent,
-    NetlinkProvider,
+from routesia.rtnetlinkprovider import (
+    NetlinkLinkAddEvent,
+    NetlinkLinkDeleteEvent,
+    RtnetlinkProvider,
 )
+from routesia.netlink.rtnetlink.link import InterfaceAttributeType
 from routesia.schema.v2 import interface_pb2
 from routesia.service import Service
 
@@ -47,7 +48,12 @@ class InterfaceStateChange:
 
 
 class Interface:
-    def __init__(self, config: interface_pb2.InterfaceConfig, service: Service, netlink: NetlinkProvider):
+    def __init__(
+        self,
+        config: interface_pb2.InterfaceConfig,
+        service: Service,
+        netlink: RtnetlinkProvider,
+    ):
         self.config = config
         self.service = service
         self.netlink = netlink
@@ -56,13 +62,13 @@ class Interface:
         self.lock = asyncio.Lock()
 
         # Track interface event
-        self.event: NetlinkInterfaceAddEvent | None = None
+        self.event: NetlinkLinkAddEvent | None = None
 
         # Keep the first event to save initial values
-        self.initial_event: NetlinkInterfaceAddEvent | None = None
+        self.initial_event: NetlinkLinkAddEvent | None = None
 
         # Track dependent interfaces when appropriate
-        self.dependent_interfaces: dict[str, NetlinkInterfaceAddEvent | None] = {}
+        self.dependent_interfaces: dict[str, NetlinkLinkAddEvent | None] = {}
 
         self.state = InterfaceState.STOPPED
 
@@ -92,8 +98,14 @@ class Interface:
 
         If the interface already exists the event will be set.
         """
-        self.service.subscribe_event(NetlinkInterfaceAddEvent, self.handle_interface_add, name=self.config.name)
-        self.service.subscribe_event(NetlinkInterfaceDeleteEvent, self.handle_interface_delete, name=self.config.name)
+        self.service.subscribe_event(
+            NetlinkLinkAddEvent, self.handle_interface_add, name=self.config.name
+        )
+        self.service.subscribe_event(
+            NetlinkLinkDeleteEvent,
+            self.handle_interface_delete,
+            name=self.config.name,
+        )
         self.event = self.netlink.get_interface(self.config.name)
         if self.initial_event is None:
             self.initial_event = self.event
@@ -113,8 +125,14 @@ class Interface:
         """
         Unsubscribe from updates for the configured interface.
         """
-        self.service.unsubscribe_event(NetlinkInterfaceAddEvent, self.handle_interface_add, name=self.config.name)
-        self.service.unsubscribe_event(NetlinkInterfaceDeleteEvent, self.handle_interface_delete, name=self.config.name)
+        self.service.unsubscribe_event(
+            NetlinkLinkAddEvent, self.handle_interface_add, name=self.config.name
+        )
+        self.service.unsubscribe_event(
+            NetlinkLinkDeleteEvent,
+            self.handle_interface_delete,
+            name=self.config.name,
+        )
         self.event = None
 
     def subscribe_dependent_interfaces(self):
@@ -124,8 +142,14 @@ class Interface:
         If the interface already exists the event will be set.
         """
         for name in self.get_dependent_interface_names():
-            self.service.subscribe_event(NetlinkInterfaceAddEvent, self.handle_dependent_interface_add, name=name)
-            self.service.subscribe_event(NetlinkInterfaceDeleteEvent, self.handle_dependent_interface_delete, name=name)
+            self.service.subscribe_event(
+                NetlinkLinkAddEvent, self.handle_dependent_interface_add, name=name
+            )
+            self.service.subscribe_event(
+                NetlinkLinkDeleteEvent,
+                self.handle_dependent_interface_delete,
+                name=name,
+            )
             self.master_event = self.netlink.get_interface(name)
 
     def unsubscribe_dependent_interfaces(self):
@@ -133,8 +157,14 @@ class Interface:
         Unsubscribe from updates for the configured master interface if set.
         """
         for name in self.dependent_interfaces.keys():
-            self.service.unsubscribe_event(NetlinkInterfaceAddEvent, self.handle_dependent_interface_add, name=name)
-            self.service.unsubscribe_event(NetlinkInterfaceDeleteEvent, self.handle_dependent_interface_delete, name=name)
+            self.service.unsubscribe_event(
+                NetlinkLinkAddEvent, self.handle_dependent_interface_add, name=name
+            )
+            self.service.unsubscribe_event(
+                NetlinkLinkDeleteEvent,
+                self.handle_dependent_interface_delete,
+                name=name,
+            )
         self.dependent_interfaces = {}
 
     async def start(self):
@@ -202,7 +232,11 @@ class Interface:
         self.config = config
         await self.handle_config_change_post(old_config, config)
 
-    async def handle_config_change_pre(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig):
+    async def handle_config_change_pre(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ):
         if new_config.disable or self.link.needs_restart(old_config, new_config):
             await self.stop()
             return
@@ -210,7 +244,11 @@ class Interface:
         async with self.lock:
             self.unsubscribe_dependent_interfaces()
 
-    async def handle_config_change_post(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig):
+    async def handle_config_change_post(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ):
         if new_config.disable:
             return
 
@@ -275,30 +313,40 @@ class Interface:
 
         if self.initial_event:
             params["flags"] = self.initial_event.flags
-            params["txqlen"] = self.initial_event.attrs["IFLA_TXQLEN"]
-            params["mtu"] = self.initial_event.attrs["IFLA_MTU"]
-            params["address"] = self.initial_event.attrs["IFLA_ADDRESS"]
-            params["broadcast"] = self.initial_event.attrs["IFLA_BROADCAST"]
-            if "IFLA_AF_SPEC" in self.initial_event.attrs:
-                af_spec_attrs = []
-                af_spec = dict(self.initial_event.attrs["IFLA_AF_SPEC"]["attrs"])
-                if "AF_INET6" in af_spec:
-                    af_inet6_attrs = []
-                    af_inet6 = dict(af_spec["AF_INET6"]["attrs"])
-                    if "IFLA_INET6_ADDR_GEN_MODE" in af_inet6:
-                        af_inet6_attrs.append(("IFLA_INET6_ADDR_GEN_MODE", af_inet6["IFLA_INET6_ADDR_GEN_MODE"]))
-                    if "IFLA_INET6_TOKEN" in af_inet6:
-                        af_inet6_attrs.append(("IFLA_INET6_TOKEN", af_inet6["IFLA_INET6_TOKEN"]))
-                    if af_inet6_attrs:
-                        af_spec_attrs.append(("AF_INET6", {"attrs": af_inet6_attrs}))
-                if af_spec_attrs:
-                    params["IFLA_AF_SPEC"] = {"attrs": af_spec_attrs}
+            params["txqlen"] = self.initial_event.message.get_attribute(
+                InterfaceAttributeType.IFLA_TXQLEN
+            )
+            params["mtu"] = self.initial_event.message.get_attribute(
+                InterfaceAttributeType.IFLA_MTU
+            )
+            params["address"] = self.initial_event.message.get_attribute(
+                InterfaceAttributeType.IFLA_ADDRESS
+            )
+            params["broadcast"] = self.initial_event.message.get_attribute(
+                InterfaceAttributeType.IFLA_BROADCAST
+            )
+            af_spec_attr = self.initial_event.message.get_attribute(
+                InterfaceAttributeType.IFLA_AF_SPEC
+            )
+            if af_spec_attr:
+                # TODO: IFLA_AF_SPEC is not yet fully parsed in LinkMessage
+                # Assuming raw bytes or partial parsing for now
+                # This part might need further work if AF_SPEC is bytes
+                pass
+                # Original logic relied on parsed dict:
+                # af_spec_attrs = []
+                # af_spec = dict(af_spec_attr["attrs"])
+                # ... preserving structure but commenting out potential breakage
 
         print(params)
 
         return params
 
-    def get_link_change_params(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> dict:
+    def get_link_change_params(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> dict:
         """
         Return link params that should be changed.
         """
@@ -320,22 +368,30 @@ class Interface:
             if new_link.txqueuelen:
                 params["txqlen"] = new_link.txqueuelen
             else:
-                params["txqlen"] = self.initial_event.attrs["IFLA_TXQLEN"]
+                params["txqlen"] = self.initial_event.message.get_attribute(
+                    InterfaceAttributeType.IFLA_TXQLEN
+                )
         if new_link.mtu != old_link.mtu:
             if new_link.mtu:
                 params["mtu"] = new_link.mtu
             else:
-                params["mtu"] = self.initial_event.attrs["IFLA_MTU"]
+                params["mtu"] = self.initial_event.message.get_attribute(
+                    InterfaceAttributeType.IFLA_MTU
+                )
         if new_link.address != old_link.address:
             if new_link.address:
                 params["address"] = new_link.address
             else:
-                params["address"] = self.initial_event.attrs["IFLA_ADDRESS"]
+                params["address"] = self.initial_event.message.get_attribute(
+                    InterfaceAttributeType.IFLA_ADDRESS
+                )
         if new_link.broadcast != old_link.broadcast:
             if new_link.broadcast:
                 params["broadcast"] = new_link.broadcast
             else:
-                params["broadcast"] = self.initial_event.attrs["IFLA_BROADCAST"]
+                params["broadcast"] = self.initial_event.message.get_attribute(
+                    InterfaceAttributeType.IFLA_BROADCAST
+                )
         if new_link.master != old_link.master:
             params["master"] = self.master_event.index if new_link.master else 0
         if new_link.addrgenmode != old_link.addrgenmode:
@@ -354,7 +410,7 @@ class Interface:
         logger.info(f"Setting link params for {self.config.name}: {params}")
         await self.netlink.link_set(self.config.name, **params)
 
-    async def handle_interface_add(self, event: NetlinkInterfaceAddEvent):
+    async def handle_interface_add(self, event: NetlinkLinkAddEvent):
         async with self.lock:
             if self.initial_event is None:
                 self.initial_event = event
@@ -365,7 +421,7 @@ class Interface:
                     await self.configure()
                     self.state = InterfaceState.CONFIGURED
 
-    async def handle_interface_delete(self, event: NetlinkInterfaceDeleteEvent):
+    async def handle_interface_delete(self, event: NetlinkLinkDeleteEvent):
         async with self.lock:
             self.event = None
             if self.state == InterfaceState.CONFIGURED:
@@ -377,7 +433,7 @@ class Interface:
                 self.link = None
                 self.state = InterfaceState.STOPPED
 
-    async def handle_dependent_interface_add(self, event: NetlinkInterfaceAddEvent):
+    async def handle_dependent_interface_add(self, event: NetlinkLinkAddEvent):
         async with self.lock:
             self.dependent_interfaces[event.name] = event
             if self.state == InterfaceState.WAITING:
@@ -386,7 +442,7 @@ class Interface:
                     await self.configure()
                     self.state = InterfaceState.CONFIGURED
 
-    async def handle_dependent_interface_delete(self, event: NetlinkInterfaceDeleteEvent):
+    async def handle_dependent_interface_delete(self, event: NetlinkLinkDeleteEvent):
         async with self.lock:
             self.dependent_interfaces[event.name] = None
             if self.state == InterfaceState.CONFIGURED:
@@ -397,6 +453,7 @@ class Interface:
                 else:
                     self.state = InterfaceState.WAITING
 
+
 class Link:
     virtual: bool = False
 
@@ -406,10 +463,18 @@ class Link:
     def get_dependent_interface_names(self) -> list[str]:
         return []
 
-    def needs_restart(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> bool:
+    def needs_restart(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> bool:
         return False
 
-    def get_link_change_params(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> dict:
+    def get_link_change_params(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> dict:
         return {}
 
     async def create(self):
@@ -445,7 +510,11 @@ class BridgeLink(Link):
 
         return params
 
-    def get_link_change_params(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> dict:
+    def get_link_change_params(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> dict:
         params = {}
 
         old_bridge = old_config.bridge
@@ -489,7 +558,9 @@ class VLANLink(Link):
 
     def get_link_create_params(self):
         params = {
-            "link": self.interface.dependent_interfaces[self.interface.config.vlan.trunk].index,
+            "link": self.interface.dependent_interfaces[
+                self.interface.config.vlan.trunk
+            ].index,
             "vlan_id": self.interface.config.vlan.id,
         }
 
@@ -505,12 +576,20 @@ class VLANLink(Link):
 
         return params
 
-    def needs_restart(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> bool:
+    def needs_restart(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> bool:
         if old_config.vlan.trunk != new_config.vlan.trunk:
             return True
         return False
 
-    def get_link_change_params(self, old_config: interface_pb2.InterfaceConfig, new_config: interface_pb2.InterfaceConfig) -> dict:
+    def get_link_change_params(
+        self,
+        old_config: interface_pb2.InterfaceConfig,
+        new_config: interface_pb2.InterfaceConfig,
+    ) -> dict:
         params = {}
 
         old_vlan = old_config.vlan

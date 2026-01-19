@@ -2,6 +2,8 @@ from setuptools import setup, find_packages, Extension
 
 from routesia import VERSION
 
+CFLAGS = ["-Wall", "-Werror"]
+
 setup(
     name="routesia",
     description="Configuration system for Linux-based routers",
@@ -9,8 +11,14 @@ setup(
     ext_modules=[
         Extension(
             "routesia.netlink.constants",
-            sources=["routesia/netlink/constants.c"]
-        )
+            sources=["routesia/netlink/constants.c"],
+            extra_compile_args=CFLAGS,
+        ),
+        Extension(
+            "routesia.protoclass._cprotoclass",
+            sources=["routesia/protoclass/_cprotoclass.c"],
+            extra_compile_args=CFLAGS,
+        ),
     ],
     entry_points={
         "console_scripts": [

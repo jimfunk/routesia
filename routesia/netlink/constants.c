@@ -5,6 +5,8 @@
 #include <linux/if_arp.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if.h>
+#include <linux/if_link.h>
 
 static struct PyModuleDef constants_module = {
     PyModuleDef_HEAD_INIT,
@@ -18,6 +20,11 @@ PyMODINIT_FUNC PyInit_constants(void) {
     m = PyModule_Create(&constants_module);
     if (m == NULL)
         return NULL;
+
+#ifndef SOL_NETLINK
+#define SOL_NETLINK 270
+#endif
+    PyModule_AddIntMacro(m, SOL_NETLINK);
 
     /* Netlink types */
     PyModule_AddIntMacro(m, NETLINK_ROUTE);
@@ -416,6 +423,23 @@ PyMODINIT_FUNC PyInit_constants(void) {
     PyModule_AddIntMacro(m, IFLA_PROTO_DOWN_REASON);
     PyModule_AddIntMacro(m, IFLA_PARENT_DEV_NAME);
     PyModule_AddIntMacro(m, IFLA_PARENT_DEV_BUS_NAME);
+
+    /* IFLA_LINKINFO sub-attributes */
+    PyModule_AddIntMacro(m, IFLA_INFO_UNSPEC);
+    PyModule_AddIntMacro(m, IFLA_INFO_KIND);
+    PyModule_AddIntMacro(m, IFLA_INFO_DATA);
+    PyModule_AddIntMacro(m, IFLA_INFO_XSTATS);
+    PyModule_AddIntMacro(m, IFLA_INFO_SLAVE_KIND);
+    PyModule_AddIntMacro(m, IFLA_INFO_SLAVE_DATA);
+
+    /* Operational state */
+    PyModule_AddIntMacro(m, IF_OPER_UNKNOWN);
+    PyModule_AddIntMacro(m, IF_OPER_NOTPRESENT);
+    PyModule_AddIntMacro(m, IF_OPER_DOWN);
+    PyModule_AddIntMacro(m, IF_OPER_LOWERLAYERDOWN);
+    PyModule_AddIntMacro(m, IF_OPER_TESTING);
+    PyModule_AddIntMacro(m, IF_OPER_DORMANT);
+    PyModule_AddIntMacro(m, IF_OPER_UP);
 
     /* ifi_type constants */
     PyModule_AddIntMacro(m, ARPHRD_NETROM);

@@ -1,8 +1,20 @@
 import asyncio
-from ctypes import sizeof
+from ctypes import c_uint32
 import socket
 
-from routesia.netlink.message import NetlinkMessage, nlmsg_space
+from routesia.netlink.constants import (
+    SOL_NETLINK,
+    NETLINK_EXT_ACK,
+    NETLINK_GET_STRICT_CHK,
+)
+from routesia.netlink.exceptions import NetlinkError
+from routesia.netlink.message import (
+    NetlinkMessage,
+    NetlinkMessageFlags,
+    NetlinkMessageType,
+    NetlinkGroup,
+)
+from routesia.netlink.rtnetlink.link_operations import LinkOperations
 
 
 class NetlinkProtocol(asyncio.Protocol):
@@ -21,16 +33,15 @@ class NetlinkProtocol(asyncio.Protocol):
         if exc:
             self.recv_queue.put_nowait(exc)
 
-    def data_received(self, data):
+    def datagram_received(self, data, addr=None):
         self.buffer += data
-        while len(self.buffer) >= sizeof(NetlinkMessage):
-            msg = NetlinkMessage.from_buffer(self.buffer)
-            space = nlmsg_space(msg.nlmsg_len)
-            if len(self.buffer) < space:
+        while len(self.buffer) >= NetlinkMessage._fixed_size:
+            nlmsg_len = c_uint32.from_buffer_copy(self.buffer)
+            if len(self.buffer) < nlmsg_len.value:
                 break
 
-            message = NetlinkMessage.from_buffer_copy(self.buffer)
-            self.buffer = self.buffer[space:]
+            message = NetlinkMessage.from_buffer(self.buffer)
+            self.buffer = self.buffer[nlmsg_len.value :]
 
             self.recv_queue.put_nowait(message)
 
@@ -50,7 +61,7 @@ class NetlinkStreamReader:
 
 
 class NetlinkStreamWriter:
-    def __init__(self, protocol: NetlinkProtocol, transport: asyncio.BaseTransport):
+    def __init__(self, protocol: NetlinkProtocol, transport: asyncio.DatagramTransport):
         self.protocol = protocol
         self.transport = transport
         self.seq = 0
@@ -61,7 +72,7 @@ class NetlinkStreamWriter:
         """
         self.seq += 1
         msg.nlmsg_seq = self.seq
-        self.transport.write(bytes(msg))
+        self.transport.sendto(bytes(msg))
 
     def close(self):
         """
@@ -72,7 +83,7 @@ class NetlinkStreamWriter:
 
 async def open_netlink_connection(
     proto: int = socket.NETLINK_ROUTE,
-    groups: int = 0,
+    groups: NetlinkGroup = NetlinkGroup.NONE,
 ) -> tuple[NetlinkStreamReader, NetlinkStreamWriter]:
     """
     Open a netlink connection and return a tuple of NetlinkStreamReader and
@@ -82,9 +93,11 @@ async def open_netlink_connection(
 
     sock = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, proto)
     sock.bind((0, groups))
+    sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+    sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
 
     protocol = NetlinkProtocol()
-    transport = await loop.create_connection(lambda: protocol, sock=sock)
+    transport = await loop.create_datagram_endpoint(lambda: protocol, sock=sock)
 
     await protocol.connected
 
@@ -92,3 +105,50 @@ async def open_netlink_connection(
     writer = NetlinkStreamWriter(protocol, transport[0])
 
     return reader, writer
+
+
+class NetlinkSocket:
+    def __init__(
+        self,
+        proto: int = socket.NETLINK_ROUTE,
+        groups: NetlinkGroup = NetlinkGroup.NONE,
+    ):
+        self.proto = proto
+        self.groups = groups
+        self.reader = None
+        self.writer = None
+        self.link = LinkOperations(self)
+
+    async def __aenter__(self):
+        self.reader, self.writer = await open_netlink_connection(
+            proto=self.proto, groups=self.groups
+        )
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self.writer:
+            self.writer.close()
+
+    async def read(self) -> NetlinkMessage:
+        if not self.reader:
+            raise RuntimeError("Socket not open")
+        return await self.reader.read()
+
+    async def request(self, msg: NetlinkMessage) -> list[NetlinkMessage]:
+        if not self.writer:
+            raise RuntimeError("Socket not open")
+        self.writer.write(msg)
+        responses = []
+        while True:
+            resp = await self.reader.read()
+            if resp.nlmsg_type == NetlinkMessageType.NLMSG_ERROR:
+                if resp.payload.error == 0:
+                    # This is an ACK
+                    break
+                raise NetlinkError(resp.payload.error, resp.payload)
+            if resp.nlmsg_type == NetlinkMessageType.NLMSG_DONE:
+                break
+            responses.append(resp)
+            if not (resp.nlmsg_flags & NetlinkMessageFlags.NLM_F_MULTI):
+                break
+        return responses

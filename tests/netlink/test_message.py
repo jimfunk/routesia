@@ -55,8 +55,8 @@ def test_encode_aligned_payload():
     msg = NetlinkMessage(
         payload=b"\x01\x02\x03\x04",
     )
-    assert msg.nlmsg_len == 20
     assert len(msg) == 20
+    assert msg.nlmsg_len == 20
     assert bytes(msg) == HexBuffer(
         "14 00 00 00"  # len 20
         "00 00"  # type
@@ -71,8 +71,8 @@ def test_encode_unaligned_payload():
     msg = NetlinkMessage(
         payload=b"\x01\x02\x03\x04\x05",
     )
-    assert msg.nlmsg_len == 21
     assert len(msg) == 24
+    assert msg.nlmsg_len == 21
     assert bytes(msg) == HexBuffer(
         "15 00 00 00"  # len 21
         "00 00"  # type
