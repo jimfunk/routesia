@@ -4,7 +4,7 @@ from socket import AddressFamily
 import sys
 
 from routesia.netlink import constants
-from routesia.netlink.rtnetlink.route import (
+from routesia.netlink.rtnetlink.route.message import (
     RouteMessage,
     RouteProtocol,
     RouteScope,

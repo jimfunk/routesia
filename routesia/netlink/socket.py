@@ -14,7 +14,10 @@ from routesia.netlink.message import (
     NetlinkMessageType,
     NetlinkGroup,
 )
-from routesia.netlink.rtnetlink.link_operations import LinkOperations
+from routesia.netlink.rtnetlink.link.operations import LinkOperations
+from routesia.netlink.rtnetlink.address.operations import AddressOperations
+from routesia.netlink.rtnetlink.neighbor.operations import NeighborOperations
+from routesia.netlink.rtnetlink.rule.operations import RuleOperations
 
 
 class NetlinkProtocol(asyncio.Protocol):
@@ -118,6 +121,9 @@ class NetlinkSocket:
         self.reader = None
         self.writer = None
         self.link = LinkOperations(self)
+        self.address = AddressOperations(self)
+        self.neighbor = NeighborOperations(self)
+        self.rule = RuleOperations(self)
 
     async def __aenter__(self):
         self.reader, self.writer = await open_netlink_connection(
@@ -142,10 +148,11 @@ class NetlinkSocket:
         while True:
             resp = await self.reader.read()
             if resp.nlmsg_type == NetlinkMessageType.NLMSG_ERROR:
-                if resp.payload.error == 0:
+                err = resp.error
+                if err.is_ack:
                     # This is an ACK
                     break
-                raise NetlinkError(resp.payload.error, resp.payload)
+                raise NetlinkError(err.error, err)
             if resp.nlmsg_type == NetlinkMessageType.NLMSG_DONE:
                 break
             responses.append(resp)

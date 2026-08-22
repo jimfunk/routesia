@@ -3,8 +3,8 @@ from enum import IntEnum, IntFlag
 from socket import AddressFamily
 from typing import Annotated, Any, Union
 
-from routesia.interface.eui import EUI
 from routesia.netlink import constants
+from routesia.netlink.rtnetlink.types import EUI
 from routesia.protoclass import (
     UInt8Base,
     UInt16Base,
@@ -15,7 +15,6 @@ from routesia.protoclass import (
     ProtoClass,
 )
 from routesia.protoclass.types import (
-    UInt,
     UInt8,
     UInt16,
     UInt32,
@@ -220,15 +219,8 @@ class InterfaceLinkInfoAttributeType(UInt16Base, IntEnum):
     IFLA_INFO_SLAVE_DATA = constants.IFLA_INFO_SLAVE_DATA
 
 
-# Common EUI type helpers
-EUIMarker = (
-    Annotated[EUI, FixedLengthData(6, to_python=EUI, from_python=bytes)]
-    | Annotated[EUI, FixedLengthData(8, to_python=EUI, from_python=bytes)]
-)
-
-
 @protoclass()
-class GenericLinkInfoDataAttribute(ProtoClass):
+class GenericLinkInfoDataAttribute():
     rta_len: UInt16
     rta_type: UInt16
     payload: Annotated[
@@ -246,7 +238,7 @@ class GenericLinkInfoDataAttribute(ProtoClass):
 
 
 @protoclass()
-class GenericLinkInfoData(ProtoClass):
+class GenericLinkInfoData():
     attrs: Annotated[
         list[GenericLinkInfoDataAttribute],
         VariableLengthData(item_type=GenericLinkInfoDataAttribute, align=4),
@@ -254,7 +246,7 @@ class GenericLinkInfoData(ProtoClass):
 
 
 @protoclass()
-class InterfaceStats(ProtoClass):
+class InterfaceStats():
     rx_packets: UInt32
     tx_packets: UInt32
     rx_bytes: UInt32
@@ -282,7 +274,7 @@ class InterfaceStats(ProtoClass):
 
 
 @protoclass()
-class InterfaceStats64(ProtoClass):
+class InterfaceStats64():
     rx_packets: UInt64
     tx_packets: UInt64
     rx_bytes: UInt64
@@ -311,7 +303,7 @@ class InterfaceStats64(ProtoClass):
 
 
 @protoclass()
-class InterfaceLinkInfoAttribute(ProtoClass):
+class InterfaceLinkInfoAttribute():
     rta_len: UInt16
     rta_type: UInt16
     payload: Annotated[
@@ -333,7 +325,7 @@ class InterfaceLinkInfoAttribute(ProtoClass):
 
 
 @protoclass()
-class InterfaceLinkInfo(ProtoClass):
+class InterfaceLinkInfo():
     """Container for IFLA_LINKINFO nested attributes."""
 
     attrs: Annotated[
@@ -343,7 +335,7 @@ class InterfaceLinkInfo(ProtoClass):
 
 
 @protoclass()
-class InterfaceProperty(ProtoClass):
+class InterfaceProperty():
     rta_len: UInt16
     rta_type: UInt16
     payload: Annotated[
@@ -365,7 +357,7 @@ class InterfaceProperty(ProtoClass):
 
 
 @protoclass()
-class InterfacePropertyList(ProtoClass):
+class InterfacePropertyList():
     attrs: Annotated[
         list[InterfaceProperty],
         VariableLengthData(item_type=InterfaceProperty, align=4),
@@ -373,14 +365,14 @@ class InterfacePropertyList(ProtoClass):
 
 
 @protoclass()
-class InterfaceAttribute(ProtoClass):
+class InterfaceAttribute():
     rta_len: UInt16
     rta_type: UInt16
     payload: Annotated[
         Union[
             Bytes,
             UInt32,
-            EUIMarker,
+            EUI,
             NullTerminatedString,
             InterfaceLinkInfo,
             InterfaceStats,
@@ -392,25 +384,19 @@ class InterfaceAttribute(ProtoClass):
             type_field="rta_type",
             type_map={
                 InterfaceAttributeType.IFLA_IFNAME: NullTerminatedString,
-                InterfaceAttributeType.IFLA_ADDRESS: EUIMarker,
-                InterfaceAttributeType.IFLA_BROADCAST: EUIMarker,
+                InterfaceAttributeType.IFLA_ADDRESS: EUI,
+                InterfaceAttributeType.IFLA_BROADCAST: EUI,
                 InterfaceAttributeType.IFLA_MTU: UInt32,
                 InterfaceAttributeType.IFLA_LINK: UInt32,
                 InterfaceAttributeType.IFLA_QDISC: NullTerminatedString,
                 InterfaceAttributeType.IFLA_TXQLEN: UInt32,
-                InterfaceAttributeType.IFLA_OPERSTATE: Annotated[
-                    InterfaceOperationalState, UInt(8)
-                ],
-                InterfaceAttributeType.IFLA_LINKMODE: Annotated[
-                    InterfaceLinkMode, UInt(8)
-                ],
+                InterfaceAttributeType.IFLA_OPERSTATE: InterfaceOperationalState,
+                InterfaceAttributeType.IFLA_LINKMODE: InterfaceLinkMode,
                 InterfaceAttributeType.IFLA_GROUP: UInt32,
                 InterfaceAttributeType.IFLA_PROMISCUITY: UInt32,
                 InterfaceAttributeType.IFLA_NUM_TX_QUEUES: UInt32,
                 InterfaceAttributeType.IFLA_NUM_RX_QUEUES: UInt32,
-                InterfaceAttributeType.IFLA_CARRIER: Annotated[
-                    InterfaceCarrier, UInt(8)
-                ],
+                InterfaceAttributeType.IFLA_CARRIER: InterfaceCarrier,
                 InterfaceAttributeType.IFLA_MASTER: UInt32,
                 InterfaceAttributeType.IFLA_CARRIER_UP_COUNT: UInt32,
                 InterfaceAttributeType.IFLA_CARRIER_DOWN_COUNT: UInt32,
@@ -422,14 +408,12 @@ class InterfaceAttribute(ProtoClass):
                 InterfaceAttributeType.IFLA_NET_NS_PID: UInt32,
                 InterfaceAttributeType.IFLA_IFALIAS: NullTerminatedString,
                 InterfaceAttributeType.IFLA_NUM_VF: UInt32,
-                InterfaceAttributeType.IFLA_PERM_ADDRESS: EUIMarker,
+                InterfaceAttributeType.IFLA_PERM_ADDRESS: EUI,
                 InterfaceAttributeType.IFLA_PROP_LIST: InterfacePropertyList,
                 InterfaceAttributeType.IFLA_PROP_LIST
                 | constants.NLA_F_NESTED: InterfacePropertyList,
                 InterfaceAttributeType.IFLA_ALT_IFNAME: NullTerminatedString,
-                InterfaceAttributeType.IFLA_EXT_MASK: Annotated[
-                    ExtMaskFilter, UInt(32)
-                ],
+                InterfaceAttributeType.IFLA_EXT_MASK: ExtMaskFilter,
             },
             align=4,
         ),
@@ -441,7 +425,7 @@ class InterfaceAttribute(ProtoClass):
 
 
 @protoclass()
-class InterfaceInfoMessage(ProtoClass):
+class InterfaceInfoMessage():
     ifi_family: Annotated[AddressFamily, UInt8]
     _pad: UInt8
     ifi_type: Annotated[InterfaceType, UInt16]
@@ -461,8 +445,6 @@ class InterfaceInfoMessage(ProtoClass):
         return res
 
     def add_attribute(self, attr_type, value):
-        from routesia.netlink.rtnetlink.link import InterfaceAttribute
-
         attr = InterfaceAttribute(rta_type=attr_type, payload=value)
         self.attrs.append(attr)
 

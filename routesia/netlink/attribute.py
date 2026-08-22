@@ -16,7 +16,7 @@ class NlAttr:
         bytes,
         VariableLengthData(
             length_field="nla_len",
-            length_offset=-4,  # subtract header size to get payload length
+            length_offset=-4,
             align=4,
         ),
     ]

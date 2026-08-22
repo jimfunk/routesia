@@ -1,4 +1,7 @@
 class NetlinkError(Exception):
+    """
+    Raised when the kernel returns an error via netlink
+    """
     def __init__(self, error_code, message):
         self.error_code = error_code
         self.message = message
@@ -6,4 +9,7 @@ class NetlinkError(Exception):
 
 
 class NetlinkMessageException(Exception):
+    """
+    Raised on a netlink message parsing error
+    """
     pass
