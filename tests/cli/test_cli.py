@@ -118,6 +118,19 @@ async def test_variable_command_multiple_branches(cli):
     assert foo_baz_calls == ["value2"]
 
 
+async def test_variable_command_with_quotes(cli):
+    calls = []
+
+    async def show_foo(arg1, arg2):
+        calls.append((arg1, arg2))
+
+    cli.add_command("show foo :arg1 :arg2", show_foo)
+
+    await cli.handle_command('show foo "my value" bar')
+
+    assert calls == [("my value", "bar")]
+
+
 async def test_variable_subcommands(cli):
     foo_bar_calls = []
     foo_bar_baz_calls = []

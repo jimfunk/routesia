@@ -7,13 +7,14 @@ import sys
 from routesia.cli.ansi import ansi
 from routesia.cli.completion import Completion
 from routesia.cli.history import History, HistoryCursor
+from routesia.cli.tokenizer import Token, tokenize
 
 
 class CompletionSelector:
     """
     Represents a completion selector
     """
-    def __init__(self, completions: list[str | Completion], fragment: str, max_visible=5):
+    def __init__(self, completions: list[str | Completion], token: str, max_visible=5):
         self.completions = []
         for completion in completions:
             if not isinstance(completion, Completion):
@@ -22,13 +23,13 @@ class CompletionSelector:
             self.completions.append(completion)
 
         self.max_visible = max_visible
-        self.update_fragment(fragment)
+        self.update_token(token)
 
-    def update_fragment(self, fragment: str):
-        self.fragment = fragment
+    def update_token(self, token: str):
+        self.token = token
         self.visible_completion_index = 0
         self.selected_completion_index = None
-        self.matching_completions = [completion for completion in self.completions if completion.value.startswith(self.fragment)]
+        self.matching_completions = [completion for completion in self.completions if completion.value.startswith(self.token)]
         self.height = max(self.max_visible, len(self.matching_completions))
         if self.matching_completions:
             self.width = max([len(completion.display) for completion in self.matching_completions])
@@ -60,23 +61,23 @@ class CompletionSelector:
         scroll_up = self.visible_completion_index > 0
         scroll_down = (len(self.matching_completions) - self.visible_completion_index) > self.max_visible
 
-        s = ansi.save_cursor + ansi.down(1) + ansi.left(len(self.fragment))
-        for i, completion in enumerate(visible_completions):
+        output = ansi.save_cursor + ansi.down(1) + ansi.left(len(self.token))
+        for index, completion in enumerate(visible_completions):
             selected = completion == selected_completion
             if not selected:
-                s += ansi.reverse
-            if i == 0 and scroll_up:
-                s += "+"
-            elif i == self.max_visible - 1 and scroll_down:
-                s += "+"
+                output += ansi.reverse
+            if index == 0 and scroll_up:
+                output += "+"
+            elif index == self.max_visible - 1 and scroll_down:
+                output += "+"
             else:
-                s += " "
-            s += completion.display + " " * (self.width - len(completion.display) + 1)
-            s += ansi.reset + ansi.down(1) + ansi.left(self.width + 2)
+                output += " "
+            output += completion.display + " " * (self.width - len(completion.display) + 1)
+            output += ansi.reset + ansi.down(1) + ansi.left(self.width + 2)
 
-        s += ansi.restore_cursor
+        output += ansi.restore_cursor
 
-        return s
+        return output
 
     def next(self):
         """
@@ -113,16 +114,6 @@ class CompletionSelector:
                 self.visible_completion_index -= 1
 
 
-class Fragment:
-    """
-    Represents a fragment within a prompt input
-    """
-    def __init__(self, value, start, end):
-        self.value = value
-        self.start = start
-        self.end = end
-
-
 class Prompt:
     """
     Represents the contents of a prompt, tracking position and providing
@@ -143,7 +134,7 @@ class Prompt:
 
         self.position = len(self.input)
         self.selector: CompletionSelector = None
-        self.current_fragment = None
+        self.current_token = None
 
         self.display_prompt()
 
@@ -176,11 +167,11 @@ class Prompt:
         self.display(key)
         if self.position < len(self.input):
             self.display(ansi.save_cursor + self.input[self.position:] + ansi.restore_cursor)
-        self.update_selector_fragment()
+        self.update_selector_token()
 
     def delete_left(self):
         if self.position > 0:
-            original_fragment = self.get_current_fragment()
+            original_token = self.get_current_token()
             remaining = self.input[self.position:]
             self.input = self.input[:self.position-1] + remaining
             self.position -= 1
@@ -188,8 +179,8 @@ class Prompt:
             if remaining:
                 self.display(remaining + ansi.left(len(remaining)), False)
             self.flush()
-            if self.position >= original_fragment.start:
-                self.update_selector_fragment()
+            if self.position >= original_token.start:
+                self.update_selector_token()
             else:
                 self.reject_completion()
 
@@ -201,18 +192,18 @@ class Prompt:
             if remaining:
                 self.display(remaining + ansi.left(len(remaining)), False)
             self.flush()
-            self.update_selector_fragment()
+            self.update_selector_token()
 
     def cursor_left(self):
         if self.position > 0:
-            if self.selector and self.current_fragment.start == self.position:
+            if self.selector and self.current_token.start == self.position:
                 self.reject_completion()
             self.position -= 1
             self.display(ansi.left(1))
 
     def cursor_right(self):
         if self.position < len(self.input):
-            if self.selector and self.current_fragment.end == self.position:
+            if self.selector and self.current_token.end == self.position:
                 self.reject_completion()
             self.position += 1
             self.display(ansi.right(1))
@@ -255,56 +246,39 @@ class Prompt:
         self.input = input
         self.position = len(input)
 
-    def update_fragment(self, completion: Completion):
-        fragment = self.get_current_fragment()
-        remaining = self.input[fragment.end:]
-        delta = fragment.start + len(completion.value) - self.position
-        self.input = self.input[:fragment.start] + completion.value + self.input[fragment.end:]
-        if fragment.start < self.position:
-            self.display(ansi.left(self.position - fragment.start), False)
+    def update_token(self, completion: Completion):
+        token = self.get_current_token()
+        remaining = self.input[token.end:]
+        delta = token.start + len(completion.value) - self.position
+        self.input = self.input[:token.start] + completion.value + self.input[token.end:]
+        if token.start < self.position:
+            self.display(ansi.left(self.position - token.start), False)
         self.position += delta
         self.display(completion.value, False)
         if remaining:
             self.display(remaining + ansi.left(len(remaining)))
         self.flush()
 
-    def get_fragments_before_cursor(self) -> list[str]:
+    def get_tokens_before_cursor(self) -> list[str]:
         """
-        Return input fragments before the cursor position
+        Return input tokens before the cursor position
 
-        It will not include the current fragment.
+        It will not include the current token.
         """
-        fragment = self.get_current_fragment()
-        return self.input[:fragment.start].split()
+        current = self.get_current_token()
+        return [
+            token.value for token in tokenize(self.input[:current.start])
+        ]
 
-    def get_current_fragment(self) -> Fragment:
+    def get_current_token(self) -> Token:
         """
-        Return the fragment under or behind the cursor.
+        Return the token under or behind the cursor.
         """
-        if not self.input or (
-            (
-                self.position == 0 or
-                self.input[self.position - 1] == " "
-            )
-            and
-            (
-                len(self.input) == self.position or
-                self.input[self.position] == " "
-            )
-        ):
-            return Fragment("", self.position, self.position)
+        for token in tokenize(self.input):
+            if token.start <= self.position <= token.end:
+                return token
 
-        if self.input[self.position - 1] == " ":
-            start = self.position
-            end = self.input[self.position:].find(" ")
-        else:
-            start = self.input[:self.position - 1].rfind(" ") + 1
-            end = self.input[self.position - 1:].find(" ")
-        if end == -1:
-            end = len(self.input)
-        else:
-            end += self.position - 1
-        return Fragment(self.input[start:end], start, end)
+        return Token("", self.position, self.position)
 
     def display_prompt(self):
         self.display(self.prefix + self.input, False)
@@ -324,14 +298,14 @@ class Prompt:
 
     def accept_completion(self):
         if self.selector:
-            self.update_fragment(self.selector.selection)
+            self.update_token(self.selector.selection)
             self.selector = None
             self.display(ansi.save_cursor + ansi.right(len(self.input) - self.position) + ansi.clear_down + ansi.restore_cursor)
 
     def reject_completion(self):
         if self.selector:
             self.selector = None
-            self.current_fragment = None
+            self.current_token = None
             self.display(ansi.save_cursor + ansi.right(len(self.input) - self.position) + ansi.clear_down + ansi.restore_cursor)
 
     async def complete(self, completion_callback):
@@ -351,23 +325,23 @@ class Prompt:
         """
         if self.selector:
             if len(self.selector.matching_completions) == 1:
-                self.update_fragment(self.selector.matching_completions[0])
+                self.update_token(self.selector.matching_completions[0])
                 self.selector = None
                 self.display(ansi.clear_down)
             else:
                 self.complete_next()
         else:
-            completions = await completion_callback(self.get_fragments_before_cursor())
-            selector = CompletionSelector(completions, self.get_current_fragment().value)
+            completions = await completion_callback(self.get_tokens_before_cursor())
+            selector = CompletionSelector(completions, self.get_current_token().value)
             if not selector.matching_completions:
                 # Beep if there are no matching completions
                 self.display(ansi.bell)
                 return
             if len(selector.matching_completions) == 1:
-                self.update_fragment(selector.matching_completions[0])
+                self.update_token(selector.matching_completions[0])
                 return
             self.selector = selector
-            self.current_fragment = self.get_current_fragment()
+            self.current_token = self.get_current_token()
 
             # Make some space for the selector view. Only needed the first
             # time
@@ -379,11 +353,11 @@ class Prompt:
             # Display the view
             self.display(self.selector.view())
 
-    def update_selector_fragment(self):
+    def update_selector_token(self):
         if self.selector:
             self.display(ansi.save_cursor + ansi.right(len(self.input) - self.position) + ansi.clear_down + ansi.restore_cursor, False)
-            self.current_fragment = self.get_current_fragment()
-            self.selector.update_fragment(self.current_fragment.value)
+            self.current_token = self.get_current_token()
+            self.selector.update_token(self.current_token.value)
             self.display(self.selector.view())
 
     async def enter(self) -> bool:

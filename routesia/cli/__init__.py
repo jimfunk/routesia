@@ -20,6 +20,7 @@ from routesia.cli.exceptions import (
 from routesia.cli.history import History
 from routesia.cli.keyreader import KeyReader, Key
 from routesia.cli.prompt import Prompt
+from routesia.cli import tokenizer
 from routesia.mqtt import MQTT
 from routesia.rpc import RPCInvalidArgument, RPCUnspecifiedError
 from routesia.rpcclient import RPCClient
@@ -230,7 +231,9 @@ class CommandRouter:
         Get command handler and arguments from input command
         """
         if isinstance(command, str):
-            fragments = command.split()
+            fragments = [
+                token.value for token in tokenizer.tokenize(command)
+            ]
         else:
             fragments = command
 

@@ -5,7 +5,7 @@ from routesia.cli.completion import Completion
 from routesia.cli.prompt import CompletionSelector, Prompt
 
 
-def test_selector_empty_fragment():
+def test_selector_empty_token():
     selector = CompletionSelector(
         [
             "one",
@@ -14,7 +14,7 @@ def test_selector_empty_fragment():
         ],
         "",
     )
-    assert selector.fragment == ""
+    assert selector.token == ""
     assert selector.matching_completions == [
         Completion("one", "one"),
         Completion("two", "two"),
@@ -28,7 +28,7 @@ def test_selector_empty_fragment():
         ansi.restore_cursor
 
 
-def test_selector_empty_fragment_completions():
+def test_selector_empty_token_completions():
     selector = CompletionSelector(
         [
             Completion("1", "one"),
@@ -37,7 +37,7 @@ def test_selector_empty_fragment_completions():
         ],
         "",
     )
-    assert selector.fragment == ""
+    assert selector.token == ""
     assert selector.matching_completions == [
             Completion("1", "one"),
             Completion("2", "two"),
@@ -51,7 +51,7 @@ def test_selector_empty_fragment_completions():
         ansi.restore_cursor
 
 
-def test_selector_matching_fragment():
+def test_selector_matching_token():
     selector = CompletionSelector(
         [
             "one",
@@ -60,7 +60,7 @@ def test_selector_matching_fragment():
         ],
         "t",
     )
-    assert selector.fragment == "t"
+    assert selector.token == "t"
     assert selector.matching_completions == [
         Completion("two", "two"),
         Completion("three", "three"),
@@ -72,7 +72,7 @@ def test_selector_matching_fragment():
         ansi.restore_cursor
 
 
-def test_selector_matching_fragment_completions():
+def test_selector_matching_token_completions():
     selector = CompletionSelector(
         [
             Completion("one", "1 (one)"),
@@ -81,7 +81,7 @@ def test_selector_matching_fragment_completions():
         ],
         "t",
     )
-    assert selector.fragment == "t"
+    assert selector.token == "t"
     assert selector.matching_completions == [
         Completion("two", "2 (two)"),
         Completion("three", "3 (three)"),
@@ -93,7 +93,7 @@ def test_selector_matching_fragment_completions():
         ansi.restore_cursor
 
 
-def test_selector_nonmatching_fragment():
+def test_selector_nonmatching_token():
     selector = CompletionSelector(
         [
             "one",
@@ -102,7 +102,7 @@ def test_selector_nonmatching_fragment():
         ],
         "f",
     )
-    assert selector.fragment == "f"
+    assert selector.token == "f"
     assert selector.matching_completions == []
     assert selector.view() == ""
 
@@ -369,19 +369,31 @@ def test_prompt_insert_initial_value(stdout):
         ("foo bar", 5, "bar", 4, 7),
         ("foo bar baz", 7, "bar", 4, 7),
         ("foo bar baz", 8, "baz", 8, 11),
+        ('"foo"', 1, "foo", 0, 5),
+        ('"foo"', 5, "foo", 0, 5),
+        ('"foo bar"', 4, "foo bar", 0, 9),
+        ('"foo bar"', 9, "foo bar", 0, 9),
+        ('foo "bar baz"', 11, "bar baz", 4, 13),
+        ('"foo bar" baz', 12, "baz", 10, 13),
+        ('foo "bar', 6, "bar", 4, 8),
+        ('foo "bar', 8, "bar", 4, 8),
+        # \" is an escaped quote inside a quoted value
+        (r'"a\"b"', 1, 'a"b', 0, 6),
+        # \\ is an escaped backslash; the following quote is not escaped
+        (r'"a\\"', 2, "a\\", 0, 5),
     ]
 )
-def test_get_current_fragment(stdout, input, position, value, start, end):
+def test_get_current_token(stdout, input, position, value, start, end):
     prompt = Prompt(stdout=stdout, input=input)
     prompt.position = position
-    fragment = prompt.get_current_fragment()
-    assert fragment.value == value
-    assert fragment.start == start
-    assert fragment.end == end
+    token = prompt.get_current_token()
+    assert token.value == value
+    assert token.start == start
+    assert token.end == end
 
 
 @pytest.mark.parametrize(
-    "input,position,fragments",
+    "input,position,tokens",
     [
         ("", 0, []),
         ("a", 1, []),
@@ -394,12 +406,22 @@ def test_get_current_fragment(stdout, input, position, value, start, end):
         ("foo bar baz", 8, ["foo", "bar"]),
         ("foo bar baz", 11, ["foo", "bar"]),
         ("foo bar baz ", 12, ["foo", "bar", "baz"]),
+        ('"foo"', 5, []),
+        ('"foo" ', 6, ["foo"]),
+        ('"foo bar"', 9, []),
+        ('"foo bar" ', 10, ["foo bar"]),
+        ('foo "bar"', 9, ["foo"]),
+        ('foo "bar baz"', 10, ["foo"]),
+        ('foo "bar baz"', 13, ["foo"]),
+        ('foo "bar baz" ', 14, ["foo", "bar baz"]),
+        ('"foo bar" baz', 12, ["foo bar"]),
+        ('foo "bar', 8, ["foo"]),
     ]
 )
-def test_get_fragments_before_cursor(stdout, input, position, fragments):
+def test_get_tokens_before_cursor(stdout, input, position, tokens):
     prompt = Prompt(stdout=stdout, input=input)
     prompt.position = position
-    assert prompt.get_fragments_before_cursor() == fragments
+    assert prompt.get_tokens_before_cursor() == tokens
 
 
 def test_prompt_cursor_left(stdout):
@@ -653,12 +675,12 @@ def test_prompt_delete_right_text_to_right(stdout):
     assert stdout.dirty is False
 
 
-def test_update_fragment_end(stdout):
+def test_update_token_end(stdout):
     prompt = Prompt(stdout=stdout, input="foo b")
 
     stdout.clear()
 
-    prompt.update_fragment(Completion("bar", "bar"))
+    prompt.update_token(Completion("bar", "bar"))
     assert prompt.input == "foo bar"
     assert prompt.position == 7
 
@@ -666,7 +688,7 @@ def test_update_fragment_end(stdout):
     assert stdout.dirty is False
 
 
-def test_update_fragment_middle(stdout):
+def test_update_token_middle(stdout):
     prompt = Prompt(stdout=stdout, input="foo b baz")
 
     prompt.cursor_left()
@@ -677,7 +699,7 @@ def test_update_fragment_middle(stdout):
 
     stdout.clear()
 
-    prompt.update_fragment(Completion("bar", "bar"))
+    prompt.update_token(Completion("bar", "bar"))
     assert prompt.input == "foo bar baz"
     assert prompt.position == 7
 
@@ -685,12 +707,12 @@ def test_update_fragment_middle(stdout):
     assert stdout.dirty is False
 
 
-def test_update_fragment_empty(stdout):
+def test_update_token_empty(stdout):
     prompt = Prompt(stdout=stdout, input="foo ")
 
     stdout.clear()
 
-    prompt.update_fragment(Completion("bar", "bar"))
+    prompt.update_token(Completion("bar", "bar"))
     assert prompt.input == "foo bar"
     assert prompt.position == 7
 
@@ -974,7 +996,7 @@ async def test_complete_delete_left(stdout):
     ]
 
 
-async def test_complete_delete_left_entire_fragment(stdout):
+async def test_complete_delete_left_entire_token(stdout):
     prompt = Prompt(stdout=stdout)
 
     getter = SelectionGetter(
@@ -998,7 +1020,7 @@ async def test_complete_delete_left_entire_fragment(stdout):
     assert prompt.selector is None
 
 
-async def test_complete_cursor_left_outside_fragment(stdout):
+async def test_complete_cursor_left_outside_token(stdout):
     prompt = Prompt(stdout=stdout)
 
     getter = SelectionGetter(
@@ -1021,7 +1043,7 @@ async def test_complete_cursor_left_outside_fragment(stdout):
     assert prompt.selector is None
 
 
-async def test_complete_cursor_right_outside_fragment(stdout):
+async def test_complete_cursor_right_outside_token(stdout):
     prompt = Prompt(stdout=stdout)
 
     getter = SelectionGetter(
