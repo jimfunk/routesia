@@ -63,7 +63,11 @@ class NetfilterCLI(Provider):
         )
         self.cli.add_argument_completer("forward-rule", self.complete_forward_rule)
         self.cli.add_argument_completer(
-            "forward-rule-zone", self.complete_forward_rule_zone
+            "forward-rule-source-zone", self.complete_forward_rule_source_zone
+        )
+        self.cli.add_argument_completer(
+            "forward-rule-destination-zone",
+            self.complete_forward_rule_destination_zone,
         )
         self.cli.add_argument_completer(
             "forward-rule-ip-match", self.complete_forward_rule_ip_match
@@ -451,7 +455,7 @@ class NetfilterCLI(Provider):
             self.add_forward_rule_source_zone,
         )
         self.cli.add_command(
-            "netfilter config forward rule source-zone remove :forward-rule :zone!forward-rule-zone",
+            "netfilter config forward rule source-zone remove :forward-rule :zone!forward-rule-source-zone",
             self.remove_forward_rule_source_zone,
         )
 
@@ -460,7 +464,7 @@ class NetfilterCLI(Provider):
             self.add_forward_rule_destination_zone,
         )
         self.cli.add_command(
-            "netfilter config forward rule destination-zone remove :forward-rule :zone!forward-rule-zone",
+            "netfilter config forward rule destination-zone remove :forward-rule :zone!forward-rule-destination-zone",
             self.remove_forward_rule_destination_zone,
         )
 
@@ -1090,7 +1094,7 @@ class NetfilterCLI(Provider):
             match.source.append(str(network))
         for network in destination:
             match.destination.append(str(network))
-        match.protocol = protocol
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1140,7 +1144,7 @@ class NetfilterCLI(Provider):
             for network in destination:
                 match.destination.append(str(network))
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1159,7 +1163,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.ip[input_rule_ip_match]
-        match.source.append(source)
+        match.source.append(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_ip_source(
@@ -1177,7 +1181,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.ip[input_rule_ip_match]
-        match.destination.append(destination)
+        match.destination.append(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_ip_destination(
@@ -1222,7 +1226,7 @@ class NetfilterCLI(Provider):
             match.source.append(str(network))
         for network in destination:
             match.destination.append(str(network))
-        match.protocol = protocol
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1272,7 +1276,7 @@ class NetfilterCLI(Provider):
             for network in destination:
                 match.destination.append(str(network))
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1361,8 +1365,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.tcp.add()
-        match.source = source
-        match.destination = destination
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1403,9 +1407,9 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.tcp[input_rule_tcp_match]
         if source is not None:
-            match.source = source
+            match.source.extend(str(port) for port in source)
         if destination is not None:
-            match.destination = destination
+            match.destination.extend(str(port) for port in destination)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1424,7 +1428,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.tcp[input_rule_tcp_match]
-        match.source.append(source)
+        match.source.append(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_tcp_source(
@@ -1442,7 +1446,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.tcp[input_rule_tcp_match]
-        match.destination.append(destination)
+        match.destination.append(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_tcp_destination(
@@ -1464,8 +1468,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.udp.add()
-        match.source = source
-        match.destination = destination
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1506,9 +1510,9 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.udp[input_rule_udp_match]
         if source is not None:
-            match.source = source
+            match.source.extend(str(port) for port in source)
         if destination is not None:
-            match.destination = destination
+            match.destination.extend(str(port) for port in destination)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1527,7 +1531,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.udp[input_rule_udp_match]
-        match.source.append(source)
+        match.source.append(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_udp_source(
@@ -1545,7 +1549,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.udp[input_rule_udp_match]
-        match.destination.append(destination)
+        match.destination.append(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_udp_destination(
@@ -1567,8 +1571,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp.add()
-        match.type = type
-        match.code = code
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1609,9 +1613,9 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.icmp[input_rule_icmp_match]
         if type is not None:
-            match.type = type
+            match.type.extend(type)
         if code is not None:
-            match.code = code
+            match.code.extend(int(value) for value in code)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1648,7 +1652,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp[input_rule_icmp_match]
-        match.code.append(code)
+        match.code.append(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_icmp_code(
@@ -1670,8 +1674,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp6.add()
-        match.type = type
-        match.code = code
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1712,9 +1716,9 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.icmp6[input_rule_icmp6_match]
         if type is not None:
-            match.type = type
+            match.type.extend(type)
         if code is not None:
-            match.code = code
+            match.code.extend(int(value) for value in code)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1751,7 +1755,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp6[input_rule_icmp6_match]
-        match.code.append(code)
+        match.code.append(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_icmp6_code(
@@ -1769,7 +1773,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.ct.add()
-        match.state = state
+        match.state.extend(state)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1807,7 +1811,7 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.ct[input_rule_ct_match]
         if state is not None:
-            match.state = state
+            match.state.extend(state)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1848,8 +1852,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.meta.add()
-        match.input_interface = input_interface
-        match.protocol = protocol
+        match.input_interface.extend(input_interface)
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1890,9 +1894,9 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.meta[input_rule_meta_match]
         if input_interface is not None:
-            match.input_interface = input_interface
+            match.input_interface.extend(input_interface)
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1954,6 +1958,9 @@ class NetfilterCLI(Provider):
         return s
 
     async def add_forward_rule(self, description: str, verdict: str):
+        if verdict not in ("ACCEPT", "DROP"):
+            raise InvalidArgument(f"Invalid verdict {verdict}")
+        verdict = netfilter_pb2.Rule.Verdict.Value(verdict)
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule.add()
         rule.description = description
@@ -2004,7 +2011,7 @@ class NetfilterCLI(Provider):
         rule.source_zone.append(zone)
         await self.rpc.request("netfilter/config/update", config)
 
-    async def complete_forward_rule_zone(self, forward_rule: int = None):
+    async def complete_forward_rule_source_zone(self, forward_rule: int = None):
         completions = []
         config = await self.rpc.request("netfilter/config/get")
         if forward_rule is None or forward_rule >= len(config.forward.rule):
@@ -2037,7 +2044,7 @@ class NetfilterCLI(Provider):
         rule.destination_zone.append(zone)
         await self.rpc.request("netfilter/config/update", config)
 
-    async def complete_forward_rule_zone(self, forward_rule: int = None):
+    async def complete_forward_rule_destination_zone(self, forward_rule: int = None):
         completions = []
         config = await self.rpc.request("netfilter/config/get")
         if forward_rule is None or forward_rule >= len(config.forward.rule):
@@ -2071,7 +2078,7 @@ class NetfilterCLI(Provider):
             match.source.append(str(address))
         for address in destination:
             match.destination.append(str(address))
-        match.protocol = protocol
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2121,7 +2128,7 @@ class NetfilterCLI(Provider):
             for network in destination:
                 match.destination.append(str(network))
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2215,7 +2222,7 @@ class NetfilterCLI(Provider):
             match.source.append(str(network))
         for network in destination:
             match.destination.append(str(network))
-        match.protocol = protocol
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2267,7 +2274,7 @@ class NetfilterCLI(Provider):
             for network in destination:
                 match.destination.append(str(network))
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2344,8 +2351,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.tcp.add()
-        match.source = source
-        match.destination = destination
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2386,9 +2393,9 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.tcp[forward_rule_tcp_match]
         if source is not None:
-            match.source = source
+            match.source.extend(str(port) for port in source)
         if destination is not None:
-            match.destination = destination
+            match.destination.extend(str(port) for port in destination)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2407,7 +2414,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.tcp[forward_rule_tcp_match]
-        match.source.append(source)
+        match.source.append(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_tcp_source(
@@ -2425,7 +2432,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.tcp[forward_rule_tcp_match]
-        match.destination.append(destination)
+        match.destination.append(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_tcp_destination(
@@ -2447,8 +2454,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.udp.add()
-        match.source = source
-        match.destination = destination
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2489,9 +2496,9 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.udp[forward_rule_udp_match]
         if source is not None:
-            match.source = source
+            match.source.extend(str(port) for port in source)
         if destination is not None:
-            match.destination = destination
+            match.destination.extend(str(port) for port in destination)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2510,7 +2517,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.udp[forward_rule_udp_match]
-        match.source.append(source)
+        match.source.append(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_udp_source(
@@ -2528,7 +2535,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.udp[forward_rule_udp_match]
-        match.destination.append(destination)
+        match.destination.append(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_udp_destination(
@@ -2550,8 +2557,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp.add()
-        match.type = type
-        match.code = code
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2592,9 +2599,9 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.icmp[match]
         if type is not None:
-            match.type = type
+            match.type.extend(type)
         if code is not None:
-            match.code = code
+            match.code.extend(int(value) for value in code)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2631,7 +2638,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp[forward_rule_icmp_match]
-        match.code.append(code)
+        match.code.append(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_icmp_code(
@@ -2653,8 +2660,8 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp6.add()
-        match.type = type
-        match.code = code
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2695,9 +2702,9 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.icmp6[forward_rule_icmp6_match]
         if type is not None:
-            match.type = type
+            match.type.extend(type)
         if code is not None:
-            match.code = code
+            match.code.extend(int(value) for value in code)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2734,7 +2741,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp6[forward_rule_icmp6_match]
-        match.code.append(code)
+        match.code.append(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_icmp6_code(
@@ -2752,7 +2759,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.ct.add()
-        match.state = state
+        match.state.extend(state)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2790,7 +2797,7 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.ct[forward_rule_ct_match]
         if state is not None:
-            match.state = state
+            match.state.extend(state)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -2832,9 +2839,9 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.meta.add()
-        match.input_interface = input_interface
-        match.input_interface = output_interface
-        match.protocol = protocol
+        match.input_interface.extend(input_interface)
+        match.output_interface.extend(output_interface)
+        match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2878,11 +2885,11 @@ class NetfilterCLI(Provider):
         rule = config.forward.rule[forward_rule]
         match = rule.meta[forward_rule_meta_match]
         if input_interface is not None:
-            match.input_interface = input_interface
+            match.input_interface.extend(input_interface)
         if output_interface is not None:
-            match.output_interface = output_interface
+            match.output_interface.extend(output_interface)
         if protocol is not None:
-            match.protocol = protocol
+            match.protocol.extend(protocol)
         if negate is not None:
             match.negate = negate
         await self.rpc.request("netfilter/config/update", config)

@@ -288,8 +288,8 @@ class CommandRouter:
                             pass
 
         if not keyword_value:
-            for keyword_argument in node.keyword_arguments:
-                if keyword_argument not in args:
+            for keyword_argument, fragment in node.keyword_arguments.items():
+                if fragment.repeated or keyword_argument not in args:
                     completions.append(keyword_argument)
 
         return completions

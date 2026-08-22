@@ -376,6 +376,51 @@ async def test_keyword_argument_completions(cli):
     ]
 
 
+async def test_repeated_keyword_argument_completions(cli):
+    def foo(arg1=None, arg2=None):
+        pass
+
+    async def complete_arg1():
+        return ["foo", "bar"]
+
+    async def complete_arg2():
+        return ["spam", "eggs"]
+
+    cli.add_command("show foo *arg1 @arg2", foo)
+
+    cli.add_argument_completer("arg1", complete_arg1)
+    cli.add_argument_completer("arg2", complete_arg2)
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo"])) == [
+        "arg1",
+        "arg2",
+    ]
+
+    assert await cli.router.get_command_completions(["show", "foo", "arg1"]) == [
+        "foo",
+        "bar",
+    ]
+
+    assert sorted(await cli.router.get_command_completions(["show", "foo", "arg1", "foo"])) == [
+        "arg1",
+        "arg2",
+    ]
+
+    assert await cli.router.get_command_completions(
+        ["show", "foo", "arg1", "foo", "arg1"]
+    ) == [
+        "foo",
+        "bar",
+    ]
+
+    assert await cli.router.get_command_completions(
+        ["show", "foo", "arg1", "foo", "arg1", "bar", "arg2"]
+    ) == [
+        "spam",
+        "eggs",
+    ]
+
+
 async def test_keyword_argument_after_positional_argument_completions(cli):
     def foo(arg1=None, arg2=None):
         pass
