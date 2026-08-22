@@ -5,7 +5,7 @@ from routesia.netlink.message import (
     NetlinkMessageFlags,
     NetlinkMessageType,
 )
-from routesia.netlink.rtnetlink.link import (
+from routesia.netlink.rtnetlink.link.message import (
     AddressFamily,
     InterfaceInfoMessage,
     InterfaceAttribute,
@@ -291,7 +291,7 @@ class LinkOperations:
 
     async def add_vlan(self, ifname: str, link: int, vlan_id: int, **kwargs) -> None:
         ifi = self._base_add_msg(ifname, link=link, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -313,7 +313,7 @@ class LinkOperations:
         **kwargs,
     ) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -354,7 +354,7 @@ class LinkOperations:
         self, ifname: str, local: str | None = None, remote: str | None = None, **kwargs
     ) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -381,7 +381,7 @@ class LinkOperations:
         self, ifname: str, local: str | None = None, remote: str | None = None, **kwargs
     ) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -406,7 +406,7 @@ class LinkOperations:
 
     async def add_bond(self, ifname: str, mode: int | None = None, **kwargs) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -429,7 +429,7 @@ class LinkOperations:
         self, ifname: str, local: str | None = None, remote: str | None = None, **kwargs
     ) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -460,7 +460,7 @@ class LinkOperations:
                 rta_type=InterfaceAttributeType.IFLA_IFNAME, payload=peer_name
             )
         )
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -473,7 +473,7 @@ class LinkOperations:
 
     async def add_vrf(self, ifname: str, table: int, **kwargs) -> None:
         ifi = self._base_add_msg(ifname, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )
@@ -488,7 +488,7 @@ class LinkOperations:
         self, ifname: str, link: int | None = None, if_id: int | None = None, **kwargs
     ) -> None:
         ifi = self._base_add_msg(ifname, link=link, **kwargs)
-        from routesia.netlink.rtnetlink.link import (
+        from routesia.netlink.rtnetlink.link.message import (
             GenericLinkInfoData,
             GenericLinkInfoDataAttribute,
         )

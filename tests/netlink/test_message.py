@@ -2,7 +2,7 @@ import pytest
 from socket import AddressFamily
 
 from routesia.netlink.message import NetlinkMessage
-from routesia.netlink.rtnetlink.route import RouteScope, RouteMessage
+from routesia.netlink.rtnetlink.route.message import RouteScope, RouteMessage
 
 from tests.buffers import HexBuffer
 

@@ -3,7 +3,7 @@ import socket
 import pytest
 
 from routesia.netlink.exceptions import NetlinkError
-from routesia.netlink.rtnetlink.link import InterfaceInfoMessage
+from routesia.netlink.rtnetlink.link.message import InterfaceInfoMessage
 from routesia.netlink.rtnetlink.attribute import RTAttribute
 from routesia.netlink.message import (
     NetlinkMessage,

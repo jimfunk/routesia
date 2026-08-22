@@ -7,6 +7,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/if.h>
 #include <linux/if_link.h>
+#include <linux/fib_rules.h>
 
 static struct PyModuleDef constants_module = {
     PyModuleDef_HEAD_INIT,
@@ -158,15 +159,115 @@ PyMODINIT_FUNC PyInit_constants(void) {
     PyModule_AddIntMacro(m, RTM_NEWADDR);
     PyModule_AddIntMacro(m, RTM_DELADDR);
     PyModule_AddIntMacro(m, RTM_GETADDR);
+
+    /* ifaddrmsg attributes */
+    PyModule_AddIntMacro(m, IFA_UNSPEC);
+    PyModule_AddIntMacro(m, IFA_ADDRESS);
+    PyModule_AddIntMacro(m, IFA_LOCAL);
+    PyModule_AddIntMacro(m, IFA_LABEL);
+    PyModule_AddIntMacro(m, IFA_BROADCAST);
+    PyModule_AddIntMacro(m, IFA_ANYCAST);
+    PyModule_AddIntMacro(m, IFA_CACHEINFO);
+    PyModule_AddIntMacro(m, IFA_MULTICAST);
+    PyModule_AddIntMacro(m, IFA_FLAGS);
+
+    /* ifaddrmsg flags */
+    PyModule_AddIntMacro(m, IFA_F_SECONDARY);
+    PyModule_AddIntMacro(m, IFA_F_TEMPORARY);
+    PyModule_AddIntMacro(m, IFA_F_DEPRECATED);
+    PyModule_AddIntMacro(m, IFA_F_TENTATIVE);
+    PyModule_AddIntMacro(m, IFA_F_DADFAILED);
+    PyModule_AddIntMacro(m, IFA_F_HOMEADDRESS);
+    PyModule_AddIntMacro(m, IFA_F_NODAD);
+    PyModule_AddIntMacro(m, IFA_F_OPTIMISTIC);
+    PyModule_AddIntMacro(m, IFA_F_MANAGETEMPADDR);
+    PyModule_AddIntMacro(m, IFA_F_NOPREFIXROUTE);
+    PyModule_AddIntMacro(m, IFA_F_MCAUTOJOIN);
+    PyModule_AddIntMacro(m, IFA_F_STABLE_PRIVACY);
+
     PyModule_AddIntMacro(m, RTM_NEWROUTE);
     PyModule_AddIntMacro(m, RTM_DELROUTE);
     PyModule_AddIntMacro(m, RTM_GETROUTE);
     PyModule_AddIntMacro(m, RTM_NEWNEIGH);
     PyModule_AddIntMacro(m, RTM_DELNEIGH);
     PyModule_AddIntMacro(m, RTM_GETNEIGH);
+
+    /* ndmsg attributes */
+    PyModule_AddIntMacro(m, NDA_UNSPEC);
+    PyModule_AddIntMacro(m, NDA_DST);
+    PyModule_AddIntMacro(m, NDA_LLADDR);
+    PyModule_AddIntMacro(m, NDA_CACHEINFO);
+    PyModule_AddIntMacro(m, NDA_PROBES);
+    PyModule_AddIntMacro(m, NDA_VLAN);
+    PyModule_AddIntMacro(m, NDA_PORT);
+    PyModule_AddIntMacro(m, NDA_VNI);
+    PyModule_AddIntMacro(m, NDA_IFINDEX);
+    PyModule_AddIntMacro(m, NDA_MASTER);
+    PyModule_AddIntMacro(m, NDA_PROTOCOL);
+    PyModule_AddIntMacro(m, NDA_SRC_VNI);
+
+    /* neighbor unreachability detection states */
+    PyModule_AddIntMacro(m, NUD_NONE);
+    PyModule_AddIntMacro(m, NUD_INCOMPLETE);
+    PyModule_AddIntMacro(m, NUD_REACHABLE);
+    PyModule_AddIntMacro(m, NUD_STALE);
+    PyModule_AddIntMacro(m, NUD_DELAY);
+    PyModule_AddIntMacro(m, NUD_PROBE);
+    PyModule_AddIntMacro(m, NUD_FAILED);
+    PyModule_AddIntMacro(m, NUD_NOARP);
+    PyModule_AddIntMacro(m, NUD_PERMANENT);
+
+    /* neighbor flags */
+    PyModule_AddIntMacro(m, NTF_USE);
+    PyModule_AddIntMacro(m, NTF_SELF);
+    PyModule_AddIntMacro(m, NTF_MASTER);
+    PyModule_AddIntMacro(m, NTF_PROXY);
+    PyModule_AddIntMacro(m, NTF_EXT_LEARNED);
+    PyModule_AddIntMacro(m, NTF_OFFLOADED);
+    PyModule_AddIntMacro(m, NTF_ROUTER);
+
     PyModule_AddIntMacro(m, RTM_NEWRULE);
     PyModule_AddIntMacro(m, RTM_DELRULE);
     PyModule_AddIntMacro(m, RTM_GETRULE);
+
+    /* rtmsg attributes for rules */
+    PyModule_AddIntMacro(m, FRA_UNSPEC);
+    PyModule_AddIntMacro(m, FRA_DST);
+    PyModule_AddIntMacro(m, FRA_SRC);
+    PyModule_AddIntMacro(m, FRA_IIFNAME);
+    PyModule_AddIntMacro(m, FRA_GOTO);
+    PyModule_AddIntMacro(m, FRA_UNUSED2);
+    PyModule_AddIntMacro(m, FRA_PRIORITY);
+    PyModule_AddIntMacro(m, FRA_UNUSED3);
+    PyModule_AddIntMacro(m, FRA_UNUSED4);
+    PyModule_AddIntMacro(m, FRA_UNUSED5);
+    PyModule_AddIntMacro(m, FRA_FWMARK);
+    PyModule_AddIntMacro(m, FRA_FLOW);
+    PyModule_AddIntMacro(m, FRA_TUN_ID);
+    PyModule_AddIntMacro(m, FRA_SUPPRESS_IFGROUP);
+    PyModule_AddIntMacro(m, FRA_SUPPRESS_PREFIXLEN);
+    PyModule_AddIntMacro(m, FRA_TABLE);
+    PyModule_AddIntMacro(m, FRA_FWMASK);
+    PyModule_AddIntMacro(m, FRA_OIFNAME);
+    PyModule_AddIntMacro(m, FRA_PAD);
+    PyModule_AddIntMacro(m, FRA_L3MDEV);
+    PyModule_AddIntMacro(m, FRA_UID_RANGE);
+    PyModule_AddIntMacro(m, FRA_PROTOCOL);
+    PyModule_AddIntMacro(m, FRA_IP_PROTO);
+    PyModule_AddIntMacro(m, FRA_SPORT_RANGE);
+    PyModule_AddIntMacro(m, FRA_DPORT_RANGE);
+
+    /* rule actions */
+    PyModule_AddIntMacro(m, FR_ACT_UNSPEC);
+    PyModule_AddIntMacro(m, FR_ACT_TO_TBL);
+    PyModule_AddIntMacro(m, FR_ACT_GOTO);
+    PyModule_AddIntMacro(m, FR_ACT_NOP);
+    PyModule_AddIntMacro(m, FR_ACT_RES3);
+    PyModule_AddIntMacro(m, FR_ACT_RES4);
+    PyModule_AddIntMacro(m, FR_ACT_BLACKHOLE);
+    PyModule_AddIntMacro(m, FR_ACT_UNREACHABLE);
+    PyModule_AddIntMacro(m, FR_ACT_PROHIBIT);
+
     PyModule_AddIntMacro(m, RTM_NEWQDISC);
     PyModule_AddIntMacro(m, RTM_DELQDISC);
     PyModule_AddIntMacro(m, RTM_GETQDISC);

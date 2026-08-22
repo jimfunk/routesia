@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import logging
 
 from routesia.netlink.message import NetlinkMessageType, NetlinkGroup, NetlinkMessage
-from routesia.netlink.rtnetlink.link import (
+from routesia.netlink.rtnetlink.link.message import (
     InterfaceInfoMessage,
     InterfaceOperationalState,
 )

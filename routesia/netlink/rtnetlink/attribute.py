@@ -4,7 +4,7 @@ from routesia.protoclass.types import UInt16
 
 
 @protoclass()
-class RTAttribute(ProtoClass):
+class RTAttribute():
     rta_len: UInt16
     rta_type: UInt16
     payload: Annotated[

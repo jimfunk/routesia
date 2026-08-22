@@ -19,7 +19,7 @@ from routesia.rtnetlinkprovider import (
     NetlinkLinkDeleteEvent,
     RtnetlinkProvider,
 )
-from routesia.netlink.rtnetlink.link import InterfaceAttributeType
+from routesia.netlink.rtnetlink.link.message import InterfaceAttributeType
 from routesia.schema.v2 import interface_pb2
 from routesia.service import Service
 

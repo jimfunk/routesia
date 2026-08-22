@@ -1,5 +1,7 @@
 build
 dist
+.cocoindex_code
+.pi
 .vscode
 *.egg-info
 *.pyc
