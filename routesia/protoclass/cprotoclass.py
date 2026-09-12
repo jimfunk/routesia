@@ -23,11 +23,9 @@ from . import _cprotoclass
 
 from .types import (
     Integer,
-    Integer,
     VariableLengthData,
     FixedLengthData,
     NullTerminatedString,
-    typed_field,
 )
 
 
@@ -424,9 +422,10 @@ class ProtoclassMeta(_cprotoclass.ProtoClassMeta):
         current_offset = 0
         bit_queue = []
         is_big = byteorder == "big"
+        seen_variable = False  # Track if we've seen a variable field
 
         def flush_bits():
-            nonlocal current_offset
+            nonlocal current_offset, seen_variable
             if not bit_queue:
                 return
             total = sum(b_bit["bits"] for b_bit in bit_queue)
@@ -443,21 +442,47 @@ class ProtoclassMeta(_cprotoclass.ProtoClassMeta):
             for b_info in bit_queue:
                 curr_bit -= b_info["bits"]
                 has_cb = 1 if (b_info["to_python"] or b_info["from_python"]) else 0
-                c_fields.append(
-                    (
+                
+                # If we've seen a variable field, this bitfield needs runtime offset
+                if seen_variable:
+                    # Add as variable field with placeholder offset
+                    var_fields_list.append((
                         b_info["name"],
-                        current_offset,
-                        container_size // 8,
-                        curr_bit,
-                        b_info["bits"],
-                        1 if is_big else 0,
+                        1,  # align
+                        None,  # length_field
+                        0,  # length_offset
+                        1,  # length_multiplier
+                        None,  # type_field
+                        None,  # type_map
+                        None,  # item_type
+                        is_big,
+                        False,  # is_list
                         TypeKind.INT,
-                        has_cb,
-                        1 if b_info["name"] in metadata_fields else 0,
+                        b_info["bits"],
+                        0,  # signed
+                        container_size // 8,  # fixed_size
+                        None,  # cls
                         b_info["to_python"],
                         b_info["from_python"],
+                        [],  # branches
+                        has_cb,
+                    ))
+                else:
+                    c_fields.append(
+                        (
+                            b_info["name"],
+                            current_offset,
+                            container_size // 8,
+                            curr_bit,
+                            b_info["bits"],
+                            1 if is_big else 0,
+                            TypeKind.INT,
+                            has_cb,
+                            1 if b_info["name"] in metadata_fields else 0,
+                            b_info["to_python"],
+                            b_info["from_python"],
+                        )
                     )
-                )
             current_offset += container_size // 8
             bit_queue.clear()
 
@@ -501,22 +526,47 @@ class ProtoclassMeta(_cprotoclass.ProtoClassMeta):
                 if signed:
                     type_code = -type_code
                 has_cb = 1 if (to_python or from_python) else 0
-                c_fields.append(
-                    (
+                
+                if seen_variable:
+                    # Add as variable field with placeholder offset
+                    var_fields_list.append((
                         f_name,
-                        current_offset,
-                        type_code,
-                        0,  # bit_pos
-                        0,  # bits
-                        1 if is_big else 0,
+                        1,  # align
+                        None,  # length_field
+                        0,  # length_offset
+                        1,  # length_multiplier
+                        None,  # type_field
+                        None,  # type_map
+                        None,  # item_type
+                        is_big,
+                        False,  # is_list
                         TypeKind.INT,
-                        has_cb,
-                        1 if f_name in metadata_fields else 0,
+                        bits,
+                        1 if signed else 0,
+                        bits // 8,  # fixed_size
+                        None,  # cls
                         to_python,
                         from_python,
+                        [],  # branches
+                        has_cb,
+                    ))
+                else:
+                    c_fields.append(
+                        (
+                            f_name,
+                            current_offset,
+                            type_code,
+                            0,  # bit_pos
+                            0,  # bits
+                            1 if is_big else 0,
+                            TypeKind.INT,
+                            has_cb,
+                            1 if f_name in metadata_fields else 0,
+                            to_python,
+                            from_python,
+                        )
                     )
-                )
-                current_offset += bits // 8
+                    current_offset += bits // 8
                 continue
 
             branches = []
@@ -567,32 +617,59 @@ class ProtoclassMeta(_cprotoclass.ProtoClassMeta):
                         f"FixedLengthData for field {f_name!r} must have length > 0"
                     )
                 has_cb = 1 if (to_python or from_python) else 0
-                c_fields.append(
-                    (
+                
+                if seen_variable:
+                    # Add as variable field with placeholder offset
+                    var_fields_list.append((
                         f_name,
-                        current_offset,
-                        fixed_meta.length,
-                        0,  # bit_pos
-                        0,  # bits
-                        1 if is_big else 0,
+                        1,  # align
+                        None,  # length_field
+                        0,  # length_offset
+                        1,  # length_multiplier
+                        None,  # type_field
+                        None,  # type_map
+                        None,  # item_type
+                        is_big,
+                        False,  # is_list
                         TypeKind.BYTES,
-                        has_cb,
-                        1 if f_name in metadata_fields else 0,
+                        0,  # bits
+                        0,  # signed
+                        fixed_meta.length,  # fixed_size
+                        None,  # cls
                         to_python,
                         from_python,
+                        [],  # branches
+                        has_cb,
+                    ))
+                else:
+                    c_fields.append(
+                        (
+                            f_name,
+                            current_offset,
+                            fixed_meta.length,
+                            0,  # bit_pos
+                            0,  # bits
+                            1 if is_big else 0,
+                            TypeKind.BYTES,
+                            has_cb,
+                            1 if f_name in metadata_fields else 0,
+                            to_python,
+                            from_python,
+                        )
                     )
-                )
-                current_offset += fixed_meta.length
+                    current_offset += fixed_meta.length
             elif variable_meta or has_null_term or kind == TypeKind.PROTOCLASS:
+                # For protoclass types, length is determined by the protoclass itself
                 variable_meta = variable_meta or VariableLengthData()
                 is_list = get_origin(real_type) is list or real_type is list
-                if (
-                    is_list or variable_meta.item_type
-                ) and not variable_meta.length_field:
-                    if f_name != list(annotations.keys())[-1]:
-                        raise TypeError(
-                            f"Variable length field {f_name!r} must specify 'length_field' unless it is the tail."
-                        )
+
+                if kind != TypeKind.PROTOCLASS:
+                    # Lists with item_type need length_field unless they're the tail
+                    if (is_list or variable_meta.item_type) and not variable_meta.length_field:
+                        if f_name != list(annotations.keys())[-1]:
+                            raise TypeError(
+                                f"Variable length field {f_name!r} must specify 'length_field' unless it is the tail."
+                            )
                 final_type_map = None
                 if variable_meta.type_map:
                     tm_items = []
@@ -677,6 +754,7 @@ class ProtoclassMeta(_cprotoclass.ProtoClassMeta):
                         has_cb,
                     )
                 )
+                seen_variable = True  # Mark that we've seen a variable field
             else:
                 raise TypeError(
                     f"Field {f_name!r} is ambiguous and lacks rigid Protoclass metadata."

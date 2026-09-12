@@ -2,7 +2,7 @@ from .types import (
     Integer,
     VariableLengthData,
     FixedLengthData,
-    typed_field,
+    TypeMap,
     UInt1,
     UInt2,
     UInt3,

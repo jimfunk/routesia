@@ -12,7 +12,8 @@ to describe the layout of the data in buffers.
 For example, for an IPv4 header we can do this:
 
 ```python
-class IPv4Header(ProtoClass):
+@protoclass(byteorder="big")
+class IPv4Header():
     version: UInt4 = 4
     ihl: UInt4 = 5
     tos: UInt8 = 0
@@ -54,7 +55,8 @@ IPv4 = Annotated[
 ]
 
 
-class IPv4Header(ProtoClass):
+@protoclass(byteorder="big")
+class IPv4Header():
     version: UInt4 = 4
     ihl: UInt4 = 5
     tos: UInt8 = 0
@@ -112,7 +114,8 @@ annotation without protoclass metadata, it will raise an error.
 Fixed length buffer fields are supported of course:
 
 ```python
-class MyMessage(ProtoClass):
+@protoclass()
+class MyMessage():
     version: UInt8 = 1
     payload: Annotated[
         bytes,
@@ -123,7 +126,8 @@ class MyMessage(ProtoClass):
 So are variable length fields, eg:
 
 ```python
-class MyMessage(ProtoClass):
+@protoclass()
+class MyMessage():
     version: UInt8 = 1
     payload_len: UInt8
     payload: Annotated[
@@ -141,7 +145,8 @@ is simply appended after the previous fields and read up until the end of the in
 buffer, for example:
 
 ```python
-class MyMessage(ProtoClass):
+@protoclass()
+class MyMessage():
     first_data_len: UInt16
     first_data: Annotated[
         bytes,
@@ -176,7 +181,8 @@ IPv6 = Annotated[
     ),
 ]
 
-class MyMessage(ProtoClass):
+@protoclass()
+class MyMessage():
     version: UInt8 = 1
     payload_len: UInt8
     payload: Annotated[
@@ -201,7 +207,8 @@ class PayloadType(IntEnum):
     TYPE_C = 2
 
 
-class MyMessage(Protoclass):
+@protoclass()
+class MyMessage():
     length: UInt8
     type: Annotated[PayloadType, UInt8]
     payload: Annotated[
@@ -218,12 +225,33 @@ class MyMessage(Protoclass):
     ]
 ```
 
+For convenience, the `TypeMap` helper can be used to build the annotation automatically:
+
+```python
+from protoclass import TypeMap
+
+@protoclass()
+class MyMessage():
+    length: UInt8
+    type: Annotated[PayloadType, UInt8]
+    payload: TypeMap(
+        length_field="length",
+        type_field="type",
+        type_map={
+            PayloadType.TYPE_A: UInt8,
+            PayloadType.TYPE_B: UInt16,
+            PayloadType.TYPE_C: UInt32,
+        }
+    )
+```
+
 If a length field is used, but does not directly match the length of the actual data in
 the field, conversion is possible:
 
 ```python
 
-class MyMessage(Protoclass):
+@protoclass()
+class MyMessage():
     length: UInt8  # Length of entire message in bytes
     type: Annotated[PayloadType, UInt8]
     payload: Annotated[
@@ -244,7 +272,8 @@ Length multipliers are also supported:
 
 ```python
 
-class MyMessage(Protoclass):
+@protoclass()
+class MyMessage():
     length: UInt8  # Length of payload in 4-byte words
     payload: Annotated[
         bytes,
@@ -261,7 +290,8 @@ alignment boundary:
 
 ```python
 
-class MyMessage(Protoclass):
+@protoclass()
+class MyMessage():
     length: UInt8
     payload: Annotated[
         bytes,

@@ -4,13 +4,11 @@ import ipaddress
 import struct
 from typing import Annotated, List, Union
 from enum import IntEnum, IntFlag
-import sys
 
 from tests.buffers import HexBuffer
 
 from routesia.protoclass import (
     protoclass,
-    ProtoClass,
     NullTerminatedString,
     VariableLengthData,
     VariableData,
@@ -18,7 +16,7 @@ from routesia.protoclass import (
     IPv4,
     IPv6,
     Bytes,
-    typed_field,
+    TypeMap,
     Integer,
     UInt1,
     UInt4,
@@ -29,7 +27,6 @@ from routesia.protoclass import (
     UInt32,
     UInt60,
     UInt64,
-    UInt128,
     Int8,
     Int16,
     Int32,
@@ -38,10 +35,8 @@ from routesia.protoclass import (
 )
 
 
-class TestFixedSizeStructs:
-    """Tests for basic fixed-size struct serialization and deserialization."""
-
-    def test_fixed_size_struct(self):
+class TestFixedSize:
+    def test_fixed(self):
 
         @protoclass(byteorder="big")
         class FixedStruct:
@@ -64,7 +59,7 @@ class TestFixedSizeStructs:
         assert bytes(obj) == data
         assert len(obj) == 7
 
-    def test_struct_with_defaults(self):
+    def test_fixed_with_defaults(self):
 
         @protoclass(byteorder="big")
         class DefaultStruct:
@@ -76,56 +71,45 @@ class TestFixedSizeStructs:
         assert obj.f2 == 0xABCD
         assert obj.to_bytes() == HexBuffer("12 34 56 78 ab cd")
 
-    def test_default_values(self):
+    def test_big_endian(self):
 
         @protoclass(byteorder="big")
-        class BaseD:
-            f1: Annotated[int, UInt8] = 0xAA
-            f2: Annotated[int, UInt8] = 0xBB
-
-        b = BaseD()
-        assert b.f1 == 0xAA
-        assert b.f2 == 0xBB
-        assert b.to_bytes() == HexBuffer("aa bb")
-
-    def test_big_endian_types(self):
-
-        @protoclass(byteorder="big")
-        class BEG:
+        class Message:
             a: Annotated[int, UInt16]
-            b: Annotated[int, Integer(128)]
+            b: Annotated[int, Int128]
 
-        val128 = (1 << 127) | 1
-        obj = BEG(a=0x1234, b=val128)
+        val128 = (1 << 127) - 1
+        obj = Message(a=0x1234, b=val128)
         data = obj.to_bytes()
         assert data[0:2] == HexBuffer("12 34")
         assert data[2:18] == val128.to_bytes(16, "big")
 
-        obj2 = BEG.from_bytes(data)
+        obj2 = Message.from_bytes(data)
         assert obj2.a == 0x1234
         assert obj2.b == val128
 
-    def test_int128_support(self):
+    def test_little_endian(self):
 
-        @protoclass(byteorder="big")
-        class LargeInt:
-            u128: Annotated[int, UInt128]
-            i128: Annotated[int, Int128]
+        @protoclass(byteorder="little")
+        class Message:
+            a: Annotated[int, UInt16]
+            b: Annotated[int, Int128]
 
-        v_u = (1 << 127) + (1 << 64) + 123
-        v_i = -(1 << 120) + 456
-
-        obj = LargeInt(u128=v_u, i128=v_i)
+        val128 = (1 << 127) - 1
+        obj = Message(a=0x1234, b=val128)
         data = obj.to_bytes()
-        assert len(data) == 32
+        assert data[0:2] == HexBuffer("34 12")
+        assert data[2:18] == val128.to_bytes(16, "little")
 
-        obj2 = LargeInt.from_bytes(data)
-        assert obj2.u128 == v_u
-        assert obj2.i128 == v_i
+        obj2 = Message.from_bytes(data)
+        assert obj2.a == 0x1234
+        assert obj2.b == val128
 
 
-class TestBitFields:
-    """Tests for bit field packing and boundary handling."""
+class TestArbitraryWidthIntegers:
+    """
+    Arbitrary width unsigned integers
+    """
 
     def test_bitfield_boundaries(self):
 
@@ -139,7 +123,7 @@ class TestBitFields:
         assert b.a == 1
         assert b.b == 1
         assert b.c == 0xFFFF
-        assert len(b.to_bytes()) == 3  # Densely packed
+        assert len(b.to_bytes()) == 3
 
         b.a = 3
         b.b = 130
@@ -585,7 +569,7 @@ class TestUnionsAndTypeMaps:
         assert obj2.payload == b"hello"
 
     def test_typed_field_helper_basic(self):
-        PayloadType = typed_field(type_field="type", type_map={1: UInt32, 2: Bytes})
+        PayloadType = TypeMap(type_field="type", type_map={1: UInt32, 2: Bytes})
 
         @protoclass(byteorder="big")
         class HelperStruct:
@@ -1248,6 +1232,193 @@ class TestListsAndNestedStructures:
         assert bytes(obj) == data
 
 
+class TestMultipleLengthFields:
+    """Structs with more than one variable field carrying its own length_field."""
+
+    def test_two_length_fields(self):
+
+        @protoclass()
+        class TwoLengths:
+            a_len: UInt8
+            a: Annotated[bytes, VariableLengthData(length_field="a_len")]
+            b_len: UInt8
+            b: Annotated[bytes, VariableLengthData(length_field="b_len")]
+
+        obj = TwoLengths(a=b"x", b=b"yy")
+
+        # Length fields are auto-synced from the data.
+        assert obj.a_len == 1
+        assert obj.b_len == 2
+        assert len(obj) == 5
+        assert bytes(obj) == HexBuffer("01 78 02 79 79")
+
+        obj2 = TwoLengths.from_bytes(bytes(obj))
+        assert obj2.a == b"x"
+        assert obj2.b == b"yy"
+
+    def test_length_field_after_fixed_field(self):
+
+        @protoclass(byteorder="little")
+        class Interleaved:
+            a_len: UInt8
+            a: Annotated[bytes, VariableLengthData(length_field="a_len")]
+            x: UInt16
+            b_len: UInt8
+            b: Annotated[bytes, VariableLengthData(length_field="b_len")]
+
+        obj = Interleaved(a=b"A", x=0x1234, b=b"BB")
+
+        assert obj.b_len == 2
+        assert bytes(obj) == HexBuffer("01 41 34 12 02 42 42")
+
+        obj2 = Interleaved.from_bytes(bytes(obj))
+        assert obj2.a == b"A"
+        assert obj2.x == 0x1234
+        assert obj2.b == b"BB"
+
+    def test_many_variable_fields_heap_fallback(self):
+        """Wide structs exceed the inline output-offset buffer and use the heap."""
+        annotations = {}
+        for i in range(18):
+            annotations[f"len{i}"] = UInt8
+            annotations[f"v{i}"] = Annotated[
+                bytes, VariableLengthData(length_field=f"len{i}")
+            ]
+
+        Wide = protoclass()(type("Wide", (), {"__annotations__": annotations}))
+
+        values = {f"v{i}": bytes([65 + i]) for i in range(18)}
+        data = bytes(Wide(**values))
+        assert len(data) == 36
+
+        decoded = Wide.from_bytes(data)
+        assert {f"v{i}": getattr(decoded, f"v{i}") for i in range(18)} == values
+
+
+class TestNestedListExtent:
+    """List items must advance by their true extent, including self-delimiting tails."""
+
+    def test_list_of_null_terminated_string_tail(self):
+
+        @protoclass()
+        class Row:
+            id: UInt32
+            parent: UInt32
+            active: UInt8
+            name: NullTerminatedString
+
+        @protoclass()
+        class Wrap:
+            rows: Annotated[list, VariableLengthData(item_type=Row)]
+
+        rows = [
+            Row(id=1, parent=0, active=1, name="one"),
+            Row(id=2, parent=1, active=0, name="two"),
+        ]
+        data = bytes(Wrap(rows=rows))
+        decoded = Wrap.from_bytes(data)
+        assert [(r.id, r.parent, r.active, r.name) for r in decoded.rows] == [
+            (1, 0, 1, "one"),
+            (2, 1, 0, "two"),
+        ]
+
+    def test_list_of_nested_variable_protoclass_tail(self):
+
+        @protoclass()
+        class Leaf:
+            ln: UInt8
+            payload: Annotated[bytes, VariableLengthData(length_field="ln")]
+
+        @protoclass()
+        class Row:
+            id: UInt32
+            child: Leaf
+
+        @protoclass()
+        class Wrap:
+            rows: Annotated[list, VariableLengthData(item_type=Row)]
+
+        rows = [
+            Row(id=1, child=Leaf(ln=2, payload=b"ab")),
+            Row(id=2, child=Leaf(ln=1, payload=b"c")),
+        ]
+        data = bytes(Wrap(rows=rows))
+        decoded = Wrap.from_bytes(data)
+        assert [r.id for r in decoded.rows] == [1, 2]
+        assert [r.child.payload for r in decoded.rows] == [b"ab", b"c"]
+
+
+class TestLenAndTruthiness:
+    """len()/bool() must not take a write-through path for dict-backed lists."""
+
+    @staticmethod
+    def _nested_payload():
+
+        @protoclass()
+        class TreeAttr:
+            tag: UInt8
+            n: UInt16
+            s: Annotated[bytes, VariableLengthData(length_field="n")]
+
+        @protoclass()
+        class TreePayload:
+            id: UInt32
+            parent: UInt32
+            active: UInt8
+            attrs_len: UInt16
+            attrs: Annotated[
+                list,
+                VariableLengthData(length_field="attrs_len", item_type=TreeAttr),
+            ]
+
+        return TreeAttr, TreePayload
+
+    def test_len_of_list_of_protoclasses(self):
+        TreeAttr, TreePayload = self._nested_payload()
+        payload = TreePayload(
+            id=1,
+            parent=0,
+            active=1,
+            attrs=[
+                TreeAttr(tag=2, n=3, s=b"abc"),
+                TreeAttr(tag=4, n=2, s=b"de"),
+            ],
+        )
+
+        assert bool(payload) is True
+        assert len(payload) == len(bytes(payload))
+
+    def test_truthiness_of_union_payload_with_nested_list(self):
+        TreeAttr, TreePayload = self._nested_payload()
+
+        @protoclass()
+        class Message:
+            msg_len: UInt32
+            msg_type: UInt8
+            payload: Annotated[
+                Union[Bytes, TreePayload],
+                VariableLengthData(
+                    length_field="msg_len",
+                    length_offset=-5,
+                    type_field="msg_type",
+                    type_map={1: TreePayload},
+                ),
+            ]
+
+        msg = Message(
+            msg_type=1,
+            payload=TreePayload(
+                id=1,
+                parent=0,
+                active=1,
+                attrs=[TreeAttr(tag=2, n=3, s=b"abc")],
+            ),
+        )
+
+        assert bool(msg) is True
+        assert len(msg) == len(bytes(msg))
+
+
 class TestEnumsAndIntFlag:
     """Tests for Enum and IntFlag field handling."""
 
@@ -1374,7 +1545,7 @@ class TestTypeRigidity:
 
 
 @protoclass()
-class UnionMsg(ProtoClass):
+class UnionMsg():
     length: UInt32
     type: UInt32
     payload: Annotated[
@@ -1389,7 +1560,7 @@ class UnionMsg(ProtoClass):
 
 
 @protoclass()
-class GenericUnionMsg(ProtoClass):
+class GenericUnionMsg():
     length: UInt32
     type: UInt32
     payload: Annotated[
@@ -1722,3 +1893,59 @@ class TestPlatformCompatibility:
         p_msg2 = PyArrayMessage.from_bytes(c_bytes)
         assert p_msg2.count == test_count
         assert p_msg2.items == test_items
+
+
+class TestEmbeddedVariableLengthProtoclass:
+    """Test embedded protoclass objects with their own variable length data."""
+
+    def test_embedded_var_length_protoclass(self):
+        """
+        Test that a protoclass containing another protoclass with variable
+        length data works correctly, and subsequent fields are parsed properly.
+        
+        This is the pattern used in Netlink error messages:
+        - error: Int32
+        - msg: NetlinkMessage (variable length determined by msg.nlmsg_len)
+        - attrs: list[NLMSGERRAttribute] (starts after msg)
+        """
+
+        @protoclass()
+        class InnerMessage:
+            inner_len: Annotated[int, UInt16]
+            inner_type: Annotated[int, UInt8]
+            inner_payload: Annotated[
+                bytes,
+                VariableLengthData(length_field="inner_len", length_offset=-3, align=4),
+            ]
+
+        @protoclass()
+        class OuterMessage:
+            error: Annotated[int, Int32]
+            msg: InnerMessage
+            trailing: Annotated[int, UInt8]
+
+        # Test 1: Create and serialize
+        # inner_len includes the 3-byte header, so for 5-byte payload, inner_len = 8
+        inner = InnerMessage(inner_len=8, inner_type=1, inner_payload=b"hello")
+        outer = OuterMessage()
+        outer.msg = inner
+        outer.error = -22
+        outer.trailing = 0xAB
+        
+        data = outer.to_bytes()
+        
+        # Expected layout:
+        # error: 4 bytes (Int32)
+        # msg: 11 bytes (2 header + 1 type + 5 payload + 3 padding)
+        # trailing: 1 byte
+        # Total: 4 + 11 + 1 = 16 bytes
+        
+        assert len(data) == 16
+        
+        # Test 2: Deserialize and verify
+        outer2 = OuterMessage.from_bytes(data)
+        assert outer2.error == -22
+        assert outer2.msg.inner_len == 8
+        assert outer2.msg.inner_type == 1
+        assert outer2.msg.inner_payload == b"hello"
+        assert outer2.trailing == 0xAB

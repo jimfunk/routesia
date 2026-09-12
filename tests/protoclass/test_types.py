@@ -2,7 +2,7 @@ import pytest
 import sys
 from typing import Annotated
 
-from routesia.protoclass import protoclass, ProtoClass
+from routesia.protoclass import protoclass
 from routesia.protoclass.types import (
     Int8,
     Int16,
@@ -21,7 +21,7 @@ from routesia.protoclass.types import (
 
 def create_type_container(type_hint, byteorder="native"):
     @protoclass(byteorder=byteorder)
-    class TypeContainer(ProtoClass):
+    class TypeContainer():
         val: type_hint
 
     return TypeContainer
@@ -430,7 +430,7 @@ def test_uint128_native(data, value):
 
 def test_fixed_length_bytes():
     @protoclass()
-    class FixedBytes(ProtoClass):
+    class FixedBytes():
         val: Annotated[bytes, FixedLengthData(4)]
 
     obj = FixedBytes.from_bytes(b"1234")
@@ -440,7 +440,7 @@ def test_fixed_length_bytes():
 
 def test_fixed_length_bytes_conversion():
     @protoclass()
-    class FixedString(ProtoClass):
+    class FixedString():
         val: Annotated[
             str,
             FixedLengthData(
@@ -455,7 +455,7 @@ def test_fixed_length_bytes_conversion():
 
 def test_variable_length_bytes():
     @protoclass()
-    class VarBytes(ProtoClass):
+    class VarBytes():
         val: Annotated[bytes, VariableLengthData()]
 
     obj = VarBytes.from_bytes(b"123456")
@@ -465,7 +465,7 @@ def test_variable_length_bytes():
 
 def test_variable_length_bytes_conversion():
     @protoclass()
-    class VarString(ProtoClass):
+    class VarString():
         val: Annotated[
             str,
             VariableLengthData(
