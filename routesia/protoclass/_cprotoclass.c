@@ -107,7 +107,7 @@ typedef struct {
  * Metadata for a variable-length field within a ProtoClass.
  * Supports lists, nested ProtoClasses, and polymorphic type_map dispatch.
  */
-typedef struct {
+typedef struct VarFieldInfo_s {
     PyObject *name;           /* Field name (Python string) */
     int align;                /* Alignment requirement in bytes */
     PyObject *length_field;   /* Name of field containing length */
@@ -145,11 +145,15 @@ typedef struct {
 
     Py_ssize_t member_offset; /* Offset to PyObject* slot on instance */
     int has_callback;   /* 1 = field has Python-level callbacks */
+    int is_metadata;    /* 1 = provides a length_field or type_field for another field */
     int index;          /* Index in var_offsets for this field */
 
     /* Linked descriptors for dependency fields */
     PyGetSetDef *length_field_gs;
     PyGetSetDef *type_field_gs;
+    /* Set when length_field is itself a variable field (a fixed field that
+       follows a variable field, so its offset is only known at runtime). */
+    struct VarFieldInfo_s *length_field_vf;
 } VarFieldInfo;
 
 /**
@@ -238,6 +242,8 @@ static PyObject * _deserialize_var_field(ProtoClassObject *self, VarFieldInfo *v
 static int _pc_get_poly_info(ProtoClassObject *self, VarFieldInfo *info, PolyTypeInfo *out);
 static int _pc_resolve_var_offsets_to(ProtoClassObject *self, Py_ssize_t index, int strict);
 static Py_ssize_t _pc_get_instance_length(ProtoClassObject *self);
+static int _pc_is_protoclass(PyObject *obj);
+static int _init_obj_from_view(ProtoClassObject *obj, PyTypeObject *tp, TypeMeta *meta, ProtoClassObject *parent, unsigned char *data, Py_ssize_t data_len);
 
 // get_item_kind removed - all kinds must be passed explicitly from Python
 
@@ -280,6 +286,28 @@ get_item_fixed_size(PyObject *item_type)
 static Py_ssize_t
 _pc_read_length_field(ProtoClassObject *self, VarFieldInfo *vf)
 {
+    /* A length field that is itself a variable field (a fixed field following
+       a variable field) lives at a runtime offset. Read its storage directly:
+       calling the field getter would resolve offsets strictly and fail while
+       the length field has not been materialized yet, e.g. during
+       construction. An absent length field reads as 0. */
+    if (vf->length_field_vf) {
+        VarFieldInfo *lf = vf->length_field_vf;
+        if (_pc_resolve_var_offsets_to(self, lf->index, 0) < 0) return -1;
+        Py_ssize_t off = self->var_offsets[lf->index].offset;
+        int bits = lf->item_bits > 0 ? lf->item_bits : (int)(lf->item_fixed_size * 8);
+        int nbytes = (bits + 7) / 8;
+        if (off < 0 || nbytes <= 0 || off + nbytes > self->data_len) return 0;
+        unsigned char *p = self->buf + self->_offset + off;
+        unsigned long long v = 0;
+        if (lf->big_endian) {
+            for (int k = 0; k < nbytes; k++) v = (v << 8) | p[k];
+        } else {
+            for (int k = nbytes - 1; k >= 0; k--) v = (v << 8) | p[k];
+        }
+        return (Py_ssize_t)v;
+    }
+
     if (!vf->length_field_gs || !vf->length_field_gs->get) {
         PyErr_Format(PyExc_RuntimeError, "Length field descriptor missing for field '%S'", vf->name);
         return -1;
@@ -320,7 +348,9 @@ _pc_resolve_var_offsets_to(ProtoClassObject *self, Py_ssize_t index, int strict)
         Py_ssize_t prev_offset = self->var_offsets[i - 1].offset;
         Py_ssize_t prev_len    = self->var_offsets[i - 1].length;
         Py_ssize_t prev_align  = defs->array[i - 1].align;
-        if (prev_align > 1 && prev_len > 0) {
+        /* Skip alignment for protoclass fields - they manage their own alignment */
+        int prev_is_protoclass = (defs->array[i - 1].item_kind == 0);  /* KIND_PROTOCLASS = 0 */
+        if (prev_align > 1 && prev_len > 0 && !prev_is_protoclass) {
             /* Same formula as in-loop: next = offset + rounded_up(length) */
             current_pos = prev_offset + ((prev_len + prev_align - 1) & ~(prev_align - 1));
         } else {
@@ -340,6 +370,38 @@ _pc_resolve_var_offsets_to(ProtoClassObject *self, Py_ssize_t index, int strict)
                 return -1;
             }
             length = l_val * vf->length_multiplier + vf->length_offset;
+        } else if (vf->item_kind == KIND_PROTOCLASS && vf->item_type && !vf->is_list) {
+            /* Protoclass field (not a list) - parse from buffer during deserialization */
+            if (strict && self->buf && self->data_len > current_pos) {
+                PyTypeObject *tp = (PyTypeObject *)vf->item_type;
+                TypeMeta *inner_meta = _get_type_meta_safe(tp);
+                if (inner_meta) {
+                    ProtoClassObject *obj = (ProtoClassObject *)tp->tp_alloc(tp, 0);
+                    if (obj) {
+                        Py_ssize_t available = self->data_len - current_pos;
+                        if (_init_obj_from_view(obj, tp, inner_meta, self, self->buf + self->_offset + current_pos, available) >= 0) {
+                            /* Use _pc_get_instance_length to get actual length from inner structure */
+                            Py_ssize_t inner_len = _pc_get_instance_length(obj);
+                            if (inner_len >= 0) {
+                                length = inner_len;
+                                /* Store in dict - this is where protoclass fields live */
+                                if (!self->dict) self->dict = PyDict_New();
+                                if (self->dict) PyDict_SetItem(self->dict, vf->name, (PyObject *)obj);
+                            }
+                        }
+                        Py_DECREF(obj);
+                    }
+                    if (length <= 0) length = inner_meta->fixed_size > 0 ? inner_meta->fixed_size : (self->data_len - current_pos);
+                } else {
+                    length = self->data_len - current_pos;
+                }
+            } else {
+                /* Construction mode - protoclass not in parent buffer */
+                length = 0;
+            }
+        } else if (vf->item_fixed_size > 0 && !vf->is_list) {
+            /* Fixed-size field that comes after a variable field */
+            length = vf->item_fixed_size;
         } else {
             /* No length field -> tail field: consumes remaining bytes */
             length = self->data_len - current_pos;
@@ -353,12 +415,21 @@ _pc_resolve_var_offsets_to(ProtoClassObject *self, Py_ssize_t index, int strict)
         }
         /* Bounds check: field must not read past end of buffer.
            Exception: If we are not in strict mode, we allow the target field
-           to be OOB because we might be in a setter that is about to grow the buffer. */
+           to be OOB because we might be in a setter that is about to grow the buffer.
+           Also skip bounds check for protoclass fields in dict (they manage their own buffer). */
         if ((strict || i < index) && (current_pos + length > self->data_len)) {
-            PyErr_Format(PyExc_ValueError,
-                "Buffer too small: field %zd at offset %zd needs %zd bytes, only %zd available",
-                i, current_pos, length, self->data_len - current_pos);
-            return -1;
+            /* Check if this is a protoclass field with value in dict */
+            int is_pc_in_dict = 0;
+            if (vf->item_kind == KIND_PROTOCLASS && self->dict) {
+                PyObject *dv = PyDict_GetItem(self->dict, vf->name);
+                if (dv) is_pc_in_dict = 1;
+            }
+            if (!is_pc_in_dict && !vf->is_metadata) {
+                PyErr_Format(PyExc_ValueError,
+                    "Buffer too small: field %zd at offset %zd needs %zd bytes, only %zd available",
+                    i, current_pos, length, self->data_len - current_pos);
+                return -1;
+            }
         }
 
         self->var_offsets[i].offset = current_pos;
@@ -369,8 +440,11 @@ _pc_resolve_var_offsets_to(ProtoClassObject *self, Py_ssize_t index, int strict)
 
         /* Post-field alignment: advance by the padded length.
            Serializer pads the data to the next multiple of align, so the next
-           field starts at: offset + ((length + align - 1) & ~(align - 1)) */
-        if (vf->align > 1 && length > 0) {
+           field starts at: offset + ((length + align - 1) & ~(align - 1))
+           
+           NOTE: Skip alignment for protoclass fields - they manage their own alignment
+           and are stored externally (not in parent buffer). */
+        if (vf->align > 1 && length > 0 && vf->item_kind != 0) {
             Py_ssize_t padded = (self->var_offsets[i].offset +
                                  ((length + vf->align - 1) & ~(vf->align - 1)));
             current_pos = padded;
@@ -409,6 +483,18 @@ _pc_get_field_value(ProtoClassObject *self, VarFieldInfo *vf, Py_ssize_t index)
     val = _deserialize_var_field(self, vf, data, vlen);
     if (!val) return NULL;
 
+    /* If this is a variable-length protoclass, update var_offsets with actual length */
+    if (_pc_is_protoclass(val)) {
+        ProtoClassObject *obj = (ProtoClassObject *)val;
+        if (self->var_offsets[index].length != obj->data_len) {
+            self->var_offsets[index].length = obj->data_len;
+            /* Invalidate resolved state for subsequent fields */
+            if (index < self->var_offsets_resolved - 1) {
+                self->var_offsets_resolved = index + 1;
+            }
+        }
+    }
+
     if (_pc_is_protoclass(val) || PyList_Check(val)) {
         if (!self->dict) self->dict = PyDict_New();
         if (self->dict) {
@@ -422,36 +508,55 @@ static unsigned char *_pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out
 static PyObject *_pc_get_bytes(PyObject *obj);
 
 /**
- * Refresh a length_field in a buffer.
+ * Store a length value at ptr with the given width and byte order.
  */
-static int
-_pc_pack_length(unsigned char *buf, VarFieldInfo *vf, Py_ssize_t length)
+static void
+_pc_store_length(unsigned char *ptr, int bits, int big_endian, long val)
 {
-    if (!vf->length_field_gs || !vf->length_field_gs->set) return 0;
-    FieldInfo *info = (FieldInfo *)vf->length_field_gs->closure;
-    if (!info) return 0;
-
-    unsigned char *ptr = buf + info->offset;
-    long val = (length - vf->length_offset) / vf->length_multiplier;
-
-    int bits = info->bits ? info->bits : (abs(info->type_code) * 8);
-
     if (bits == 8) {
         *ptr = (uint8_t)val;
     } else if (bits == 16) {
         uint16_t v = (uint16_t)val;
-        if (info->big_endian) v = __builtin_bswap16(v);
+        if (big_endian) v = __builtin_bswap16(v);
         *(uint16_t *)ptr = v;
     } else if (bits == 32) {
         uint32_t v = (uint32_t)val;
-        if (info->big_endian) v = __builtin_bswap32(v);
+        if (big_endian) v = __builtin_bswap32(v);
         *(uint32_t *)ptr = v;
     } else if (bits == 64) {
         uint64_t v = (uint64_t)val;
-        if (info->big_endian) v = __builtin_bswap64(v);
+        if (big_endian) v = __builtin_bswap64(v);
         *(uint64_t *)ptr = v;
     }
-    return 0;
+}
+
+/**
+ * Refresh a length_field in a buffer.
+ *
+ * A length_field is usually a fixed field, but when it follows a variable
+ * field the metaclass promotes it to a variable field whose storage offset is
+ * only known at runtime. The caller supplies that offset as variable_offset
+ * (self->var_offsets for the live buffer, or the serialization output offsets
+ * for a serialized buffer).
+ */
+static void
+_pc_pack_length(unsigned char *buf, Py_ssize_t variable_offset, VarFieldInfo *vf, Py_ssize_t length)
+{
+    if (!vf->length_field) return;
+    long val = (length - vf->length_offset) / vf->length_multiplier;
+
+    if (vf->length_field_vf) {
+        VarFieldInfo *lf = vf->length_field_vf;
+        int bits = lf->item_bits > 0 ? lf->item_bits : (int)(lf->item_fixed_size * 8);
+        _pc_store_length(buf + variable_offset, bits, lf->big_endian, val);
+        return;
+    }
+
+    if (!vf->length_field_gs || !vf->length_field_gs->set) return;
+    FieldInfo *info = (FieldInfo *)vf->length_field_gs->closure;
+    if (!info) return;
+    int bits = info->bits ? info->bits : (abs(info->type_code) * 8);
+    _pc_store_length(buf + info->offset, bits, info->big_endian, val);
 }
 
 /**
@@ -491,6 +596,7 @@ _pc_shift_buffer(ProtoClassObject *self, Py_ssize_t move_at, Py_ssize_t diff, Py
             PyErr_NoMemory();
             return -1;
         }
+        memset(new_buf + self->buf_cap, 0, new_cap - self->buf_cap);
         self->buf = new_buf;
         self->buf_cap = new_cap;
     }
@@ -531,7 +637,7 @@ _pc_get_poly_info(ProtoClassObject *self, VarFieldInfo *info, PolyTypeInfo *out)
         Py_XINCREF(out->to_python);
         out->from_python = info->from_python;
         Py_XINCREF(out->from_python);
-        if (out->cls && ProtoClass_TypePtr && PyObject_TypeCheck(out->cls, ProtoClass_TypePtr)) {
+        if (out->cls && ProtoClass_TypePtr && PyType_Check(out->cls) && PyType_IsSubtype((PyTypeObject *)out->cls, ProtoClass_TypePtr)) {
             out->meta = _get_type_meta_safe((PyTypeObject *)out->cls);
         }
         return 0;
@@ -1471,14 +1577,27 @@ _pc_get_instance_length(ProtoClassObject *self)
     /* If the last field has a length_field, the extent is well-defined. */
     if (last_vf->length_field) {
         if (_pc_resolve_var_offsets_to(self, last_idx, 1) < 0) return -1;
-        Py_ssize_t last_end = self->var_offsets[last_idx].offset + self->var_offsets[last_idx].length;
-        if (last_vf->align > 1 && self->var_offsets[last_idx].length > 0) {
-            last_end = (last_end + last_vf->align - 1) & ~(last_vf->align - 1);
+        Py_ssize_t payload_len = self->var_offsets[last_idx].length;
+        Py_ssize_t offset = self->var_offsets[last_idx].offset;
+        /* Calculate padded length of the last field */
+        Py_ssize_t padded_len = payload_len;
+        if (last_vf->align > 1) {
+            padded_len = (payload_len + last_vf->align - 1) & ~(last_vf->align - 1);
         }
-        return last_end;
+        return offset + padded_len;
     }
 
-    /* Tail field. Check for polymorphic fixed size. */
+    /* Tail field. Find where it starts first, so it can be measured from its
+       own start rather than the fixed header. */
+    if (_pc_resolve_var_offsets_to(self, last_idx - 1, 1) < 0) return -1;
+    Py_ssize_t prev_end = meta->fixed_size;
+    if (last_idx > 0) {
+        prev_end = self->var_offsets[last_idx-1].offset + self->var_offsets[last_idx-1].length;
+        if (meta->var_defs->array[last_idx-1].align > 1 && self->var_offsets[last_idx-1].length > 0) {
+            prev_end = (prev_end + meta->var_defs->array[last_idx-1].align - 1) & ~(meta->var_defs->array[last_idx-1].align - 1);
+        }
+    }
+
     PolyTypeInfo poly;
     memset(&poly, 0, sizeof(poly));
     Py_ssize_t field_len = 0;
@@ -1486,19 +1605,28 @@ _pc_get_instance_length(ProtoClassObject *self)
         if (poly.fixed_size > 0 && poly.kind != KIND_PROTOCLASS) {
             field_len = poly.fixed_size;
         } else if (poly.kind == KIND_PROTOCLASS && poly.meta) {
-            field_len = poly.meta->fixed_size;
+            /* Parse the nested object and use its own computed extent. */
+            PyTypeObject *tp = (PyTypeObject *)poly.cls;
+            ProtoClassObject *obj = (ProtoClassObject *)tp->tp_alloc(tp, 0);
+            if (obj) {
+                Py_ssize_t available = self->data_len - prev_end;
+                if (_init_obj_from_view(obj, tp, poly.meta, self, self->buf + self->_offset + prev_end, available) >= 0) {
+                    field_len = _pc_get_instance_length(obj);
+                }
+                Py_DECREF(obj);
+            }
+            if (field_len <= 0) {
+                field_len = self->data_len - prev_end; /* Fallback to gobble */
+            }
+        } else if (poly.kind == KIND_STRING) {
+            unsigned char *start = self->buf + self->_offset + prev_end;
+            Py_ssize_t available = self->data_len - prev_end;
+            unsigned char *end = (unsigned char *)memchr(start, '\0', available);
+            field_len = end ? (end - start + 1) : available;
         } else {
-            field_len = self->data_len - meta->fixed_size; /* Fallback to gobble */
+            field_len = self->data_len - prev_end; /* Fallback to gobble */
         }
         Py_XDECREF(poly.cls); Py_XDECREF(poly.to_python); Py_XDECREF(poly.from_python);
-        if (_pc_resolve_var_offsets_to(self, last_idx - 1, 1) < 0) return -1;
-        Py_ssize_t prev_end = meta->fixed_size;
-        if (last_idx > 0) {
-            prev_end = self->var_offsets[last_idx-1].offset + self->var_offsets[last_idx-1].length;
-            if (meta->var_defs->array[last_idx-1].align > 1 && self->var_offsets[last_idx-1].length > 0) {
-                prev_end = (prev_end + meta->var_defs->array[last_idx-1].align - 1) & ~(meta->var_defs->array[last_idx-1].align - 1);
-            }
-        }
         Py_ssize_t total = prev_end + field_len;
         if (last_vf->align > 1 && field_len > 0) {
             total = (total + last_vf->align - 1) & ~(last_vf->align - 1);
@@ -1700,13 +1828,45 @@ ProtoClass_var_setter(ProtoClassObject *self, PyObject *value, void *closure)
             self->dict = PyDict_New();
             if (!self->dict) return -1;
         }
+        
+        /* Get the new length from the protoclass instance */
+        Py_ssize_t new_len = ((ProtoClassObject *)value)->data_len;
+        
+        /* Resolve offsets to find current position and old length */
+        if (_pc_resolve_var_offsets_to(self, index, 0) < 0) {
+            if (PyDict_SetItem(self->dict, vf->name, value) < 0) return -1;
+            self->var_offsets_resolved = 0;
+            return 0;
+        }
+        
+        Py_ssize_t offset = self->var_offsets[index].offset;
+        Py_ssize_t old_len = self->var_offsets[index].length;
+        Py_ssize_t diff = new_len - old_len;
+        
+        /* Store in dict */
         if (PyDict_SetItem(self->dict, vf->name, value) < 0) return -1;
-
-        /* Invalidate the offset map — lengths may have changed. */
+        
+        /* If length changed, we may need to grow the buffer first */
+        if (diff != 0) {
+            Py_ssize_t new_total = self->data_len + diff;
+            if (new_total > self->buf_cap) {
+                /* Grow the buffer */
+                Py_ssize_t new_cap = new_total * 2;
+                unsigned char *new_buf = (unsigned char *)realloc(self->buf, new_cap);
+                if (!new_buf) { PyErr_NoMemory(); return -1; }
+                memset(new_buf + self->buf_cap, 0, new_cap - self->buf_cap);
+                self->buf = new_buf;
+                self->buf_cap = new_cap;
+            }
+            self->data_len = new_total;
+            
+            /* Shift subsequent buffer data */
+            if (_pc_shift_buffer(self, offset + old_len, diff, index) < 0) return -1;
+        }
+        
+        /* Invalidate the offset map for recalculation */
         self->var_offsets_resolved = 0;
-
-        /* DESIGN.md Rule 164: Auto-sync length_field values is deferred to serialization
-           for nested ProtoClasses as their size may be unknown/dynamic. */
+        
         return 0;
     }
 
@@ -1764,6 +1924,23 @@ found:;
     /* Base type fields in the buffer include their alignment padding. */
     Py_ssize_t old_padded = (old_len == 0) ? 0 : (old_len + vf->align - 1) & ~(vf->align - 1);
     Py_ssize_t new_padded = (new_len == 0) ? 0 : (new_len + vf->align - 1) & ~(vf->align - 1);
+    
+    /* Check if we need to grow the buffer to accommodate this field */
+    Py_ssize_t required_end = offset + new_padded;
+    if (required_end > self->data_len) {
+        Py_ssize_t diff = required_end - self->data_len;
+        Py_ssize_t new_total = self->data_len + diff;
+        if (new_total > self->buf_cap) {
+            Py_ssize_t new_cap = new_total * 2;
+            unsigned char *new_buf = (unsigned char *)realloc(self->buf, new_cap);
+            if (!new_buf) { Py_DECREF(bval); PyErr_NoMemory(); return -1; }
+            memset(new_buf + self->buf_cap, 0, new_cap - self->buf_cap);
+            self->buf = new_buf;
+            self->buf_cap = new_cap;
+        }
+        self->data_len = new_total;
+    }
+    
     Py_ssize_t diff = new_padded - old_padded;
 
     /* Rule 224: If length changed: memmove subsequent data, update data_len, update
@@ -1786,7 +1963,15 @@ found:;
     Py_DECREF(bval);
 
     /* Rule 226: Auto-sync length_field if present. */
-    _pc_pack_length(self->buf, vf, new_len);
+    Py_ssize_t length_field_offset = 0;
+    if (vf->length_field_vf) {
+        if (_pc_resolve_var_offsets_to(self, vf->length_field_vf->index, 0) < 0) {
+            Py_XDECREF(target.cls); Py_XDECREF(target.to_python); Py_XDECREF(target.from_python);
+            return -1;
+        }
+        length_field_offset = self->var_offsets[vf->length_field_vf->index].offset;
+    }
+    _pc_pack_length(self->buf, length_field_offset, vf, new_len);
 
     /* Remove from dict if it was there (e.g. replacing a ProtoClass with base type) */
     if (self->dict) {
@@ -2357,6 +2542,11 @@ ProtoClass_init(ProtoClassObject *self, PyObject *args, PyObject *kwds)
             memset(self->buf, 0, sz);
         }
     }
+    /* Variable-field resolution reads fields whose storage may not have been
+       materialized yet, so keep the spare capacity zeroed. */
+    if (meta->var_defs && meta->var_defs->size > 0 && self->buf_cap > sz) {
+        memset(self->buf + sz, 0, self->buf_cap - sz);
+    }
 
     self->_offset = 0;
     self->readonly = 0;
@@ -2501,6 +2691,10 @@ _resolve_poly_info(PyObject *obj, PolyTypeInfo *out)
 }
 
 
+/* Variable fields whose output offsets/lengths live in a fixed-size inline
+   array, spilling to the heap only for unusually wide structs. */
+#define PC_INLINE_VAR_FIELDS 16
+
 /**
  * Canonical Single-Pass Interpolated Serialization.
  * Rule 164: Copy fixed header + interpolate ProtoClasses from dict.
@@ -2510,6 +2704,12 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
 {
     TypeMeta *meta = self->type_meta;
     if (!meta) return NULL;
+
+    Py_ssize_t inline_out_offset[PC_INLINE_VAR_FIELDS];
+    Py_ssize_t inline_out_len[PC_INLINE_VAR_FIELDS];
+    Py_ssize_t *var_out_offset = NULL;
+    Py_ssize_t *var_out_len = NULL;
+    int var_arrays_heap = 0;
 
     Py_ssize_t written = meta->fixed_size;
     Py_ssize_t cap = written + 256;
@@ -2523,6 +2723,18 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
 
     VarDefs *defs = meta->var_defs;
     if (defs) {
+        var_out_offset = inline_out_offset;
+        var_out_len = inline_out_len;
+        if (defs->size > PC_INLINE_VAR_FIELDS) {
+            var_arrays_heap = 1;
+            var_out_offset = PyMem_Malloc(sizeof(Py_ssize_t) * defs->size);
+            var_out_len = PyMem_Malloc(sizeof(Py_ssize_t) * defs->size);
+            if (!var_out_offset || !var_out_len) {
+                free(out);
+                PyErr_NoMemory();
+                goto fail;
+            }
+        }
         for (Py_ssize_t i = 0; i < defs->size; i++) {
             VarFieldInfo *vf = &defs->array[i];
 
@@ -2541,7 +2753,7 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
                     Py_ssize_t list_cap = 256;
                     Py_ssize_t list_total = 0;
                     unsigned char *list_buf = (unsigned char *)malloc(list_cap);
-                    if (!list_buf) { free(out); PyErr_NoMemory(); return NULL; }
+                    if (!list_buf) { free(out); PyErr_NoMemory(); goto fail; }
 
                     for (Py_ssize_t j = 0; j < list_size; j++) {
                         PyObject *item = PyList_GET_ITEM(dict_val, j);
@@ -2551,7 +2763,7 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
 
                         if (_pc_is_protoclass(item)) {
                             b_item = PyObject_CallMethod(item, "__bytes__", NULL);
-                            if (!b_item) { free(list_buf); free(out); return NULL; }
+                            if (!b_item) { free(list_buf); free(out); goto fail; }
                             item_bytes = (unsigned char *)PyBytes_AS_STRING(b_item);
                             item_len = PyBytes_GET_SIZE(b_item);
                         } else {
@@ -2580,7 +2792,7 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
                                     }
                                     break;
                             }
-                            if (!b_item) { free(list_buf); free(out); return NULL; }
+                            if (!b_item) { free(list_buf); free(out); goto fail; }
                             item_bytes = (unsigned char *)PyBytes_AS_STRING(b_item);
                             item_len = PyBytes_GET_SIZE(b_item);
                         }
@@ -2589,7 +2801,7 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
                         if (list_total + item_len + pad > list_cap) {
                             list_cap = (list_total + item_len + pad) * 2;
                             unsigned char *new_lbuf = (unsigned char *)realloc(list_buf, list_cap);
-                            if (!new_lbuf) { free(list_buf); free(out); Py_DECREF(b_item); PyErr_NoMemory(); return NULL; }
+                            if (!new_lbuf) { free(list_buf); free(out); Py_DECREF(b_item); PyErr_NoMemory(); goto fail; }
                             list_buf = new_lbuf;
                         }
                         memcpy(list_buf + list_total, item_bytes, item_len);
@@ -2599,18 +2811,18 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
                     }
                     b_pc = PyBytes_FromStringAndSize((char *)list_buf, list_total);
                     free(list_buf);
-                    if (!b_pc) { free(out); return NULL; }
+                    if (!b_pc) { free(out); goto fail; }
                     v_src = (unsigned char *)PyBytes_AS_STRING(b_pc);
                     v_len = list_total;
                 } else {
                     b_pc = PyObject_CallMethod(dict_val, "__bytes__", NULL);
-                    if (!b_pc) { free(out); return NULL; }
+                    if (!b_pc) { free(out); goto fail; }
                     v_src = (unsigned char *)PyBytes_AS_STRING(b_pc);
                     v_len = PyBytes_GET_SIZE(b_pc);
                 }
             } else {
                 /* Base type (Rule 6): Already in self->buf. Direct copy. */
-                if (_pc_resolve_var_offsets_to(self, i, 1) < 0) { free(out); return NULL; }
+                if (_pc_resolve_var_offsets_to(self, i, 1) < 0) { free(out); goto fail; }
                 v_src = self->buf + self->_offset + self->var_offsets[i].offset;
                 v_len = self->var_offsets[i].length;
             }
@@ -2619,22 +2831,45 @@ _pc_serialize_data(ProtoClassObject *self, Py_ssize_t *out_len)
             if (written + v_len + pad > cap) {
                 cap = (written + v_len + pad) * 2;
                 unsigned char *new_out = (unsigned char *)realloc(out, cap);
-                if (!new_out) { free(out); Py_XDECREF(b_pc); PyErr_NoMemory(); return NULL; }
+                if (!new_out) { free(out); Py_XDECREF(b_pc); PyErr_NoMemory(); goto fail; }
                 out = new_out;
             }
 
+            var_out_offset[i] = written;
+            var_out_len[i] = v_len;
             memcpy(out + written, v_src, v_len);
             if (pad > 0) memset(out + written + v_len, 0, pad);
-
-            /* Refresh length_fields in the output buffer */
-            _pc_pack_length(out, vf, v_len);
 
             written += v_len + pad;
             Py_XDECREF(b_pc);
         }
+
+        /* Refresh length_fields now that every field's output offset and
+           serialized length are known. */
+        for (Py_ssize_t i = 0; i < defs->size; i++) {
+            VarFieldInfo *vf = &defs->array[i];
+            if (!vf->length_field) continue;
+            Py_ssize_t variable_offset = 0;
+            if (vf->length_field_vf) {
+                variable_offset = var_out_offset[vf->length_field_vf->index];
+            }
+            _pc_pack_length(out, variable_offset, vf, var_out_len[i]);
+        }
+
+        if (var_arrays_heap) {
+            PyMem_Free(var_out_offset);
+            PyMem_Free(var_out_len);
+        }
     }
     *out_len = written;
     return out;
+
+fail:
+    if (var_arrays_heap) {
+        PyMem_Free(var_out_offset);
+        PyMem_Free(var_out_len);
+    }
+    return NULL;
 }
 
 static PyObject *
@@ -2667,6 +2902,46 @@ static PyBufferProcs ProtoClass_as_buffer = {
     (getbufferproc)ProtoClass_getbuffer,
     NULL,
 };
+
+/**
+ * Serialized length of a list field's items, including per-item alignment.
+ */
+static Py_ssize_t
+_pc_list_serialized_length(ProtoClassObject *self, PyObject *list, VarFieldInfo *vf)
+{
+    Py_ssize_t total = 0;
+    Py_ssize_t size = PyList_GET_SIZE(list);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        PyObject *item = PyList_GET_ITEM(list, i);
+        Py_ssize_t item_len;
+
+        if (_pc_is_protoclass(item)) {
+            item_len = PyObject_Length(item);
+            if (item_len < 0) return -1;
+        } else {
+            PolyTypeInfo info;
+            memset(&info, 0, sizeof(info));
+            info.kind = vf->item_kind;
+            info.bits = vf->item_bits;
+            info.is_signed = vf->item_is_signed;
+            info.fixed_size = vf->item_fixed_size;
+            info.big_endian = vf->big_endian;
+            info.cls = vf->item_type;
+            info.to_python = vf->to_python;
+            info.from_python = vf->from_python;
+            PyObject *bval = _pc_convert_to_bytes(self, item, vf, &info);
+            if (!bval) return -1;
+            item_len = PyBytes_GET_SIZE(bval);
+            Py_DECREF(bval);
+        }
+
+        total += item_len;
+        if (vf->align > 1) {
+            total += (vf->align - (item_len % vf->align)) % vf->align;
+        }
+    }
+    return total;
+}
 
 /**
  * Convert a ProtoClassObject to a bytes object.
@@ -2712,8 +2987,12 @@ ProtoClass_len(ProtoClassObject *self, PyObject *noargs)
                 PyObject *val = _pc_get_field_value(self, vf, i);
                 if (!val) return NULL;
 
-                if (_pc_is_protoclass(val)) {
+                if (PyList_Check(val)) {
+                    field_len = _pc_list_serialized_length(self, val, vf);
+                    if (field_len < 0) { Py_DECREF(val); return NULL; }
+                } else if (_pc_is_protoclass(val)) {
                     field_len = PyObject_Length(val);
+                    if (field_len < 0) { Py_DECREF(val); return NULL; }
                 } else {
                     PyObject *bval = _pc_convert_to_bytes(self, val, vf, NULL);
                     if (!bval) { Py_DECREF(val); return NULL; }
@@ -3098,11 +3377,37 @@ make_binary_type(PyObject *self, PyObject *args)
                     if (capsule) {
                         vf->length_field_gs = (PyGetSetDef *)PyCapsule_GetPointer(capsule, "protoclass.getset");
                     }
+                    PyObject *lf_idx_obj = PyDict_GetItem(meta->var_map, vf->length_field);
+                    if (lf_idx_obj) {
+                        Py_ssize_t lf_idx = PyLong_AsSsize_t(lf_idx_obj);
+                        if (lf_idx >= 0 && lf_idx < meta->var_defs->size) {
+                            vf->length_field_vf = &meta->var_defs->array[lf_idx];
+                        }
+                    }
                 }
                 if (vf->type_field && vf->type_field != Py_None) {
                     PyObject *capsule = PyDict_GetItem(meta->field_map, vf->type_field);
                     if (capsule) {
                         vf->type_field_gs = (PyGetSetDef *)PyCapsule_GetPointer(capsule, "protoclass.getset");
+                    }
+                }
+            }
+
+            /* Mark fields that provide a length or type for another field so the
+               offset resolver tolerates them not being materialized yet. */
+            for (Py_ssize_t i = 0; i < meta->var_defs->size; i++) {
+                VarFieldInfo *vf = &meta->var_defs->array[i];
+                for (Py_ssize_t j = 0; j < meta->var_defs->size; j++) {
+                    VarFieldInfo *other = &meta->var_defs->array[j];
+                    if (other->length_field && other->length_field != Py_None &&
+                        PyObject_RichCompareBool(vf->name, other->length_field, Py_EQ) == 1) {
+                        vf->is_metadata = 1;
+                        break;
+                    }
+                    if (other->type_field && other->type_field != Py_None &&
+                        PyObject_RichCompareBool(vf->name, other->type_field, Py_EQ) == 1) {
+                        vf->is_metadata = 1;
+                        break;
                     }
                 }
             }

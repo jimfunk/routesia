@@ -100,7 +100,7 @@ class FixedLengthData:
         return f"FixedLengthData(length={self.length!r})"
 
 
-def typed_field(
+def TypeMap(
     *,
     length_field: Optional[str] = None,
     length_multiplier: int = 1,
@@ -113,6 +113,21 @@ def typed_field(
 ) -> Any:
     """
     Helper to build an Annotated union type from a type_map.
+    
+    Creates a union type that dispatches to different types based on a type field.
+    
+    Example:
+        class MyMessage:
+            type: UInt8
+            payload: TypeMap(
+                length_field="length",
+                type_field="type",
+                type_map={
+                    1: UInt8,
+                    2: UInt16,
+                    3: UInt32,
+                }
+            )
     """
     if type_map is None:
         type_map = {}
