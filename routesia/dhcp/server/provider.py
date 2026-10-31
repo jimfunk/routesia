@@ -12,7 +12,7 @@ import socket
 import tempfile
 
 from routesia.config.provider import ConfigProvider
-from routesia.dhcp.server.config import DHCP4Config
+from routesia.dhcp.server.config import DHCP4Config, DHCP4_CONF, DHCP4_CONTROL_SOCK
 from routesia.rpc import RPCInvalidArgument
 from routesia.service import Provider
 from routesia.ipam.provider import IPAMProvider
@@ -22,10 +22,6 @@ from routesia.schema.v1 import dhcp_server_pb2
 from routesia.service import Service
 from routesia.systemd import SystemdProvider
 
-
-DHCP4_CONF = "/etc/kea/kea-dhcp4.conf"
-DHCP4_CONTROL_SOCK = "/tmp/kea-dhcp4-ctrl.sock"
-DHCP4_LEASE_DB = "/var/lib/kea/dhcp4.leases"
 
 SERVER_CHUNK_SIZE = 65535
 

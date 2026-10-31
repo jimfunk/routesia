@@ -52,10 +52,12 @@ class DHCP4Config:
             if not all((client_class.name, client_class.test)):
                 # Invalid
                 continue
-            for field in ('name', 'test', 'next_server'):
+            for field in ('name', 'test'):
                 value = getattr(client_class, field)
                 if value:
                     client_class_data[field] = value
+            if client_class.next_server:
+                client_class_data['next-server'] = client_class.next_server
             if client_class.option_definition:
                 client_class_data['option-def'] = self.generate_option_definitions(client_class.option_definition)
             if client_class.option:
@@ -138,6 +140,11 @@ class DHCP4Config:
                 'persist': True,
                 'name': DHCP4_LEASE_DB,
             },
+            'hooks-libraries': [
+                {
+                    'library': '/usr/lib64/kea/hooks/libdhcp_lease_cmds.so',
+                },
+            ],
         }
         if config.renew_timer:
             data['renew-timer'] = config.renew_timer
