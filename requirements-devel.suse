@@ -1,4 +1,6 @@
+make
 protobuf-devel
-python311-devel
-python311-pytest
-python311-pytest-cov
+python3
+python313-devel
+python313-pytest
+python313-pytest-cov

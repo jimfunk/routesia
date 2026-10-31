@@ -5,10 +5,10 @@ kea-hooks
 mosquitto
 nftables
 nsd
-python311-dbus-python
-python311-nftables
-python311-paho-mqtt
-python311-protobuf
-python311-pyroute2
-python311-systemd
+python313-dbus-python
+python313-nftables
+python313-paho-mqtt
+python313-protobuf
+python313-pyroute2
+python313-systemd
 unbound
