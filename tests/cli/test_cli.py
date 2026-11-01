@@ -341,6 +341,31 @@ async def test_argument_alternative_completions(cli):
     assert await cli.router.get_command_completions(["show", "foo"]) == ["spam", "eggs"]
 
 
+async def test_builtin_bool_positional_completions(cli):
+    def foo(flag=None):
+        pass
+
+    cli.add_command("show foo :flag!bool", foo)
+
+    assert await cli.router.get_command_completions(["show", "foo"]) == [
+        "true",
+        "false",
+    ]
+
+
+async def test_builtin_bool_keyword_completions(cli):
+    def foo(flag=None):
+        pass
+
+    cli.add_command("show foo @flag!bool", foo)
+
+    assert await cli.router.get_command_completions(["show", "foo"]) == ["flag"]
+    assert await cli.router.get_command_completions(["show", "foo", "flag"]) == [
+        "true",
+        "false",
+    ]
+
+
 async def test_keyword_argument_completions(cli):
     def foo(arg1=None, arg2=None):
         pass

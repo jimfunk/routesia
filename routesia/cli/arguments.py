@@ -33,9 +33,10 @@ def interpret_arguments(fn: callable, args: dict[str, str], required: bool = Fal
 
         translated_args[name] = interpret_argument(annotation, value)
 
-    for argument in signature.parameters.values():
-        if argument.default == inspect.Parameter.empty and argument.name not in translated_args:
-            raise InvalidArgument(f'Required argument "{argument.name}" missing')
+    if required:
+        for argument in signature.parameters.values():
+            if argument.default == inspect.Parameter.empty and argument.name not in translated_args:
+                raise InvalidArgument(f'Required argument "{argument.name}" missing')
 
     return translated_args
 
