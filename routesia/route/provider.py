@@ -117,15 +117,15 @@ class RouteProvider(Provider):
             table.handle_interface_remove(event)
 
     async def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
-        table = self.tables.get(table) if event.table else self.tables[254]
+        table = self.tables.get(event.table) if event.table else self.tables[254]
         table.handle_dhcp_lease_preinit(event)
 
     async def handle_dhcp_lease_acquired(self, event: DHCPv4LeaseAcquired):
-        table = self.tables.get(table) if event.table else self.tables[254]
+        table = self.tables.get(event.table) if event.table else self.tables[254]
         table.handle_dhcp_lease_acquired(event)
 
     async def handle_dhcp_lease_lost(self, event: DHCPv4LeaseLost):
-        table = self.tables.get(table) if event.table else self.tables[254]
+        table = self.tables.get(event.table) if event.table else self.tables[254]
         table.handle_dhcp_lease_lost(event)
 
     def start(self):

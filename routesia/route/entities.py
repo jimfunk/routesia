@@ -90,19 +90,6 @@ class TableEntity:
                 return True
         return False
 
-    def gateway_accessible(self, gateway: IPv4Address | IPv6Address):
-        """
-        Returns True if the gateway is accessible
-        """
-        for destination, route in self.routes.items():
-            if gateway not in destination:
-                continue
-            for candidate in route.state.nexthop:
-                if not candidate.interface:
-                    continue
-                return True
-        return False
-
     def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
         if event.address and event.interface in self.dhcp_routes:
             if event.address.network in self.dhcp_routes[event.interface]:
@@ -113,34 +100,52 @@ class TableEntity:
                     del self.dhcp_routes[event.interface]
 
     def handle_dhcp_lease_acquired(self, event: DHCPv4LeasePreinit):
-        existing = set()
-        new = set()
+        existing_interface_routes = set()
+        existing_gateway_routes = set()
         if event.interface in self.dhcp_routes:
             for route in self.dhcp_routes[event.interface].values():
-                existing.add((route.destination, route.gateway))
+                if route.gateway:
+                    existing_gateway_routes.add((route.destination, route.gateway))
+                else:
+                    existing_interface_routes.add((route.destination, route.gateway))
         else:
             self.dhcp_routes[event.interface] = {}
-        new.add((event.address.network, None))
-        if event.gateway:
-            new.add((ip_network("0.0.0.0/0"), event.gateway))
-        for route in event.routes:
-            new.add((route.destination, route.gateway))
 
-        for destination, _ in existing - new:
+        new_interface_routes = {(event.address.network, None)}
+        new_gateway_routes = set()
+        if event.gateway:
+            new_gateway_routes.add((ip_network("0.0.0.0/0"), event.gateway))
+        for route in event.routes:
+            if route.gateway:
+                new_gateway_routes.add((route.destination, route.gateway))
+            else:
+                new_interface_routes.add((route.destination, route.gateway))
+
+        for destination, _ in existing_gateway_routes - new_gateway_routes:
             route = self.dhcp_routes[event.interface].pop(destination)
             route.remove()
 
-        for destination, gateway in new - existing:
-            logger.info(f"Adding DHCP route {destination} via {gateway or event.interface}")
-            self.dhcp_routes[event.interface][destination] = DHCPRouteEntity(
-                self.iproute,
-                self,
-                event.interface,
-                destination,
-                gateway,
-                event.address.ip,
-            )
-            self.dhcp_routes[event.interface][destination].apply()
+        for destination, _ in existing_interface_routes - new_interface_routes:
+            route = self.dhcp_routes[event.interface].pop(destination)
+            route.remove()
+
+        for routes in (
+            new_interface_routes - existing_interface_routes,
+            new_gateway_routes - existing_gateway_routes,
+        ):
+            for destination, gateway in routes:
+                logger.info(
+                    f"Adding DHCP route {destination} via {gateway or event.interface}"
+                )
+                self.dhcp_routes[event.interface][destination] = DHCPRouteEntity(
+                    self.iproute,
+                    self,
+                    event.interface,
+                    destination,
+                    gateway,
+                    event.address.ip,
+                )
+                self.dhcp_routes[event.interface][destination].apply()
 
     def handle_dhcp_lease_lost(self, event: DHCPv4LeasePreinit):
         if event.interface in self.dhcp_routes:
@@ -181,6 +186,10 @@ class TableEntity:
                 for nexthop in route.config.nexthop:
                     if not nexthop.gateway and nexthop.interface == event.ifname:
                         route.apply()
+
+        for route in self.dhcp_routes.get(event.ifname, {}).values():
+            if route.route_args is None:
+                route.apply()
 
     def handle_interface_remove(self, event):
         self.interfaces.remove(event.ifname)
@@ -352,7 +361,7 @@ class DHCPRouteEntity(RouteEntity):
         Returns whether the route can be inserted
         """
         if self.gateway:
-            return self.table.gateway_accessible(self.gateway)
+            return self.interface in self.table.interfaces
         return True
 
     def apply(self):
