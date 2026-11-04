@@ -114,7 +114,7 @@ class DHCPServerProvider(Provider):
 
         dhcp4_config = DHCP4Config(config, self.ipam, self.interfaces)
 
-        temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
+        temp = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=os.path.dirname(DHCP4_CONF))
         json.dump(dhcp4_config.generate(), temp, indent=2)
         temp.flush()
         temp.close()

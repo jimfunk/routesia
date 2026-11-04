@@ -101,7 +101,7 @@ class DNSCacheProvider(Provider):
 
         local_config = DNSCacheLocalConfig(config, self.ipam, self.addresses)
 
-        temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
+        temp = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=os.path.dirname(LOCAL_CONF))
         temp.write(local_config.generate())
         temp.flush()
         temp.close()
@@ -111,7 +111,7 @@ class DNSCacheProvider(Provider):
 
         forward_config = DNSCacheForwardConfig(config)
 
-        temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
+        temp = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=os.path.dirname(FORWARD_CONF))
         temp.write(forward_config.generate())
         temp.flush()
         temp.close()

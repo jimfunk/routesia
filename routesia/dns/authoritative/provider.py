@@ -85,7 +85,7 @@ class AuthoritativeDNSProvider(Provider):
 
         nsd_config = NSDConfig(config, self.addresses)
 
-        temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
+        temp = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=os.path.dirname(NSD_CONF))
         temp.write(nsd_config.generate())
         temp.flush()
         temp.close()
@@ -96,7 +96,7 @@ class AuthoritativeDNSProvider(Provider):
         for zone in config.zone:
             zone_config = NSDZoneConfig(zone, self.ipam)
 
-            temp = tempfile.NamedTemporaryFile(delete=False, mode="w")
+            temp = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=ZONE_DIR)
             temp.write(zone_config.generate())
             temp.flush()
             temp.close()
