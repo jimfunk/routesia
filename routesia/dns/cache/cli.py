@@ -2,7 +2,7 @@
 routesia/dns/cache/cli.py - Routesia DNS cache commands
 """
 
-from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 
 from routesia.cli import CLI, InvalidArgument
 from routesia.cli.types import UInt16, UInt32
@@ -174,7 +174,10 @@ class DNSCacheCLI(Provider):
         config = await self.rpc.request("dns/cache/config/get")
 
         for address in config.listen_address:
-            if address.address == listen_address and address.port == listen_port:
+            if (
+                ip_address(address.address) == listen_address
+                and address.port == listen_port
+            ):
                 raise InvalidArgument("Listen address already exists")
 
         address = config.listen_address.add()

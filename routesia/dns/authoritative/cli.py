@@ -2,7 +2,7 @@
 routesia/dns/authoritative/cli.py - Routesia authoritative DNS commands
 """
 
-from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 
 from routesia.cli import CLI, InvalidArgument
 from routesia.cli.types import UInt16, UInt32
@@ -254,16 +254,21 @@ class DNSAuthoritativeCLI(Provider):
             config.servers = servers
         await self.rpc.request("dns/authoritative/config/update", config)
 
-    async def add_listen_address(self, address: IPv4Address, port: UInt16 = 0):
+    async def add_listen_address(
+        self, listen_address: IPv4Address | IPv6Address, listen_port: UInt16 = 0
+    ):
         config = await self.rpc.request("dns/authoritative/config/get")
 
-        for listen_address in config.listen_address:
-            if listen_address.address == address and listen_address.port == port:
+        for address in config.listen_address:
+            if (
+                ip_address(address.address) == listen_address
+                and address.port == listen_port
+            ):
                 raise InvalidArgument("Listen address already exists")
 
-        listen_address = config.listen_address.add()
-        listen_address.address = str(address)
-        listen_address.port = port
+        address = config.listen_address.add()
+        address.address = str(listen_address)
+        address.port = listen_port
         await self.rpc.request("dns/authoritative/config/update", config)
 
     async def remove_listen_address(

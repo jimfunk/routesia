@@ -31,6 +31,9 @@ class NetfilterCLI(Provider):
         self.cli.add_argument_completer(
             "masquerade-port", self.complete_masquerade_port
         )
+        self.cli.add_argument_completer(
+            "masquerade-protocol", self.complete_masquerade_protocol
+        )
         self.cli.add_argument_completer("policy", self.complete_policy)
         self.cli.add_argument_completer("verdict", self.complete_verdict)
         self.cli.add_argument_completer("input-rule", self.complete_input_rule)
@@ -41,7 +44,15 @@ class NetfilterCLI(Provider):
             "input-rule-ip-match", self.complete_input_rule_ip_match
         )
         self.cli.add_argument_completer(
+            "input-rule-ip-match-protocol",
+            self.complete_input_rule_ip_match_protocol,
+        )
+        self.cli.add_argument_completer(
             "input-rule-ip6-match", self.complete_input_rule_ip6_match
+        )
+        self.cli.add_argument_completer(
+            "input-rule-ip6-match-protocol",
+            self.complete_input_rule_ip6_match_protocol,
         )
         self.cli.add_argument_completer(
             "input-rule-tcp-match", self.complete_input_rule_tcp_match
@@ -61,6 +72,10 @@ class NetfilterCLI(Provider):
         self.cli.add_argument_completer(
             "input-rule-meta-match", self.complete_input_rule_meta_match
         )
+        self.cli.add_argument_completer(
+            "input-rule-meta-match-protocol",
+            self.complete_input_rule_meta_match_protocol,
+        )
         self.cli.add_argument_completer("forward-rule", self.complete_forward_rule)
         self.cli.add_argument_completer(
             "forward-rule-source-zone", self.complete_forward_rule_source_zone
@@ -73,7 +88,15 @@ class NetfilterCLI(Provider):
             "forward-rule-ip-match", self.complete_forward_rule_ip_match
         )
         self.cli.add_argument_completer(
+            "forward-rule-ip-match-protocol",
+            self.complete_forward_rule_ip_match_protocol,
+        )
+        self.cli.add_argument_completer(
             "forward-rule-ip6-match", self.complete_forward_rule_ip6_match
+        )
+        self.cli.add_argument_completer(
+            "forward-rule-ip6-match-protocol",
+            self.complete_forward_rule_ip6_match_protocol,
         )
         self.cli.add_argument_completer(
             "forward-rule-tcp-match", self.complete_forward_rule_tcp_match
@@ -92,6 +115,10 @@ class NetfilterCLI(Provider):
         )
         self.cli.add_argument_completer(
             "forward-rule-meta-match", self.complete_forward_rule_meta_match
+        )
+        self.cli.add_argument_completer(
+            "forward-rule-meta-match-protocol",
+            self.complete_forward_rule_meta_match_protocol,
         )
 
         self.cli.add_command("netfilter config show", self.show)
@@ -125,11 +152,11 @@ class NetfilterCLI(Provider):
             self.remove_masquerade_forward,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward-port add :interface!masquerade-interface :destination!masquerade-destination :protocol!ip-forward-protocol :port :destination-port",
+            "netfilter config masquerade ip-forward-port add :interface!masquerade-interface :destination!masquerade-destination :protocol :port :destination-port",
             self.add_masquerade_port,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward-port remove :interface!masquerade-interface :destination!masquerade-destination :protocol!ip-forward-protocol :port!masquerade-port",
+            "netfilter config masquerade ip-forward-port remove :interface!masquerade-interface :destination!masquerade-destination :protocol!masquerade-protocol :port!masquerade-port",
             self.remove_masquerade_port,
         )
 
@@ -191,11 +218,11 @@ class NetfilterCLI(Provider):
             self.remove_input_rule_ip_destination,
         )
         self.cli.add_command(
-            "netfilter config input rule ip-match protocol add :input-rule :input-rule-ip-match !protocol",
+            "netfilter config input rule ip-match protocol add :input-rule :input-rule-ip-match :protocol",
             self.add_input_rule_ip_protocol,
         )
         self.cli.add_command(
-            "netfilter config input rule ip-match protocol remove :input-rule :input-rule-ip-match :protocol",
+            "netfilter config input rule ip-match protocol remove :input-rule :input-rule-ip-match :protocol!input-rule-ip-match-protocol",
             self.remove_input_rule_ip_protocol,
         )
 
@@ -236,7 +263,7 @@ class NetfilterCLI(Provider):
             self.add_input_rule_ip6_protocol,
         )
         self.cli.add_command(
-            "netfilter config input rule ip6-match protocol remove :input-rule :input-rule-ip6-match :protocol",
+            "netfilter config input rule ip6-match protocol remove :input-rule :input-rule-ip6-match :protocol!input-rule-ip6-match-protocol",
             self.remove_input_rule_ip6_protocol,
         )
 
@@ -377,7 +404,7 @@ class NetfilterCLI(Provider):
             self.add_input_rule_ct_match,
         )
         self.cli.add_command(
-            "netfilter config input rule ct-match list :input-rule :input-rule-ct-match",
+            "netfilter config input rule ct-match list :input-rule",
             self.list_input_rule_ct_match,
         )
         self.cli.add_command(
@@ -426,7 +453,7 @@ class NetfilterCLI(Provider):
             self.add_input_rule_meta_protocol,
         )
         self.cli.add_command(
-            "netfilter config input rule meta-match protocol remove :input-rule :input-rule-meta-match :protocol",
+            "netfilter config input rule meta-match protocol remove :input-rule :input-rule-meta-match :protocol!input-rule-meta-match-protocol",
             self.remove_input_rule_meta_protocol,
         )
 
@@ -501,11 +528,11 @@ class NetfilterCLI(Provider):
             self.remove_forward_rule_ip_destination,
         )
         self.cli.add_command(
-            "netfilter config forward rule ip-match protocol add :forward-rule :forward-rule-ip-match !protocol",
+            "netfilter config forward rule ip-match protocol add :forward-rule :forward-rule-ip-match :protocol",
             self.add_forward_rule_ip_protocol,
         )
         self.cli.add_command(
-            "netfilter config forward rule ip-match protocol remove :forward-rule :forward-rule-ip-match :protocol",
+            "netfilter config forward rule ip-match protocol remove :forward-rule :forward-rule-ip-match :protocol!forward-rule-ip-match-protocol",
             self.remove_forward_rule_ip_protocol,
         )
 
@@ -546,7 +573,7 @@ class NetfilterCLI(Provider):
             self.add_forward_rule_ip6_protocol,
         )
         self.cli.add_command(
-            "netfilter config forward rule ip6-match protocol remove :forward-rule :forward-rule-ip6-match :protocol",
+            "netfilter config forward rule ip6-match protocol remove :forward-rule :forward-rule-ip6-match :protocol!forward-rule-ip6-match-protocol",
             self.remove_forward_rule_ip6_protocol,
         )
 
@@ -687,7 +714,7 @@ class NetfilterCLI(Provider):
             self.add_forward_rule_ct_match,
         )
         self.cli.add_command(
-            "netfilter config forward rule ct-match list :forward-rule :forward-rule-ct-match",
+            "netfilter config forward rule ct-match list :forward-rule",
             self.list_forward_rule_ct_match,
         )
         self.cli.add_command(
@@ -744,7 +771,7 @@ class NetfilterCLI(Provider):
             self.add_forward_rule_meta_protocol,
         )
         self.cli.add_command(
-            "netfilter config forward rule meta-match protocol remove :forward-rule :forward-rule-meta-match :protocol",
+            "netfilter config forward rule meta-match protocol remove :forward-rule :forward-rule-meta-match :protocol!forward-rule-meta-match-protocol",
             self.remove_forward_rule_meta_protocol,
         )
 
@@ -797,6 +824,26 @@ class NetfilterCLI(Provider):
 
         return completions
 
+    async def complete_masquerade_protocol(
+        self, interface: str = None, destination: str = None
+    ):
+        completions = []
+        if interface is None or destination is None:
+            return completions
+        config = await self.rpc.request("netfilter/config/get")
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface:
+                for ip_forward in masquerade.ip_forward:
+                    if ip_forward.destination == destination:
+                        for port_map in ip_forward.port_map:
+                            protocol = netfilter_pb2.IPForwardProtocol.Name(
+                                port_map.protocol
+                            )
+                            if protocol not in completions:
+                                completions.append(protocol)
+                        return completions
+        return completions
+
     async def complete_masquerade_port(
         self,
         interface: str = None,
@@ -822,7 +869,10 @@ class NetfilterCLI(Provider):
                 for ip_forward in masquerade.ip_forward:
                     if ip_forward.destination == destination:
                         for port_map in ip_forward.port_map:
-                            if port_map.protocol == protocol:
+                            if (
+                                netfilter_pb2.IPForwardProtocol.Name(port_map.protocol)
+                                == protocol
+                            ):
                                 completions.append(port_map.port)
                         return completions
         else:
@@ -1125,6 +1175,19 @@ class NetfilterCLI(Provider):
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
 
+    async def complete_input_rule_ip_match_protocol(
+        self, input_rule: int = None, input_rule_ip_match: int = None
+    ):
+        if input_rule is None or input_rule_ip_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if input_rule >= len(config.input.rule):
+            return []
+        rule = config.input.rule[input_rule]
+        if input_rule_ip_match >= len(rule.ip):
+            return []
+        return list(rule.ip[input_rule_ip_match].protocol)
+
     async def update_input_rule_ip_match(
         self,
         input_rule: int,
@@ -1256,6 +1319,19 @@ class NetfilterCLI(Provider):
                 desc += "destination=%s " % ",".join(match.destination)
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
+
+    async def complete_input_rule_ip6_match_protocol(
+        self, input_rule: int = None, input_rule_ip6_match: int = None
+    ):
+        if input_rule is None or input_rule_ip6_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if input_rule >= len(config.input.rule):
+            return []
+        rule = config.input.rule[input_rule]
+        if input_rule_ip6_match >= len(rule.ip6):
+            return []
+        return list(rule.ip6[input_rule_ip6_match].protocol)
 
     async def update_input_rule_ip6_match(
         self,
@@ -1882,10 +1958,23 @@ class NetfilterCLI(Provider):
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
 
+    async def complete_input_rule_meta_match_protocol(
+        self, input_rule: int = None, input_rule_meta_match: int = None
+    ):
+        if input_rule is None or input_rule_meta_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if input_rule >= len(config.input.rule):
+            return []
+        rule = config.input.rule[input_rule]
+        if input_rule_meta_match >= len(rule.meta):
+            return []
+        return list(rule.meta[input_rule_meta_match].protocol)
+
     async def update_input_rule_meta_match(
         self,
         input_rule: int,
-        input_rule_meta_match,
+        input_rule_meta_match: int,
         input_interface: list[str] = None,
         protocol: list[str] = None,
         negate: bool = None,
@@ -1902,7 +1991,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_meta_match(
-        self, input_rule: int, input_rule_meta_match
+        self, input_rule: int, input_rule_meta_match: int
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1910,25 +1999,25 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_meta_input_interface(
-        self, input_rule: int, input_rule_meta_match, interface: str
+        self, input_rule: int, input_rule_meta_match: int, input_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.meta[input_rule_meta_match]
-        match.input_interface.append(interface)
+        match.input_interface.append(input_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_meta_input_interface(
-        self, input_rule: int, input_rule_meta_match, interface: str
+        self, input_rule: int, input_rule_meta_match: int, input_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.meta[input_rule_meta_match]
-        match.input_interface.remove(interface)
+        match.input_interface.remove(input_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_meta_protocol(
-        self, input_rule: int, input_rule_meta_match, protocol: str
+        self, input_rule: int, input_rule_meta_match: int, protocol: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1937,7 +2026,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_meta_protocol(
-        self, input_rule: int, input_rule_meta_match, protocol: str
+        self, input_rule: int, input_rule_meta_match: int, protocol: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -2109,6 +2198,19 @@ class NetfilterCLI(Provider):
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
 
+    async def complete_forward_rule_ip_match_protocol(
+        self, forward_rule: int = None, forward_rule_ip_match: int = None
+    ):
+        if forward_rule is None or forward_rule_ip_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if forward_rule >= len(config.forward.rule):
+            return []
+        rule = config.forward.rule[forward_rule]
+        if forward_rule_ip_match >= len(rule.ip):
+            return []
+        return list(rule.ip[forward_rule_ip_match].protocol)
+
     async def update_forward_rule_ip_match(
         self,
         forward_rule: int,
@@ -2254,6 +2356,19 @@ class NetfilterCLI(Provider):
                 desc += "destination=%s " % ",".join(match.destination)
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
+
+    async def complete_forward_rule_ip6_match_protocol(
+        self, forward_rule: int = None, forward_rule_ip6_match: int = None
+    ):
+        if forward_rule is None or forward_rule_ip6_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if forward_rule >= len(config.forward.rule):
+            return []
+        rule = config.forward.rule[forward_rule]
+        if forward_rule_ip6_match >= len(rule.ip6):
+            return []
+        return list(rule.ip6[forward_rule_ip6_match].protocol)
 
     async def update_forward_rule_ip6_match(
         self,
@@ -2590,14 +2705,14 @@ class NetfilterCLI(Provider):
     async def update_forward_rule_icmp_match(
         self,
         forward_rule: int,
-        forward_rule_ip_match: int,
+        forward_rule_icmp_match: int,
         type: list[str] = None,
         code: list[str] = None,
         negate: bool = None,
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
-        match = rule.icmp[match]
+        match = rule.icmp[forward_rule_icmp_match]
         if type is not None:
             match.type.extend(type)
         if code is not None:
@@ -2872,6 +2987,19 @@ class NetfilterCLI(Provider):
             completions.append(Completion(str(order), display="%s %s" % (order, desc)))
         return completions
 
+    async def complete_forward_rule_meta_match_protocol(
+        self, forward_rule: int = None, forward_rule_meta_match: int = None
+    ):
+        if forward_rule is None or forward_rule_meta_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if forward_rule >= len(config.forward.rule):
+            return []
+        rule = config.forward.rule[forward_rule]
+        if forward_rule_meta_match >= len(rule.meta):
+            return []
+        return list(rule.meta[forward_rule_meta_match].protocol)
+
     async def update_forward_rule_meta_match(
         self,
         forward_rule: int,
@@ -2903,39 +3031,39 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_meta_input_interface(
-        self, forward_rule: int, forward_rule_meta_match: int, interface: str
+        self, forward_rule: int, forward_rule_meta_match: int, input_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.meta[forward_rule_meta_match]
-        match.input_interface.append(interface)
+        match.input_interface.append(input_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_meta_input_interface(
-        self, forward_rule: int, forward_rule_meta_match: int, interface: str
+        self, forward_rule: int, forward_rule_meta_match: int, input_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.meta[forward_rule_meta_match]
-        match.input_interface.remove(interface)
+        match.input_interface.remove(input_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_meta_output_interface(
-        self, forward_rule: int, forward_rule_meta_match: int, interface: str
+        self, forward_rule: int, forward_rule_meta_match: int, output_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.meta[forward_rule_meta_match]
-        match.output_interface.append(interface)
+        match.output_interface.append(output_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_forward_rule_meta_output_interface(
-        self, forward_rule: int, forward_rule_meta_match: int, interface: str
+        self, forward_rule: int, forward_rule_meta_match: int, output_interface: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.meta[forward_rule_meta_match]
-        match.output_interface.remove(interface)
+        match.output_interface.remove(output_interface)
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_meta_protocol(

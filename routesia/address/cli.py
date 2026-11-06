@@ -18,7 +18,6 @@ class AddressCLI(Provider):
         self.cli.add_argument_completer("interface", self.complete_interfaces)
         self.cli.add_argument_completer("ip", self.complete_ips)
 
-        self.cli.add_command("address show", self.show_addresses)
         self.cli.add_command("address show @interface", self.show_addresses)
         self.cli.add_command("address config list", self.show_address_configs)
         self.cli.add_command("address config list :interface", self.show_address_configs)
