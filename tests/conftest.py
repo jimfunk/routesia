@@ -4,15 +4,7 @@ tests/conftrst.py - Routesia test fixtures
 
 import asyncio
 from contextlib import asynccontextmanager, contextmanager, suppress
-from ctypes import (
-    CDLL,
-    CFUNCTYPE,
-    c_int,
-    c_void_p,
-    cast,
-    create_string_buffer,
-    get_errno,
-)
+from ctypes import CDLL, get_errno
 import errno
 import functools
 import inspect
@@ -39,7 +31,7 @@ from routesia.service import Service
 
 collect_ignore = ["test_pb2.py"]
 
-libc = CDLL("libc.so.6")
+libc = CDLL("libc.so.6", use_errno=True)
 
 CLONE_NEWNET = 0x40000000
 MS_BIND = 4096
@@ -63,26 +55,27 @@ def create_namespace(name):
         os.mkdir("/run/netns")
 
     ns_path = f"/run/netns/{name}"
-
     if os.path.exists(ns_path):
         raise OSError(errno.EEXIST, "Namespace exists")
 
     with open(ns_path, "w"):
         pass
 
-    def clone_fn():
-        libc.mount(b"/proc/self/ns/net", ns_path.encode(), None, MS_BIND, None)
-        err = get_errno()
-        if err:
-            raise OSError(err, f"Could not bind mount namespace: {os.strerror(err)}")
-        return err
-
-    stack = create_string_buffer(4096)
-    libc.clone(
-        CFUNCTYPE(c_int)(clone_fn),
-        c_void_p(cast(stack, c_void_p).value + 4096),
-        CLONE_NEWNET,
-    )
+    outer_ns = os.open("/proc/thread-self/ns/net", os.O_RDONLY)
+    try:
+        if libc.unshare(CLONE_NEWNET) != 0:
+            raise OSError(get_errno(), "Could not unshare network namespace")
+        if libc.mount(
+            b"/proc/thread-self/ns/net", ns_path.encode(), None, MS_BIND, None
+        ) != 0:
+            raise OSError(get_errno(), "Could not bind mount namespace")
+    except Exception:
+        os.unlink(ns_path)
+        raise
+    finally:
+        if libc.setns(outer_ns, CLONE_NEWNET) != 0:
+            raise OSError(get_errno(), "Could not restore network namespace")
+        os.close(outer_ns)
 
 
 def delete_namespace(name):
@@ -91,30 +84,24 @@ def delete_namespace(name):
     if not os.path.exists(ns_path):
         raise OSError(errno.ENOENT, "Namespace does not exist")
 
-    libc.umount2(ns_path.encode(), MNT_DETACH)
-    err = get_errno()
-    if err:
-        raise OSError(err, f"Could not unmount namespace: {os.strerror(err)}")
+    if libc.umount2(ns_path.encode(), MNT_DETACH) != 0:
+        raise OSError(get_errno(), "Could not unmount namespace")
     os.unlink(ns_path)
 
 
 @contextmanager
 def netns_context(name):
-    outer_ns = os.open("/proc/self/ns/net", os.O_RDONLY)
+    outer_ns = os.open("/proc/thread-self/ns/net", os.O_RDONLY)
     inner_ns = os.open(f"/run/netns/{name}", os.O_RDONLY)
     try:
-        libc.setns(inner_ns, CLONE_NEWNET)
+        if libc.setns(inner_ns, CLONE_NEWNET) != 0:
+            raise OSError(get_errno(), "Could not enter network namespace")
         yield
     finally:
-        libc.setns(outer_ns, CLONE_NEWNET)
-        try:
-            os.close(inner_ns)
-        except Exception:
-            pass
-        try:
-            os.close(outer_ns)
-        except Exception:
-            pass
+        if libc.setns(outer_ns, CLONE_NEWNET) != 0:
+            raise OSError(get_errno(), "Could not restore network namespace")
+        os.close(inner_ns)
+        os.close(outer_ns)
 
 
 class IPError(Exception):

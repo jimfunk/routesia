@@ -60,7 +60,7 @@ class InterfaceEntity:
                 self.state.addrgenmode = af_inet6_attrs["IFLA_INET6_ADDR_GEN_MODE"]
                 self.state.token = af_inet6_attrs["IFLA_INET6_TOKEN"]
 
-        if self.config and self.config.link.up and not self.state.up:
+        if new and self.config and self.config.link.up and not self.state.up:
             self.apply_link_config()
 
     def start(self):
