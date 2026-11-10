@@ -1,10 +1,9 @@
 [Unit]
 Description=Routesia networking service
-After=network-pre.target systemd-sysusers.service systemd-sysctl.service mosquitto.service
-Requires=mosquitto.service
+After=network-pre.target systemd-sysusers.service systemd-sysctl.service
 Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
-Wants=network.target
+Wants=network.target mosquitto.service
 
 [Service]
 Type=notify
