@@ -2,7 +2,14 @@
 routesia/netfilter/cli.py - Routesia netfilter commands
 """
 
-from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+)
 import textwrap
 
 from routesia.cli.completion import Completion
@@ -33,6 +40,40 @@ class NetfilterCLI(Provider):
         )
         self.cli.add_argument_completer(
             "masquerade-protocol", self.complete_masquerade_protocol
+        )
+        self.cli.add_argument_completer("family", self.complete_family)
+        self.cli.add_argument_completer("duplicate-rule", self.complete_duplicate)
+        self.cli.add_argument_completer(
+            "duplicate-rule-ip-match", self.complete_duplicate_ip_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-ip-match-protocol",
+            self.complete_duplicate_ip_match_protocol,
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-ip6-match", self.complete_duplicate_ip6_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-ip6-match-protocol",
+            self.complete_duplicate_ip6_match_protocol,
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-tcp-match", self.complete_duplicate_tcp_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-udp-match", self.complete_duplicate_udp_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-icmp-match", self.complete_duplicate_icmp_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-icmp6-match", self.complete_duplicate_icmp6_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-ct-match", self.complete_duplicate_ct_match
+        )
+        self.cli.add_argument_completer(
+            "duplicate-rule-meta-match", self.complete_duplicate_meta_match
         )
         self.cli.add_argument_completer("policy", self.complete_policy)
         self.cli.add_argument_completer("verdict", self.complete_verdict)
@@ -122,9 +163,286 @@ class NetfilterCLI(Provider):
         )
 
         self.cli.add_command("netfilter config show", self.show)
-        self.cli.add_command("netfilter config enable", self.enable)
-        self.cli.add_command("netfilter config disable", self.disable)
 
+        self.cli.add_command(
+            "netfilter config duplicate ip-match add :duplicate-rule *source *destination *protocol @negate",
+            self.add_duplicate_ip_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match list :duplicate-rule",
+            self.list_duplicate_ip_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match update :duplicate-rule :duplicate-rule-ip-match *source *destination *protocol @negate",
+            self.update_duplicate_ip_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match remove :duplicate-rule :duplicate-rule-ip-match",
+            self.remove_duplicate_ip_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match source add :duplicate-rule :duplicate-rule-ip-match :source",
+            self.add_duplicate_ip_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match source remove :duplicate-rule :duplicate-rule-ip-match :source",
+            self.remove_duplicate_ip_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match destination add :duplicate-rule :duplicate-rule-ip-match :destination",
+            self.add_duplicate_ip_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match destination remove :duplicate-rule :duplicate-rule-ip-match :destination",
+            self.remove_duplicate_ip_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match protocol add :duplicate-rule :duplicate-rule-ip-match :protocol",
+            self.add_duplicate_ip_protocol,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip-match protocol remove :duplicate-rule :duplicate-rule-ip-match :protocol!duplicate-rule-ip-match-protocol",
+            self.remove_duplicate_ip_protocol,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match add :duplicate-rule! *source *destination *protocol @negate",
+            self.add_duplicate_ip6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match list :duplicate-rule",
+            self.list_duplicate_ip6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match update :duplicate-rule :duplicate-rule-ip6-match *source *destination *protocol @negate",
+            self.update_duplicate_ip6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match remove :duplicate-rule :duplicate-rule-ip6-match",
+            self.remove_duplicate_ip6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match source add :duplicate-rule :duplicate-rule-ip6-match :source",
+            self.add_duplicate_ip6_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match source remove :duplicate-rule :duplicate-rule-ip6-match :source",
+            self.remove_duplicate_ip6_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match destination add :duplicate-rule :duplicate-rule-ip6-match :destination",
+            self.add_duplicate_ip6_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match destination remove :duplicate-rule :duplicate-rule-ip6-match :destination",
+            self.remove_duplicate_ip6_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match protocol add :duplicate-rule :duplicate-rule-ip6-match :protocol",
+            self.add_duplicate_ip6_protocol,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ip6-match protocol remove :duplicate-rule :duplicate-rule-ip6-match :protocol!duplicate-rule-ip6-match-protocol",
+            self.remove_duplicate_ip6_protocol,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match add :duplicate-rule *source *destination @negate",
+            self.add_duplicate_tcp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match list :duplicate-rule",
+            self.list_duplicate_tcp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match update :duplicate-rule :duplicate-rule-tcp-match *source *destination @negate",
+            self.update_duplicate_tcp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match remove :duplicate-rule :duplicate-rule-tcp-match",
+            self.remove_duplicate_tcp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match source add :duplicate-rule :duplicate-rule-tcp-match :source",
+            self.add_duplicate_tcp_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match source remove :duplicate-rule :duplicate-rule-tcp-match :source",
+            self.remove_duplicate_tcp_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match destination add :duplicate-rule :duplicate-rule-tcp-match :destination",
+            self.add_duplicate_tcp_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate tcp-match destination remove :duplicate-rule :duplicate-rule-tcp-match :destination",
+            self.remove_duplicate_tcp_destination,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate udp-match add :duplicate-rule *source *destination @negate",
+            self.add_duplicate_udp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match list :duplicate-rule",
+            self.list_duplicate_udp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match update :duplicate-rule :duplicate-rule-udp-match *source *destination @negate",
+            self.update_duplicate_udp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match remove :duplicate-rule :duplicate-rule-udp-match",
+            self.remove_duplicate_udp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match source add :duplicate-rule :duplicate-rule-udp-match :source",
+            self.add_duplicate_udp_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match source remove :duplicate-rule :duplicate-rule-udp-match :source",
+            self.remove_duplicate_udp_source,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match destination add :duplicate-rule :duplicate-rule-udp-match :destination",
+            self.add_duplicate_udp_destination,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate udp-match destination remove :duplicate-rule :duplicate-rule-udp-match :destination",
+            self.remove_duplicate_udp_destination,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match add :duplicate-rule *type *code @negate",
+            self.add_duplicate_icmp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match list :duplicate-rule",
+            self.list_duplicate_icmp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match update :duplicate-rule :duplicate-rule-icmp-match *type *code @negate",
+            self.update_duplicate_icmp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match remove :duplicate-rule :duplicate-rule-icmp-match",
+            self.remove_duplicate_icmp_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match type add :duplicate-rule :duplicate-rule-icmp-match :type",
+            self.add_duplicate_icmp_type,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match type remove :duplicate-rule :duplicate-rule-icmp-match :type",
+            self.remove_duplicate_icmp_type,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match code add :duplicate-rule :duplicate-rule-icmp-match :code",
+            self.add_duplicate_icmp_code,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp-match code remove :duplicate-rule :duplicate-rule-icmp-match :code",
+            self.remove_duplicate_icmp_code,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match add :duplicate-rule *type *code @negate",
+            self.add_duplicate_icmp6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match list :duplicate-rule",
+            self.list_duplicate_icmp6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match update :duplicate-rule :duplicate-rule-icmp6-match *type *code @negate",
+            self.update_duplicate_icmp6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match remove :duplicate-rule :duplicate-rule-icmp6-match",
+            self.remove_duplicate_icmp6_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match type add :duplicate-rule :duplicate-rule-icmp6-match :type",
+            self.add_duplicate_icmp6_type,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match type remove :duplicate-rule :duplicate-rule-icmp6-match :type",
+            self.remove_duplicate_icmp6_type,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match code add :duplicate-rule :duplicate-rule-icmp6-match :code",
+            self.add_duplicate_icmp6_code,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate icmp6-match code remove :duplicate-rule :duplicate-rule-icmp6-match :code",
+            self.remove_duplicate_icmp6_code,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate ct-match add :duplicate-rule *state @negate",
+            self.add_duplicate_ct_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ct-match list :duplicate-rule",
+            self.list_duplicate_ct_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ct-match update :duplicate-rule :duplicate-rule-ct-match *state @negate",
+            self.update_duplicate_ct_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ct-match remove :duplicate-rule :duplicate-rule-ct-match",
+            self.remove_duplicate_ct_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ct-match state add :duplicate-rule :duplicate-rule-ct-match :state",
+            self.add_duplicate_ct_state,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate ct-match state remove :duplicate-rule :duplicate-rule-ct-match :state",
+            self.remove_duplicate_ct_state,
+        )
+
+        self.cli.add_command(
+            "netfilter config duplicate meta-match add :duplicate-rule *input-interface *output-interface *protocol @negate",
+            self.add_duplicate_meta_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match list :duplicate-rule",
+            self.list_duplicate_meta_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match update :duplicate-rule :duplicate-rule-meta-match *input-interface *output-interface *protocol @negate",
+            self.update_duplicate_meta_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match remove :duplicate-rule :duplicate-rule-meta-match",
+            self.remove_duplicate_meta_match,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match input-interface add :duplicate-rule :duplicate-rule-meta-match :input-interface",
+            self.add_duplicate_meta_input_interface,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match input-interface remove :duplicate-rule :duplicate-rule-meta-match :input-interface",
+            self.remove_duplicate_meta_input_interface,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match protocol add :duplicate-rule :duplicate-rule-meta-match :protocol",
+            self.add_duplicate_meta_protocol,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match protocol remove :duplicate-rule :duplicate-rule-meta-match :protocol!duplicate-rule-meta-match-protocol",
+            self.remove_duplicate_meta_protocol,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match output-interface add :duplicate-rule :duplicate-rule-meta-match :output-interface",
+            self.add_duplicate_meta_output_interface,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate meta-match output-interface remove :duplicate-rule :duplicate-rule-meta-match :output-interface",
+            self.remove_duplicate_meta_output_interface,
+        )
         self.cli.add_command("netfilter config zone add :zone!", self.add_zone)
         self.cli.add_command("netfilter config zone remove :zone!", self.remove_zone)
         self.cli.add_command(
@@ -137,31 +455,45 @@ class NetfilterCLI(Provider):
         )
 
         self.cli.add_command(
-            "netfilter config masquerade add :interface", self.add_masquerade
+            "netfilter config masquerade add :interface @family", self.add_masquerade
         )
         self.cli.add_command(
-            "netfilter config masquerade remove :interface!masquerade-interface",
+            "netfilter config masquerade remove :interface!masquerade-interface @family",
             self.remove_masquerade,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward add :interface!masquerade-interface :destination",
+            "netfilter config masquerade ip-forward add :interface!masquerade-interface :destination!masquerade-destination @family",
             self.add_masquerade_forward,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward remove :interface!masquerade-interface :destination!masquerade-destination",
+            "netfilter config masquerade ip-forward remove :interface!masquerade-interface :destination!masquerade-destination @family",
             self.remove_masquerade_forward,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward-port add :interface!masquerade-interface :destination!masquerade-destination :protocol :port :destination-port",
+            "netfilter config masquerade ip-forward-port add :interface!masquerade-interface :destination!masquerade-destination :protocol :port @destination-port @family",
             self.add_masquerade_port,
         )
         self.cli.add_command(
-            "netfilter config masquerade ip-forward-port remove :interface!masquerade-interface :destination!masquerade-destination :protocol!masquerade-protocol :port!masquerade-port",
+            "netfilter config masquerade ip-forward-port remove :interface!masquerade-interface :destination!masquerade-destination :protocol!masquerade-protocol :port!masquerade-port @family",
             self.remove_masquerade_port,
         )
 
         self.cli.add_command(
             "netfilter config input policy :policy", self.set_input_policy
+        )
+
+        self.cli.add_command("netfilter config duplicate list", self.list_duplicates)
+        self.cli.add_command(
+            "netfilter config duplicate add :destination @family @interface @description",
+            self.add_duplicate,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate update :duplicate-rule @destination @family @interface @description",
+            self.update_duplicate,
+        )
+        self.cli.add_command(
+            "netfilter config duplicate remove :duplicate-rule",
+            self.remove_duplicate,
         )
 
         self.cli.add_command("netfilter config input rule list", self.list_input_rules)
@@ -425,7 +757,7 @@ class NetfilterCLI(Provider):
         )
 
         self.cli.add_command(
-            "netfilter config input rule meta-match add :input-rule *input-interface *protocol @negate",
+            "netfilter config input rule meta-match add :input-rule *input-interface *output-interface *protocol @negate",
             self.add_input_rule_meta_match,
         )
         self.cli.add_command(
@@ -433,7 +765,7 @@ class NetfilterCLI(Provider):
             self.list_input_rule_meta_match,
         )
         self.cli.add_command(
-            "netfilter config input rule meta-match update :input-rule :input-rule-meta-match *input-interface *protocol @negate",
+            "netfilter config input rule meta-match update :input-rule :input-rule-meta-match *input-interface *output-interface *protocol @negate",
             self.update_input_rule_meta_match,
         )
         self.cli.add_command(
@@ -455,6 +787,14 @@ class NetfilterCLI(Provider):
         self.cli.add_command(
             "netfilter config input rule meta-match protocol remove :input-rule :input-rule-meta-match :protocol!input-rule-meta-match-protocol",
             self.remove_input_rule_meta_protocol,
+        )
+        self.cli.add_command(
+            "netfilter config input rule meta-match output-interface add :input-rule :input-rule-meta-match :output-interface",
+            self.add_input_rule_meta_output_interface,
+        )
+        self.cli.add_command(
+            "netfilter config input rule meta-match output-interface remove :input-rule :input-rule-meta-match :output-interface",
+            self.remove_input_rule_meta_output_interface,
         )
 
         self.cli.add_command(
@@ -735,7 +1075,7 @@ class NetfilterCLI(Provider):
         )
 
         self.cli.add_command(
-            "netfilter config forward rule meta-match add :forward-rule *input-interface *protocol @negate",
+            "netfilter config forward rule meta-match add :forward-rule *input-interface *output-interface *protocol @negate",
             self.add_forward_rule_meta_match,
         )
         self.cli.add_command(
@@ -743,7 +1083,7 @@ class NetfilterCLI(Provider):
             self.list_forward_rule_meta_match,
         )
         self.cli.add_command(
-            "netfilter config forward rule meta-match update :forward-rule :forward-rule-meta-match *input-interface *protocol @negate",
+            "netfilter config forward rule meta-match update :forward-rule :forward-rule-meta-match *input-interface *output-interface *protocol @negate",
             self.update_forward_rule_meta_match,
         )
         self.cli.add_command(
@@ -803,7 +1143,8 @@ class NetfilterCLI(Provider):
         completions = []
         config = await self.rpc.request("netfilter/config/get")
         for masquerade in config.masquerade:
-            completions.append(masquerade.interface)
+            if masquerade.interface not in completions:
+                completions.append(masquerade.interface)
         return completions
 
     async def complete_masquerade_destination(self, interface: str = None):
@@ -906,16 +1247,6 @@ class NetfilterCLI(Provider):
     async def show(self) -> netfilter_pb2.NetfilterConfig:
         return await self.rpc.request("netfilter/config/get")
 
-    async def enable(self):
-        config = await self.rpc.request("netfilter/config/get")
-        config.enabled = True
-        await self.rpc.request("netfilter/config/update", config)
-
-    async def disable(self):
-        config = await self.rpc.request("netfilter/config/get")
-        config.enabled = False
-        await self.rpc.request("netfilter/config/update", config)
-
     async def add_zone(self, zone: str):
         config = await self.rpc.request("netfilter/config/get")
 
@@ -961,104 +1292,165 @@ class NetfilterCLI(Provider):
                 break
         await self.rpc.request("netfilter/config/update", config)
 
-    async def add_masquerade(self, interface: str):
+    async def complete_family(self):
+        return netfilter_pb2.AddressFamily.keys()
+
+    def get_family(self, family: str):
+        try:
+            return netfilter_pb2.AddressFamily.Value(family)
+        except ValueError:
+            raise InvalidArgument(f"Invalid address family {family}")
+
+    def check_address_family(self, address, family):
+        if address.version != (4 if family == netfilter_pb2.IPV4 else 6):
+            raise InvalidArgument(
+                f"{address} is not an "
+                f"{netfilter_pb2.AddressFamily.Name(family)} address"
+            )
+
+    def get_protocol(self, protocol: str):
+        try:
+            return netfilter_pb2.IPForwardProtocol.Value(protocol)
+        except ValueError:
+            raise InvalidArgument(f"Invalid protocol {protocol}")
+
+    def get_masquerade(self, config, interface: str, family: str):
+        family_value = self.get_family(family)
+        for masquerade in config.masquerade:
+            if masquerade.interface == interface and masquerade.family == family_value:
+                return masquerade
+
+    def require_masquerade(self, config, interface: str, family: str):
+        masquerade = self.get_masquerade(config, interface, family)
+        if masquerade is None:
+            raise InvalidArgument(f"Masquerade for {interface} does not exist")
+        return masquerade
+
+    def get_masquerade_forward(self, masquerade, destination):
+        for ip_forward in masquerade.ip_forward:
+            if ip_forward.destination == str(destination):
+                return ip_forward
+
+    def require_masquerade_forward(self, masquerade, destination):
+        ip_forward = self.get_masquerade_forward(masquerade, destination)
+        if ip_forward is None:
+            raise InvalidArgument("Masquerade destination does not exist")
+        return ip_forward
+
+    async def add_masquerade(self, interface: str, family: str = "IPV4"):
         config = await self.rpc.request("netfilter/config/get")
 
-        for masquerade in config.masquerade:
-            if masquerade.interface == interface:
-                raise InvalidArgument("Masqeurade already exists")
+        if self.get_masquerade(config, interface, family):
+            raise InvalidArgument(
+                f"Masquerade for {interface} {family} already exists"
+            )
 
         masquerade = config.masquerade.add()
         masquerade.interface = interface
+        masquerade.family = self.get_family(family)
         await self.rpc.request("netfilter/config/update", config)
 
-    async def remove_masquerade(self, interface: str):
+    async def remove_masquerade(self, interface: str, family: str = "IPV4"):
+        family_value = self.get_family(family)
         config = await self.rpc.request("netfilter/config/get")
+
         for i, masquerade in enumerate(config.masquerade):
-            if masquerade.interface == interface:
+            if masquerade.interface == interface and masquerade.family == family_value:
                 del config.masquerade[i]
                 break
-        await self.rpc.request("netfilter/config/update", config)
-
-    async def add_masquerade_forward(self, interface: str, destination: IPv4Address):
-        config = await self.rpc.request("netfilter/config/get")
-
-        for masquerade in config.masquerade:
-            if masquerade.interface == interface:
-                ip_forward = masquerade.ip_forward.add()
-                ip_forward.destination = str(destination)
+        else:
+            raise InvalidArgument(
+                f"Masquerade for {interface} {family} does not exist"
+            )
 
         await self.rpc.request("netfilter/config/update", config)
 
-    async def remove_masquerade_forward(self, interface: str, destination: IPv4Address):
+    async def add_masquerade_forward(
+        self,
+        interface: str,
+        destination: IPv4Address | IPv6Address,
+        family: str = "IPV4",
+    ):
         config = await self.rpc.request("netfilter/config/get")
 
+        self.check_address_family(destination, self.get_family(family))
+        masquerade = self.require_masquerade(config, interface, family)
         destination = str(destination)
+        if self.get_masquerade_forward(masquerade, destination):
+            raise InvalidArgument(
+                f"Masquerade forward to {destination} already exists"
+            )
 
-        for masquerade in config.masquerade:
-            if masquerade.interface == interface:
-                for i, ip_forward in enumerate(masquerade.ip_forward):
-                    if ip_forward.destination == destination:
-                        del masquerade.ip_forward[i]
-                        break
+        ip_forward = masquerade.ip_forward.add()
+        ip_forward.destination = destination
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_masquerade_forward(
+        self,
+        interface: str,
+        destination: IPv4Address | IPv6Address,
+        family: str = "IPV4",
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+
+        masquerade = self.require_masquerade(config, interface, family)
+        destination = str(destination)
+        for i, ip_forward in enumerate(masquerade.ip_forward):
+            if ip_forward.destination == destination:
+                del masquerade.ip_forward[i]
+                break
+        else:
+            raise InvalidArgument(
+                f"Masquerade forward for {interface} to {destination} does not exist"
+            )
 
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_masquerade_port(
         self,
         interface: str,
-        destination: IPv4Address,
+        destination: IPv4Address | IPv6Address,
         protocol: str,
         port: UInt16,
-        destination_port=None,
+        destination_port: UInt16 = None,
+        family: str = "IPV4",
     ):
-        protocol = netfilter_pb2.IPForwardProtocol.Value(protocol)
+        protocol = self.get_protocol(protocol)
         config = await self.rpc.request("netfilter/config/get")
 
-        for masquerade in config.masquerade:
-            if masquerade.interface == interface:
-                for ip_forward in masquerade.ip_forward:
-                    if ip_forward.destination == destination:
-                        port_map = ip_forward.port_map.add()
-                        port_map.port = port
-                        port_map.protocol = protocol
-                        if destination_port:
-                            port_map.destination_port = destination_port
-                        break
-                else:
-                    raise InvalidArgument("Masquerade destination does not exist")
-                break
-        else:
-            raise InvalidArgument("Masquerade interface does not exist")
+        self.check_address_family(destination, self.get_family(family))
+        masquerade = self.require_masquerade(config, interface, family)
+        ip_forward = self.require_masquerade_forward(masquerade, str(destination))
+        for port_map in ip_forward.port_map:
+            if port_map.protocol == protocol and port_map.port == str(port):
+                raise InvalidArgument(f"Masquerade port {port} already exists")
 
+        port_map = ip_forward.port_map.add()
+        port_map.protocol = protocol
+        port_map.port = str(port)
+        if destination_port is not None:
+            port_map.destination_port = str(destination_port)
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_masquerade_port(
         self,
         interface: str,
-        destination: IPv4Address,
+        destination: IPv4Address | IPv6Address,
         protocol: str,
         port: UInt16,
+        family: str = "IPV4",
     ):
-        protocol = netfilter_pb2.IPForwardProtocol.Value(protocol)
+        protocol = self.get_protocol(protocol)
         config = await self.rpc.request("netfilter/config/get")
 
-        for masquerade in config.masquerade:
-            if masquerade.interface == interface:
-                for ip_forward in masquerade.ip_forward:
-                    if ip_forward.destination == destination:
-                        for i, port_map in enumerate(ip_forward.port_map):
-                            if port_map.protocol == protocol and port_map.port == port:
-                                del ip_forward.port_map[i]
-                                break
-                        else:
-                            raise InvalidArgument("Masquerade port does not exist")
-                        break
-                else:
-                    raise InvalidArgument("Masquerade destination does not exist")
+        masquerade = self.require_masquerade(config, interface, family)
+        ip_forward = self.require_masquerade_forward(masquerade, str(destination))
+        for i, port_map in enumerate(ip_forward.port_map):
+            if port_map.protocol == protocol and port_map.port == str(port):
+                del ip_forward.port_map[i]
                 break
         else:
-            raise InvalidArgument("Masquerade interface does not exist")
+            raise InvalidArgument(f"Masquerade port {port} does not exist")
 
         await self.rpc.request("netfilter/config/update", config)
 
@@ -1235,7 +1627,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.ip[input_rule_ip_match]
-        match.source.remove(source)
+        match.source.remove(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_ip_destination(
@@ -1253,7 +1645,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.ip[input_rule_ip_match]
-        match.destination.remove(destination)
+        match.destination.remove(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_ip_protocol(
@@ -1513,7 +1905,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.tcp[input_rule_tcp_match]
-        match.source.remove(source)
+        match.source.remove(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_tcp_destination(
@@ -1531,7 +1923,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.tcp[input_rule_tcp_match]
-        match.destination.remove(destination)
+        match.destination.remove(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_udp_match(
@@ -1616,7 +2008,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.udp[input_rule_udp_match]
-        match.source.remove(source)
+        match.source.remove(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_udp_destination(
@@ -1634,7 +2026,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.udp[input_rule_udp_match]
-        match.destination.remove(destination)
+        match.destination.remove(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_icmp_match(
@@ -1737,7 +2129,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp[input_rule_icmp_match]
-        match.code.remove(code)
+        match.code.remove(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_icmp6_match(
@@ -1783,7 +2175,7 @@ class NetfilterCLI(Provider):
     async def update_input_rule_icmp6_match(
         self,
         input_rule: int,
-        input_rule_icmp6_match,
+        input_rule_icmp6_match: int,
         type: list[str] = None,
         code: list[str] = None,
         negate: bool = None,
@@ -1800,7 +2192,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_icmp6_match(
-        self, input_rule: int, input_rule_icmp6_match
+        self, input_rule: int, input_rule_icmp6_match: int
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1808,7 +2200,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_icmp6_type(
-        self, input_rule: int, input_rule_icmp6_match, type: str
+        self, input_rule: int, input_rule_icmp6_match: int, type: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1817,7 +2209,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_icmp6_type(
-        self, input_rule: int, input_rule_icmp6_match, type: str
+        self, input_rule: int, input_rule_icmp6_match: int, type: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1826,7 +2218,7 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_icmp6_code(
-        self, input_rule: int, input_rule_icmp6_match, code: str
+        self, input_rule: int, input_rule_icmp6_match: int, code: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
@@ -1835,12 +2227,12 @@ class NetfilterCLI(Provider):
         await self.rpc.request("netfilter/config/update", config)
 
     async def remove_input_rule_icmp6_code(
-        self, input_rule: int, input_rule_icmp6_match, code: str
+        self, input_rule: int, input_rule_icmp6_match: int, code: str
     ):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.icmp6[input_rule_icmp6_match]
-        match.code.remove(code)
+        match.code.remove(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_input_rule_ct_match(
@@ -1922,6 +2314,7 @@ class NetfilterCLI(Provider):
         self,
         input_rule: int,
         input_interface: list[str] = [],
+        output_interface: list[str] = [],
         protocol: list[str] = [],
         negate: bool = False,
     ):
@@ -1929,6 +2322,7 @@ class NetfilterCLI(Provider):
         rule = config.input.rule[input_rule]
         match = rule.meta.add()
         match.input_interface.extend(input_interface)
+        match.output_interface.extend(output_interface)
         match.protocol.extend(protocol)
         match.negate = negate
         await self.rpc.request("netfilter/config/update", config)
@@ -1976,6 +2370,7 @@ class NetfilterCLI(Provider):
         input_rule: int,
         input_rule_meta_match: int,
         input_interface: list[str] = None,
+        output_interface: list[str] = None,
         protocol: list[str] = None,
         negate: bool = None,
     ):
@@ -1984,6 +2379,8 @@ class NetfilterCLI(Provider):
         match = rule.meta[input_rule_meta_match]
         if input_interface is not None:
             match.input_interface.extend(input_interface)
+        if output_interface is not None:
+            match.output_interface.extend(output_interface)
         if protocol is not None:
             match.protocol.extend(protocol)
         if negate is not None:
@@ -2016,6 +2413,24 @@ class NetfilterCLI(Provider):
         match.input_interface.remove(input_interface)
         await self.rpc.request("netfilter/config/update", config)
 
+    async def add_input_rule_meta_output_interface(
+        self, input_rule: int, input_rule_meta_match: int, output_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.input.rule[input_rule]
+        match = rule.meta[input_rule_meta_match]
+        match.output_interface.append(output_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_input_rule_meta_output_interface(
+        self, input_rule: int, input_rule_meta_match: int, output_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.input.rule[input_rule]
+        match = rule.meta[input_rule_meta_match]
+        match.output_interface.remove(output_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
     async def add_input_rule_meta_protocol(
         self, input_rule: int, input_rule_meta_match: int, protocol: str
     ):
@@ -2031,6 +2446,757 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.input.rule[input_rule]
         match = rule.meta[input_rule_meta_match]
+        match.protocol.remove(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip_match(
+        self,
+        duplicate_rule: int,
+        source: list[IPv4Network | IPv6Network] = [],
+        destination: list[IPv4Network | IPv6Network] = [],
+        protocol: list[str] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip.add()
+        for network in source:
+            match.source.append(str(network))
+        for network in destination:
+            match.destination.append(str(network))
+        match.protocol.extend(protocol)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_ip_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.ip):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_ip_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip_match: int,
+        source: list[IPv4Network | IPv6Network] = None,
+        destination: list[IPv4Network | IPv6Network] = None,
+        protocol: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        if source is not None:
+            for network in source:
+                match.source.append(str(network))
+        if destination is not None:
+            for network in destination:
+                match.destination.append(str(network))
+        if protocol is not None:
+            match.protocol.extend(protocol)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip_match(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.ip[duplicate_rule_ip_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip_source(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, source: IPv4Network
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.source.append(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip_source(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, source: IPv4Network
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.source.remove(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip_destination(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, destination: IPv4Network
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.destination.append(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip_destination(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, destination: IPv4Network
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.destination.remove(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip_protocol(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.protocol.append(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip_protocol(
+        self, duplicate_rule: int, duplicate_rule_ip_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip[duplicate_rule_ip_match]
+        match.protocol.remove(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip6_match(
+        self,
+        duplicate_rule: int,
+        source: list[IPv4Network | IPv6Address] = [],
+        destination: list[IPv4Network | IPv6Address] = [],
+        protocol: list[str] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6.add()
+        for network in source:
+            match.source.append(str(network))
+        for network in destination:
+            match.destination.append(str(network))
+        match.protocol.extend(protocol)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_ip6_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.ip6):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_ip6_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip6_match: int,
+        source: list[IPv4Network | IPv6Network] = None,
+        destination: list[IPv4Network | IPv6Network] = None,
+        protocol: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        if source is not None:
+            for network in source:
+                match.source.append(str(network))
+        if destination is not None:
+            for network in destination:
+                match.destination.append(str(network))
+        if protocol is not None:
+            match.protocol.extend(protocol)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip6_match(
+        self, duplicate_rule: int, duplicate_rule_ip6_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.ip6[duplicate_rule_ip6_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip6_source(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip6_match: int,
+        source: IPv4Network | IPv6Network,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.source.append(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip6_source(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip6_match: int,
+        source: IPv4Network | IPv6Network,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.source.remove(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip6_destination(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip6_match: int,
+        destination: IPv4Network | IPv6Network,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.destination.append(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip6_destination(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ip6_match: int,
+        destination: IPv4Network | IPv6Network,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.destination.remove(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ip6_protocol(
+        self, duplicate_rule: int, duplicate_rule_ip6_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.protocol.append(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ip6_protocol(
+        self, duplicate_rule: int, duplicate_rule_ip6_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ip6[duplicate_rule_ip6_match]
+        match.protocol.remove(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_tcp_match(
+        self,
+        duplicate_rule: int,
+        source: list[int] = [],
+        destination: list[int] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp.add()
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_tcp_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.tcp):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_tcp_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_tcp_match: int,
+        source: list[int] = None,
+        destination: list[int] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp[duplicate_rule_tcp_match]
+        if source is not None:
+            match.source.extend(str(port) for port in source)
+        if destination is not None:
+            match.destination.extend(str(port) for port in destination)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_tcp_match(
+        self, duplicate_rule: int, duplicate_rule_tcp_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.tcp[duplicate_rule_tcp_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_tcp_source(
+        self, duplicate_rule: int, duplicate_rule_tcp_match: int, source: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp[duplicate_rule_tcp_match]
+        match.source.append(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_tcp_source(
+        self, duplicate_rule: int, duplicate_rule_tcp_match: int, source: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp[duplicate_rule_tcp_match]
+        match.source.remove(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_tcp_destination(
+        self, duplicate_rule: int, duplicate_rule_tcp_match: int, destination: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp[duplicate_rule_tcp_match]
+        match.destination.append(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_tcp_destination(
+        self, duplicate_rule: int, duplicate_rule_tcp_match: int, destination: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.tcp[duplicate_rule_tcp_match]
+        match.destination.remove(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_udp_match(
+        self,
+        duplicate_rule: int,
+        source: list[int] = [],
+        destination: list[int] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp.add()
+        match.source.extend(str(port) for port in source)
+        match.destination.extend(str(port) for port in destination)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_udp_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.udp):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_udp_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_udp_match: int,
+        source: list[int] = None,
+        destination: list[int] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp[duplicate_rule_udp_match]
+        if source is not None:
+            match.source.extend(str(port) for port in source)
+        if destination is not None:
+            match.destination.extend(str(port) for port in destination)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_udp_match(
+        self, duplicate_rule: int, duplicate_rule_udp_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.udp[duplicate_rule_udp_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_udp_source(
+        self, duplicate_rule: int, duplicate_rule_udp_match: int, source: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp[duplicate_rule_udp_match]
+        match.source.append(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_udp_source(
+        self, duplicate_rule: int, duplicate_rule_udp_match: int, source: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp[duplicate_rule_udp_match]
+        match.source.remove(str(source))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_udp_destination(
+        self, duplicate_rule: int, duplicate_rule_udp_match: int, destination: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp[duplicate_rule_udp_match]
+        match.destination.append(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_udp_destination(
+        self, duplicate_rule: int, duplicate_rule_udp_match: int, destination: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.udp[duplicate_rule_udp_match]
+        match.destination.remove(str(destination))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp_match(
+        self,
+        duplicate_rule: int,
+        type: list[str] = [],
+        code: list[str] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp.add()
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_icmp_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.icmp):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_icmp_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_icmp_match: int,
+        type: list[str] = None,
+        code: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp[duplicate_rule_icmp_match]
+        if type is not None:
+            match.type.extend(type)
+        if code is not None:
+            match.code.extend(int(value) for value in code)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp_match(
+        self, duplicate_rule: int, duplicate_rule_icmp_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.icmp[duplicate_rule_icmp_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp_type(
+        self, duplicate_rule: int, duplicate_rule_icmp_match: int, type: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp[duplicate_rule_icmp_match]
+        match.type.append(type)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp_type(
+        self, duplicate_rule: int, duplicate_rule_icmp_match: int, type: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp[duplicate_rule_icmp_match]
+        match.type.remove(type)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp_code(
+        self, duplicate_rule: int, duplicate_rule_icmp_match: int, code: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp[duplicate_rule_icmp_match]
+        match.code.append(int(code))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp_code(
+        self, duplicate_rule: int, duplicate_rule_icmp_match: int, code: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp[duplicate_rule_icmp_match]
+        match.code.remove(int(code))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp6_match(
+        self,
+        duplicate_rule: int,
+        type: list[str] = [],
+        code: list[str] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6.add()
+        match.type.extend(type)
+        match.code.extend(int(value) for value in code)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_icmp6_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.icmp6):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_icmp6_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_icmp6_match: int,
+        type: list[str] = None,
+        code: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6[duplicate_rule_icmp6_match]
+        if type is not None:
+            match.type.extend(type)
+        if code is not None:
+            match.code.extend(int(value) for value in code)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp6_match(
+        self, duplicate_rule: int, duplicate_rule_icmp6_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.icmp6[duplicate_rule_icmp6_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp6_type(
+        self, duplicate_rule: int, duplicate_rule_icmp6_match: int, type: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6[duplicate_rule_icmp6_match]
+        match.type.append(type)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp6_type(
+        self, duplicate_rule: int, duplicate_rule_icmp6_match: int, type: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6[duplicate_rule_icmp6_match]
+        match.type.remove(type)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_icmp6_code(
+        self, duplicate_rule: int, duplicate_rule_icmp6_match: int, code: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6[duplicate_rule_icmp6_match]
+        match.code.append(int(code))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_icmp6_code(
+        self, duplicate_rule: int, duplicate_rule_icmp6_match: int, code: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.icmp6[duplicate_rule_icmp6_match]
+        match.code.remove(int(code))
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ct_match(
+        self, duplicate_rule: int, state: list[str] = [], negate: bool = False
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ct.add()
+        match.state.extend(state)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_ct_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.ct):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_ct_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_ct_match: int,
+        state: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ct[duplicate_rule_ct_match]
+        if state is not None:
+            match.state.extend(state)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ct_match(
+        self, duplicate_rule: int, duplicate_rule_ct_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.ct[duplicate_rule_ct_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_ct_state(
+        self, duplicate_rule: int, duplicate_rule_ct_match: int, state: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ct[duplicate_rule_ct_match]
+        match.state.append(state)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_ct_state(
+        self, duplicate_rule: int, duplicate_rule_ct_match: int, state: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.ct[duplicate_rule_ct_match]
+        match.state.remove(state)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_meta_match(
+        self,
+        duplicate_rule: int,
+        input_interface: list[str] = [],
+        output_interface: list[str] = [],
+        protocol: list[str] = [],
+        negate: bool = False,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta.add()
+        match.input_interface.extend(input_interface)
+        match.output_interface.extend(output_interface)
+        match.protocol.extend(protocol)
+        match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def list_duplicate_meta_match(self, duplicate_rule: int):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        for i, match in enumerate(rule.meta):
+            s += f"{i}:\n{textwrap.indent(str(match), '    ')}"
+        return s
+
+    async def update_duplicate_meta_match(
+        self,
+        duplicate_rule: int,
+        duplicate_rule_meta_match: int,
+        input_interface: list[str] = None,
+        output_interface: list[str] = None,
+        protocol: list[str] = None,
+        negate: bool = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        if input_interface is not None:
+            match.input_interface.extend(input_interface)
+        if output_interface is not None:
+            match.output_interface.extend(output_interface)
+        if protocol is not None:
+            match.protocol.extend(protocol)
+        if negate is not None:
+            match.negate = negate
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_meta_match(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        del rule.meta[duplicate_rule_meta_match]
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_meta_input_interface(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, input_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        match.input_interface.append(input_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_meta_input_interface(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, input_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        match.input_interface.remove(input_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_meta_output_interface(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, output_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        match.output_interface.append(output_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_meta_output_interface(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, output_interface: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        match.output_interface.remove(output_interface)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def add_duplicate_meta_protocol(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
+        match.protocol.append(protocol)
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate_meta_protocol(
+        self, duplicate_rule: int, duplicate_rule_meta_match: int, protocol: str
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        rule = config.duplicate[duplicate_rule]
+        match = rule.meta[duplicate_rule_meta_match]
         match.protocol.remove(protocol)
         await self.rpc.request("netfilter/config/update", config)
 
@@ -2055,6 +3221,192 @@ class NetfilterCLI(Provider):
         rule.description = description
         rule.verdict = verdict
         await self.rpc.request("netfilter/config/update", config)
+
+    async def complete_duplicate(self):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        for order, duplicate_rule in enumerate(config.duplicate):
+            completions.append(
+                Completion(str(order), display="%s %s" % (order, duplicate_rule.description))
+            )
+        return completions
+
+    async def complete_duplicate_ip_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.ip):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.protocol:
+                desc += "protocol=%s " % ",".join(match.protocol)
+            if match.source:
+                desc += "source=%s " % ",".join(match.source)
+            if match.destination:
+                desc += "destination=%s " % ",".join(match.destination)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_ip_match_protocol(
+        self, duplicate_rule: int = None, duplicate_rule_ip_match: int = None
+    ):
+        if duplicate_rule is None or duplicate_rule_ip_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule >= len(config.duplicate):
+            return []
+        duplicate_rule = config.duplicate[duplicate_rule]
+        if duplicate_rule_ip_match >= len(duplicate_rule.ip):
+            return []
+        return list(duplicate_rule.ip[duplicate_rule_ip_match].protocol)
+
+    async def complete_duplicate_ip6_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.ip6):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.protocol:
+                desc += "protocol=%s " % ",".join(match.protocol)
+            if match.source:
+                desc += "source=%s " % ",".join(match.source)
+            if match.destination:
+                desc += "destination=%s " % ",".join(match.destination)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_ip6_match_protocol(
+        self, duplicate_rule: int = None, duplicate_rule_ip6_match: int = None
+    ):
+        if duplicate_rule is None or duplicate_rule_ip6_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule >= len(config.duplicate):
+            return []
+        duplicate_rule = config.duplicate[duplicate_rule]
+        if duplicate_rule_ip6_match >= len(duplicate_rule.ip6):
+            return []
+        return list(duplicate_rule.ip6[duplicate_rule_ip6_match].protocol)
+
+    async def complete_duplicate_tcp_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.tcp):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.source:
+                desc += "source=%s " % ",".join(match.source)
+            if match.destination:
+                desc += "destination=%s " % ",".join(match.destination)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_udp_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.udp):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.source:
+                desc += "source=%s " % ",".join(match.source)
+            if match.destination:
+                desc += "destination=%s " % ",".join(match.destination)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_icmp_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.icmp):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.type:
+                desc += "type=%s " % ",".join(match.type)
+            if match.code:
+                desc += "code=%s " % ",".join(match.code)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_icmp6_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.icmp6):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.type:
+                desc += "type=%s " % ",".join(match.type)
+            if match.code:
+                desc += "code=%s " % ",".join(match.code)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_ct_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.ct):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.state:
+                desc += "state=%s " % ",".join(match.state)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_meta_match(self, duplicate_rule: int = None):
+        completions = []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule is None or duplicate_rule >= len(config.duplicate):
+            return completions
+        duplicate_rule = config.duplicate[duplicate_rule]
+        for order, match in enumerate(duplicate_rule.meta):
+            desc = ""
+            if match.negate:
+                desc += "! "
+            if match.input_interface:
+                desc += "input-interface=%s " % ",".join(match.input_interface)
+            if match.protocol:
+                desc += "protocol=%s " % ",".join(match.protocol)
+            completions.append(Completion(str(order), display="%s %s" % (order, desc)))
+        return completions
+
+    async def complete_duplicate_meta_match_protocol(
+        self, duplicate_rule: int = None, duplicate_rule_meta_match: int = None
+    ):
+        if duplicate_rule is None or duplicate_rule_meta_match is None:
+            return []
+        config = await self.rpc.request("netfilter/config/get")
+        if duplicate_rule >= len(config.duplicate):
+            return []
+        duplicate_rule = config.duplicate[duplicate_rule]
+        if duplicate_rule_meta_match >= len(duplicate_rule.meta):
+            return []
+        return list(duplicate_rule.meta[duplicate_rule_meta_match].protocol)
 
     async def complete_forward_rule(self):
         completions = []
@@ -2217,7 +3569,7 @@ class NetfilterCLI(Provider):
         forward_rule_ip_match: int,
         source: list[IPv4Network | IPv6Address] = [],
         destination: list[IPv4Network | IPv6Address] = [],
-        protocol: list[str] = [],
+        protocol: list[str] = None,
         negate: bool = False,
     ):
         config = await self.rpc.request("netfilter/config/get")
@@ -2538,7 +3890,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.tcp[forward_rule_tcp_match]
-        match.source.remove(source)
+        match.source.remove(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_tcp_destination(
@@ -2556,7 +3908,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.tcp[forward_rule_tcp_match]
-        match.destination.remove(destination)
+        match.destination.remove(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_udp_match(
@@ -2641,7 +3993,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.udp[forward_rule_udp_match]
-        match.source.remove(source)
+        match.source.remove(str(source))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_udp_destination(
@@ -2659,7 +4011,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.udp[forward_rule_udp_match]
-        match.destination.remove(destination)
+        match.destination.remove(str(destination))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_icmp_match(
@@ -2762,7 +4114,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp[forward_rule_icmp_match]
-        match.code.remove(code)
+        match.code.remove(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_icmp6_match(
@@ -2865,7 +4217,7 @@ class NetfilterCLI(Provider):
         config = await self.rpc.request("netfilter/config/get")
         rule = config.forward.rule[forward_rule]
         match = rule.icmp6[forward_rule_icmp6_match]
-        match.code.remove(code)
+        match.code.remove(int(code))
         await self.rpc.request("netfilter/config/update", config)
 
     async def add_forward_rule_ct_match(
@@ -3083,3 +4435,56 @@ class NetfilterCLI(Provider):
         match = rule.meta[forward_rule_meta_match]
         match.protocol.remove(protocol)
         await self.rpc.request("netfilter/config/update", config)
+    async def list_duplicates(self):
+        s = ""
+        config = await self.rpc.request("netfilter/config/get")
+        for i, duplicate in enumerate(config.duplicate):
+            s += f"{i}:\n{textwrap.indent(str(duplicate), '    ')}"
+        return s
+
+    async def add_duplicate(
+        self,
+        destination: IPv4Address | IPv6Address,
+        family: str = "IPV4",
+        interface: str = None,
+        description: str = None,
+    ):
+        self.check_address_family(destination, self.get_family(family))
+        config = await self.rpc.request("netfilter/config/get")
+        duplicate = config.duplicate.add()
+        duplicate.family = self.get_family(family)
+        duplicate.destination = str(destination)
+        if interface is not None:
+            duplicate.interface = interface
+        if description is not None:
+            duplicate.description = description
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def update_duplicate(
+        self,
+        duplicate_rule: int,
+        destination: IPv4Address | IPv6Address = None,
+        family: str = None,
+        interface: str = None,
+        description: str = None,
+    ):
+        config = await self.rpc.request("netfilter/config/get")
+        duplicate = config.duplicate[duplicate_rule]
+        if family is not None:
+            duplicate.family = self.get_family(family)
+        if destination is not None:
+            duplicate.destination = str(destination)
+        self.check_address_family(
+            ip_address(duplicate.destination), duplicate.family
+        )
+        if interface is not None:
+            duplicate.interface = interface
+        if description is not None:
+            duplicate.description = description
+        await self.rpc.request("netfilter/config/update", config)
+
+    async def remove_duplicate(self, duplicate_rule: int):
+        config = await self.rpc.request("netfilter/config/get")
+        del config.duplicate[duplicate_rule]
+        await self.rpc.request("netfilter/config/update", config)
+

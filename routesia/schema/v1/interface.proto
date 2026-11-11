@@ -58,6 +58,24 @@ message InterfaceLink {
   string token = 9;
 }
 
+// TCP MSS clamping
+//
+message MSSClamp {
+  enum Family {
+    ALL = 0;
+    IPV4 = 1;
+    IPV6 = 2;
+  }
+
+  // Path MTU in bytes. The TCP MSS is derived from it.
+  //
+  uint32 mtu = 1;
+
+  // Address family to clamp
+  //
+  Family family = 2;
+}
+
 // Bridge configuration
 //
 message BridgeInterfaceConfig {
@@ -197,6 +215,10 @@ message InterfaceConfig {
   // Link config parameters
   //
   InterfaceLink link = 3;
+
+  // TCP MSS clamp for packets leaving this interface
+  //
+  MSSClamp mss_clamp = 4;
 
   // Type-specific options
   //

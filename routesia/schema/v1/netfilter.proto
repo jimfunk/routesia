@@ -54,12 +54,52 @@ message IPForward {
 
 // Masquerade configuration
 //
+// Address family
+//
+enum AddressFamily {
+    IPV4 = 0;
+    IPV6 = 1;
+}
+
 message Masquerade {
     // Interface name
     //
     string interface = 1;
 
     repeated IPForward ip_forward = 2;
+
+    // Address family
+    //
+    AddressFamily family = 3;
+}
+
+message DuplicateRule {
+    // Description
+    //
+    string description = 1;
+
+    // Address family
+    //
+    AddressFamily family = 2;
+
+    // Destination address of the copy
+    //
+    string destination = 3;
+
+    // Interface the copy is sent out of. If empty, the route is used.
+    //
+    string interface = 4;
+
+    // Matches
+    //
+    repeated IPMatch ip = 10;
+    repeated IP6Match ip6 = 11;
+    repeated TCPMatch tcp = 12;
+    repeated UDPMatch udp = 13;
+    repeated ICMPMatch icmp = 14;
+    repeated ICMP6Match icmp6 = 15;
+    repeated CTMatch ct = 16;
+    repeated MetaMatch meta = 17;
 }
 
 
@@ -281,13 +321,11 @@ message Forward {
 // Netfilter module config
 //
 message NetfilterConfig {
-    /**
-     * Enable netfilter
-     */
-    bool enabled = 1;
+    reserved 1;
 
     repeated Zone zone = 2;
     repeated Masquerade masquerade = 3;
     Input input = 4;
     Forward forward = 5;
+    repeated DuplicateRule duplicate = 6;
 }

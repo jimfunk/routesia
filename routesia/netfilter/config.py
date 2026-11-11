@@ -4,7 +4,7 @@ routesia/interface/config.py - Netfilter config
 
 import logging
 
-from routesia.schema.v1 import netfilter_pb2
+from routesia.schema.v1 import interface_pb2, netfilter_pb2
 
 logger = logging.getLogger("netfilter")
 
@@ -66,6 +66,18 @@ class Rule:
                     zone_output_interfaces.add(interface)
         if zone_output_interfaces:
             s += self.make_rule_match("meta", "oifname", zone_output_interfaces, False)
+
+        s += self.make_matches()
+        s += self.verdict_map[self.config.verdict]
+
+        if self.config.description:
+            s += ' comment "%s"' % self.config.description
+
+        return s
+
+
+    def make_matches(self):
+        s = ""
 
         for match in self.config.ip:
             s += self.make_rule_match(
@@ -143,11 +155,6 @@ class Rule:
                 "meta", "protocol", self.get_value_set(match.protocol), match.negate
             )
 
-        s += self.verdict_map[self.config.verdict]
-
-        if self.config.description:
-            s += ' comment "%s"' % self.config.description
-
         return s
 
 
@@ -160,9 +167,18 @@ class MasqueradeRule:
 
 
 class PortForwardRule:
-    def __init__(self, interface, config):
+    def __init__(self, interface, family, config):
         self.interface = interface
+        self.family = family
         self.config = config
+        if family == "ip6":
+            self.protocol_match = "ip6 nexthdr"
+            self.dnat = "dnat ip6 addr . port"
+            self.dnat_to = "dnat ip6 to"
+        else:
+            self.protocol_match = "ip protocol"
+            self.dnat = "dnat ip addr . port"
+            self.dnat_to = "dnat to"
 
     def __str__(self):
         rules = []
@@ -180,17 +196,43 @@ class PortForwardRule:
                     sctp_ports[port_map.port] = port_map.destination_port if port_map.destination_port else port_map.port
             if udp_ports:
                 map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in udp_ports.items()])
-                rules.append(f'iifname "{self.interface}" ip protocol udp dnat ip addr . port to udp dport map {{ {map} }}')
+                rules.append(f'iifname "{self.interface}" {self.protocol_match} udp {self.dnat} to udp dport map {{ {map} }}')
             if tcp_ports:
                 map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in tcp_ports.items()])
-                rules.append(f'iifname "{self.interface}" ip protocol tcp dnat ip addr . port to tcp dport map {{ {map} }}')
+                rules.append(f'iifname "{self.interface}" {self.protocol_match} tcp {self.dnat} to tcp dport map {{ {map} }}')
             if sctp_ports:
                 map = ", ".join([f"{port} : {self.config.destination} . {dest_port}" for port, dest_port in sctp_ports.items()])
-                rules.append(f'iifname "{self.interface}" ip protocol sctp dnat ip addr . port to sctp dport map {{ {map} }}')
+                rules.append(f'iifname "{self.interface}" {self.protocol_match} sctp {self.dnat} to sctp dport map {{ {map} }}')
         else:
-            rules.append(f'iifname "{self.interface}" dnat to {self.config.destination}')
+            rules.append(f'iifname "{self.interface}" {self.dnat_to} {self.config.destination}')
 
         return "\n".join(rules)
+
+
+class MSSClampRule:
+    def __init__(self, interface, mss):
+        self.interface = interface
+        self.mss = mss
+
+    def __str__(self):
+        return (
+            f'meta oifname "{self.interface}" tcp flags syn '
+            f"tcp option maxseg size set {self.mss}"
+        )
+
+
+class DuplicateRule(Rule):
+    def __init__(self, config):
+        super().__init__(config, {})
+
+    def __str__(self):
+        s = self.make_matches()
+        s += "dup to %s" % self.config.destination
+        if self.config.interface:
+            s += ' device "%s"' % self.config.interface
+        if self.config.description:
+            s += ' comment "%s"' % self.config.description
+        return s
 
 
 class Chain:
@@ -239,8 +281,9 @@ class Table:
 
 
 class NetfilterConfig:
-    def __init__(self, config):
+    def __init__(self, config, interfaces=None):
         self.config = config
+        self.interfaces = interfaces
         self.zones = {}
         self.masquerade_interfaces = {}
         self.tables = {}
@@ -252,41 +295,106 @@ class NetfilterConfig:
             s += "%s\n" % table
         return s
 
+    def has_content(self):
+        return bool(self.tables)
+
     def load(self):
         for zone_config in self.config.zone:
             self.zones[zone_config.name] = Zone(zone_config)
 
-        if self.config.masquerade:
-            nat_table = Table("nat", "ip")
-            self.tables[("ip", "nat")] = nat_table
+        for masquerade in self.config.masquerade:
+            if masquerade.family == netfilter_pb2.IPV6:
+                family = "ip6"
+            else:
+                family = "ip"
 
-            prerouting = Chain("prerouting", "nat", "prerouting", 0, "accept")
-            nat_table.add_chain(prerouting)
-            postrouting = Chain("postrouting", "nat", "postrouting", 100, "accept")
-            nat_table.add_chain(postrouting)
+            if (family, "nat") not in self.tables:
+                nat_table = Table("nat", family)
+                self.tables[(family, "nat")] = nat_table
+                nat_table.add_chain(
+                    Chain("prerouting", "nat", "prerouting", 0, "accept")
+                )
+                nat_table.add_chain(
+                    Chain("postrouting", "nat", "postrouting", 100, "accept")
+                )
 
-            for masquerade in self.config.masquerade:
-                postrouting.add_rule(MasqueradeRule(masquerade))
+            nat_table = self.tables[(family, "nat")]
+            nat_table.chains["postrouting"].add_rule(MasqueradeRule(masquerade))
 
-                for ip_forward in masquerade.ip_forward:
-                    prerouting.add_rule(PortForwardRule(masquerade.interface, ip_forward))
-
-        filter_table = Table("filter", "inet")
+            for ip_forward in masquerade.ip_forward:
+                nat_table.chains["prerouting"].add_rule(
+                    PortForwardRule(masquerade.interface, family, ip_forward)
+                )
 
         input_policy = (
             "drop" if self.config.input.policy == netfilter_pb2.DROP else "accept"
         )
-        input_chain = Chain("input", "filter", "input", 0, input_policy)
-        for rule_config in self.config.input.rule:
-            input_chain.add_rule(Rule(rule_config, self.zones))
-        filter_table.add_chain(input_chain)
-
         forward_policy = (
             "drop" if self.config.forward.policy == netfilter_pb2.DROP else "accept"
         )
-        forward_chain = Chain("forward", "filter", "forward", 0, forward_policy)
-        for rule_config in self.config.forward.rule:
-            forward_chain.add_rule(Rule(rule_config, self.zones))
-        filter_table.add_chain(forward_chain)
 
-        self.tables[("inet", "filter")] = filter_table
+        if (
+            self.config.input.rule
+            or self.config.forward.rule
+            or input_policy == "drop"
+            or forward_policy == "drop"
+        ):
+            filter_table = Table("filter", "inet")
+
+            input_chain = Chain("input", "filter", "input", 0, input_policy)
+            for rule_config in self.config.input.rule:
+                input_chain.add_rule(Rule(rule_config, self.zones))
+            filter_table.add_chain(input_chain)
+
+            forward_chain = Chain("forward", "filter", "forward", 0, forward_policy)
+            for rule_config in self.config.forward.rule:
+                forward_chain.add_rule(Rule(rule_config, self.zones))
+            filter_table.add_chain(forward_chain)
+
+            self.tables[("inet", "filter")] = filter_table
+
+        for family in ("ip", "ip6"):
+            duplicates = []
+            for duplicate_config in self.config.duplicate:
+                if (duplicate_config.family == netfilter_pb2.IPV6) == (family == "ip6"):
+                    duplicates.append(duplicate_config)
+
+            mss_clamps = self.get_mss_clamps(family)
+
+            if not duplicates and not mss_clamps:
+                continue
+
+            mangle_table = Table("mangle", family)
+            self.tables[(family, "mangle")] = mangle_table
+
+            if duplicates:
+                prerouting = Chain("prerouting", "filter", "prerouting", "mangle", "accept")
+                mangle_table.add_chain(prerouting)
+                for duplicate_config in duplicates:
+                    prerouting.add_rule(DuplicateRule(duplicate_config))
+
+            if mss_clamps:
+                postrouting = Chain("postrouting", "filter", "postrouting", 0, "accept")
+                mangle_table.add_chain(postrouting)
+                for interface, mss in mss_clamps:
+                    postrouting.add_rule(MSSClampRule(interface, mss))
+
+    def get_mss_clamps(self, family):
+        clamps = []
+        if self.interfaces is None:
+            return clamps
+        if family == "ip6":
+            offset = 60
+        else:
+            offset = 40
+
+        for interface in self.interfaces.interface:
+            clamp = interface.mss_clamp
+            if not clamp.mtu:
+                continue
+            if clamp.family == interface_pb2.MSSClamp.IPV4 and family != "ip":
+                continue
+            if clamp.family == interface_pb2.MSSClamp.IPV6 and family != "ip6":
+                continue
+            clamps.append((interface.name, clamp.mtu - offset))
+        return clamps

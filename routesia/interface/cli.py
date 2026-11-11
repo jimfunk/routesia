@@ -30,6 +30,9 @@ class InterfaceCLI(Provider):
         self.cli.add_argument_completer(
             "link.addrgenmode", self.complete_link_addrgenmode
         )
+        self.cli.add_argument_completer(
+            "mss_clamp.family", self.complete_mss_clamp_family
+        )
 
         self.cli.add_command("interface show", self.show_interface)
         self.cli.add_command(
@@ -51,6 +54,8 @@ class InterfaceCLI(Provider):
             "@link.master "
             "@link.addrgenmode "
             "@link.token "
+            "@mss_clamp.mtu "
+            "@mss_clamp.family "
             "@bridge.ageing_time "
             "@bridge.forward_delay "
             "@bridge.hello_time "
@@ -89,6 +94,8 @@ class InterfaceCLI(Provider):
             "@link.master "
             "@link.addrgenmode "
             "@link.token "
+            "@mss_clamp.mtu "
+            "@mss_clamp.family "
             "@bridge.ageing_time "
             "@bridge.forward_delay "
             "@bridge.hello_time "
@@ -142,6 +149,9 @@ class InterfaceCLI(Provider):
 
     async def complete_link_addrgenmode(self):
         return interface_pb2.InterfaceLink.AddrGenMode.keys()
+
+    async def complete_mss_clamp_family(self):
+        return interface_pb2.MSSClamp.Family.keys()
 
     async def show_interface(self, interface: str | None = None):
         interfaces = await self.rpc.request("interface/list")
@@ -205,6 +215,8 @@ class InterfaceCLI(Provider):
         link_master: str = None,
         link_addrgenmode: str = None,
         link_token: str = None,
+        mss_clamp_mtu: UInt32 = None,
+        mss_clamp_family: str = None,
         bridge_ageing_time: UInt32 = None,
         bridge_forward_delay: UInt32 = None,
         bridge_hello_time: UInt32 = None,
@@ -250,6 +262,12 @@ class InterfaceCLI(Provider):
             )
         if link_token is not None:
             config.link.token = link_token
+        if mss_clamp_mtu is not None:
+            config.mss_clamp.mtu = mss_clamp_mtu
+        if mss_clamp_family is not None:
+            config.mss_clamp.family = interface_pb2.MSSClamp.Family.Value(
+                mss_clamp_family
+            )
         if bridge_ageing_time is not None:
             config.bridge.ageing_time = bridge_ageing_time
         if bridge_forward_delay is not None:
@@ -316,6 +334,8 @@ class InterfaceCLI(Provider):
         link_master: str = None,
         link_addrgenmode: str = None,
         link_token: str = None,
+        mss_clamp_mtu: UInt32 = None,
+        mss_clamp_family: str = None,
         bridge_ageing_time: UInt32 = None,
         bridge_forward_delay: UInt32 = None,
         bridge_hello_time: UInt32 = None,
@@ -369,6 +389,12 @@ class InterfaceCLI(Provider):
             )
         if link_token is not None:
             config.link.token = link_token
+        if mss_clamp_mtu is not None:
+            config.mss_clamp.mtu = mss_clamp_mtu
+        if mss_clamp_family is not None:
+            config.mss_clamp.family = interface_pb2.MSSClamp.Family.Value(
+                mss_clamp_family
+            )
         if bridge_ageing_time is not None:
             config.bridge.ageing_time = bridge_ageing_time
         if bridge_forward_delay is not None:

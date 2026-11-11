@@ -31,14 +31,16 @@ class NetfilterProvider(Provider):
         self.apply()
 
     def apply(self):
-        if not self.config.data.netfilter.enabled:
+        config = NetfilterConfig(
+            self.config.data.netfilter, self.config.data.interfaces
+        )
+        if not config.has_content():
             if self.applied:
-                # Just disabled
                 self.flush()
+                self.applied = False
             return
 
         logger.info("Applying nftables")
-        config = NetfilterConfig(self.config.data.netfilter)
         self.nft.cmd(str(config))
         self.applied = True
 
