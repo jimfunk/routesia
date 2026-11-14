@@ -87,8 +87,11 @@ class ConfigProvider(Provider):
 
     def save_config(self):
         self.version = self.data.system.version
-        with open(self.config_file, "w") as f:
+        fd = os.open(self.config_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             f.write(str(self.data))
+        # The mode passed to os.open only applies when the file is created
+        os.chmod(self.config_file, 0o600)
 
     def load_config(self):
         with open(self.config_file) as f:
