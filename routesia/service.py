@@ -297,7 +297,6 @@ class Service(Provider):
 
     def publish_event(self, event: Event):
         "Publish an event to listening providers"
-        logger.debug(f"Publishing event: {event}")
         self.eventqueue.put(event)
 
     def handle_eventqueue(self):
@@ -316,7 +315,6 @@ class Service(Provider):
 
     async def handle_event(self, event):
         "Handle an event. Only called in the main thread"
-        logger.debug(f"Handling event: {event}")
         if event.__class__ in self.event_registry:
             for subscriber in self.event_registry[event.__class__]:
                 try:
