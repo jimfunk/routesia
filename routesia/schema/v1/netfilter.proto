@@ -321,7 +321,7 @@ message Forward {
 // Netfilter module config
 //
 message NetfilterConfig {
-    reserved 1;
+    bool enabled = 1 [deprecated = true];
 
     repeated Zone zone = 2;
     repeated Masquerade masquerade = 3;
