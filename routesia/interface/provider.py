@@ -17,6 +17,7 @@ from routesia.rtnetlink.events import InterfaceAddEvent, InterfaceRemoveEvent
 from routesia.rtnetlink.provider import IPRouteProvider
 from routesia.schema.v1 import interface_pb2
 from routesia.service import Service
+from routesia.systemd import SystemdProvider
 
 
 logger = logging.getLogger("interface")
@@ -45,11 +46,13 @@ class InterfaceProvider(Provider):
         iproute: IPRouteProvider,
         config: ConfigProvider,
         rpc: RPC,
+        systemd: SystemdProvider,
     ):
         self.service = service
         self.iproute = iproute
         self.config = config
         self.rpc = rpc
+        self.systemd = systemd
         self.interfaces = {}
         self.interface_dependencies = {}
         self.running = False
@@ -65,6 +68,7 @@ class InterfaceProvider(Provider):
         self.rpc.register("interface/config/add", self.rpc_add_interface_config)
         self.rpc.register("interface/config/update", self.rpc_update_interface_config)
         self.rpc.register("interface/config/delete", self.rpc_delete_interface_config)
+        self.rpc.register("interface/pppoe/event", self.rpc_pppoe_event)
 
     def on_config_change(self, config):
         new_interfaces = {}
@@ -158,6 +162,11 @@ class InterfaceProvider(Provider):
         "Set dynamic interface config"
         if ifname in self.interfaces:
             self.interfaces[ifname].set_dynamic_config(config)
+
+    async def rpc_pppoe_event(self, msg: interface_pb2.PPPoEInterfaceEvent) -> None:
+        if msg.interface not in self.interfaces:
+            return
+        await self.interfaces[msg.interface].on_event(msg)
 
     async def rpc_list_interfaces(self) -> interface_pb2.InterfaceList:
         interfaces = interface_pb2.InterfaceList()

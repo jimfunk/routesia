@@ -5,6 +5,7 @@ kea-hooks
 mosquitto
 nftables
 nsd
+ppp
 python313-dbus-python
 python313-nftables
 python313-paho-mqtt

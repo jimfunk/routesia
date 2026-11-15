@@ -33,6 +33,10 @@ class InterfaceCLI(Provider):
         self.cli.add_argument_completer(
             "mss_clamp.family", self.complete_mss_clamp_family
         )
+        self.cli.add_argument_completer("address_mode", self.complete_address_mode)
+        self.cli.add_argument_completer(
+            "ipv6_interface_id", self.complete_ipv6_interface_id
+        )
 
         self.cli.add_command("interface show", self.show_interface)
         self.cli.add_command(
@@ -78,7 +82,19 @@ class InterfaceCLI(Provider):
             "@vxlan.interface!interface "
             "@vxlan.ttl "
             "@vxlan.vni "
-            "@vxlan.endpoints",
+            "@vxlan.endpoints "
+            "@pppoe.interface!system-interface "
+            "@pppoe.username "
+            "@pppoe.password "
+            "@pppoe.service "
+            "@pppoe.ac "
+            "@pppoe.mtu "
+            "@pppoe.mru "
+            "@pppoe.lcp_echo_interval "
+            "@pppoe.lcp_echo_failure "
+            "@pppoe.table "
+            "@pppoe.address_mode!address_mode "
+            "@pppoe.ipv6_interface_id!ipv6_interface_id",
             self.add_configured_interface,
         )
         self.cli.add_command(
@@ -118,7 +134,19 @@ class InterfaceCLI(Provider):
             "@vxlan.interface!interface "
             "@vxlan.ttl "
             "@vxlan.vni "
-            "@vxlan.endpoints",
+            "@vxlan.endpoints "
+            "@pppoe.interface!system-interface "
+            "@pppoe.username "
+            "@pppoe.password "
+            "@pppoe.service "
+            "@pppoe.ac "
+            "@pppoe.mtu "
+            "@pppoe.mru "
+            "@pppoe.lcp_echo_interval "
+            "@pppoe.lcp_echo_failure "
+            "@pppoe.table "
+            "@pppoe.address_mode!address_mode "
+            "@pppoe.ipv6_interface_id!ipv6_interface_id",
             self.update_configured_interface,
         )
         self.cli.add_command(
@@ -152,6 +180,12 @@ class InterfaceCLI(Provider):
 
     async def complete_mss_clamp_family(self):
         return interface_pb2.MSSClamp.Family.keys()
+
+    async def complete_address_mode(self):
+        return interface_pb2.AddressMode.keys()
+
+    async def complete_ipv6_interface_id(self):
+        return interface_pb2.PPPoEInterfaceConfig.IPv6CPInterfaceID.keys()
 
     async def show_interface(self, interface: str | None = None):
         interfaces = await self.rpc.request("interface/list")
@@ -240,6 +274,18 @@ class InterfaceCLI(Provider):
         vxlan_ttl: UInt8 = None,
         vxlan_vni: UInt32 = None,
         vxlan_endpoints: str = None,
+        pppoe_interface: str = None,
+        pppoe_username: str = None,
+        pppoe_password: str = None,
+        pppoe_service: str = None,
+        pppoe_ac: str = None,
+        pppoe_mtu: UInt32 = None,
+        pppoe_mru: UInt32 = None,
+        pppoe_lcp_echo_interval: UInt32 = None,
+        pppoe_lcp_echo_failure: UInt32 = None,
+        pppoe_table: UInt32 = None,
+        pppoe_address_mode: str = None,
+        pppoe_ipv6_interface_id: str = None,
     ):
         config = interface_pb2.InterfaceConfig()
         config.name = interface
@@ -318,6 +364,36 @@ class InterfaceCLI(Provider):
             config.vxlan.vni = vxlan_vni
         if vxlan_endpoints is not None:
             self.set_vxlan_enpoints(config, vxlan_endpoints)
+        if pppoe_interface is not None:
+            config.pppoe.interface = pppoe_interface
+        if pppoe_username is not None:
+            config.pppoe.username = pppoe_username
+        if pppoe_password is not None:
+            config.pppoe.password = pppoe_password
+        if pppoe_service is not None:
+            config.pppoe.service = pppoe_service
+        if pppoe_ac is not None:
+            config.pppoe.ac = pppoe_ac
+        if pppoe_mtu is not None:
+            config.pppoe.mtu = pppoe_mtu
+        if pppoe_mru is not None:
+            config.pppoe.mru = pppoe_mru
+        if pppoe_lcp_echo_interval is not None:
+            config.pppoe.lcp_echo_interval = pppoe_lcp_echo_interval
+        if pppoe_lcp_echo_failure is not None:
+            config.pppoe.lcp_echo_failure = pppoe_lcp_echo_failure
+        if pppoe_table is not None:
+            config.pppoe.table = pppoe_table
+        if pppoe_address_mode is not None:
+            config.pppoe.address_mode = interface_pb2.AddressMode.Value(
+                pppoe_address_mode
+            )
+        if pppoe_ipv6_interface_id is not None:
+            config.pppoe.ipv6_interface_id = (
+                interface_pb2.PPPoEInterfaceConfig.IPv6CPInterfaceID.Value(
+                    pppoe_ipv6_interface_id
+                )
+            )
 
         await self.rpc.request("interface/config/add", config)
 
@@ -359,6 +435,18 @@ class InterfaceCLI(Provider):
         vxlan_ttl: UInt8 = None,
         vxlan_vni: UInt32 = None,
         vxlan_endpoints: str = None,
+        pppoe_interface: str = None,
+        pppoe_username: str = None,
+        pppoe_password: str = None,
+        pppoe_service: str = None,
+        pppoe_ac: str = None,
+        pppoe_mtu: UInt32 = None,
+        pppoe_mru: UInt32 = None,
+        pppoe_lcp_echo_interval: UInt32 = None,
+        pppoe_lcp_echo_failure: UInt32 = None,
+        pppoe_table: UInt32 = None,
+        pppoe_address_mode: str = None,
+        pppoe_ipv6_interface_id: str = None,
     ):
         interfaces = await self.rpc.request("interface/config/list")
         config = None
@@ -449,6 +537,36 @@ class InterfaceCLI(Provider):
             config.vxlan.vni = vxlan_vni
         if vxlan_endpoints is not None:
             self.set_vxlan_enpoints(config, vxlan_endpoints)
+        if pppoe_interface is not None:
+            config.pppoe.interface = pppoe_interface
+        if pppoe_username is not None:
+            config.pppoe.username = pppoe_username
+        if pppoe_password is not None:
+            config.pppoe.password = pppoe_password
+        if pppoe_service is not None:
+            config.pppoe.service = pppoe_service
+        if pppoe_ac is not None:
+            config.pppoe.ac = pppoe_ac
+        if pppoe_mtu is not None:
+            config.pppoe.mtu = pppoe_mtu
+        if pppoe_mru is not None:
+            config.pppoe.mru = pppoe_mru
+        if pppoe_lcp_echo_interval is not None:
+            config.pppoe.lcp_echo_interval = pppoe_lcp_echo_interval
+        if pppoe_lcp_echo_failure is not None:
+            config.pppoe.lcp_echo_failure = pppoe_lcp_echo_failure
+        if pppoe_table is not None:
+            config.pppoe.table = pppoe_table
+        if pppoe_address_mode is not None:
+            config.pppoe.address_mode = interface_pb2.AddressMode.Value(
+                pppoe_address_mode
+            )
+        if pppoe_ipv6_interface_id is not None:
+            config.pppoe.ipv6_interface_id = (
+                interface_pb2.PPPoEInterfaceConfig.IPv6CPInterfaceID.Value(
+                    pppoe_ipv6_interface_id
+                )
+            )
 
         await self.rpc.request("interface/config/update", config)
 

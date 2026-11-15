@@ -11,6 +11,7 @@ setup(
             "rcl = routesia.programs.rcl:main",
             "routesia = routesia.programs.routesia_agent:main",
             "routesia-dhcpv4-event = routesia.programs.routesia_dhcpv4_event:main",
+            "routesia-ppp-event = routesia.programs.routesia_ppp_event:main",
         ],
     },
     version=VERSION,

@@ -37,9 +37,15 @@ install: proto
 	mv $(DESTDIR)$(PREFIX)/bin/rcl $(DESTDIR)$(PREFIX)/sbin/rcl
 	install -d -m 0755 $(DESTDIR)$(PREFIX)/lib/routesia/
 	mv $(DESTDIR)$(PREFIX)/bin/routesia-dhcpv4-event $(DESTDIR)$(PREFIX)/lib/routesia/dhcpv4-event
+	mv $(DESTDIR)$(PREFIX)/bin/routesia-ppp-event $(DESTDIR)$(PREFIX)/lib/routesia/ppp-event
+	install -D -m 0755 conf/ppp/ip-up.d/50-routesia $(DESTDIR)/etc/ppp/ip-up.d/50-routesia
+	install -D -m 0755 conf/ppp/ip-down.d/50-routesia $(DESTDIR)/etc/ppp/ip-down.d/50-routesia
+	install -D -m 0755 conf/ppp/ipv6-up.d/50-routesia $(DESTDIR)/etc/ppp/ipv6-up.d/50-routesia
+	install -D -m 0755 conf/ppp/ipv6-down.d/50-routesia $(DESTDIR)/etc/ppp/ipv6-down.d/50-routesia
 	install -D -m 0644 conf/iproute2/routesia_protos.conf $(DESTDIR)/etc/iproute2/rt_protos.d/routesia.conf
 	install -D -m 0644 systemd/routesia.service $(DESTDIR)$(PREFIX)/lib/systemd/system/routesia.service
 	install -D -m 0644 systemd/routesia-dhcpv4-client@.service $(DESTDIR)$(PREFIX)/lib/systemd/system/routesia-dhcpv4-client@.service
+	install -D -m 0644 systemd/routesia-pppoe@.service $(DESTDIR)$(PREFIX)/lib/systemd/system/routesia-pppoe@.service
 
 clean:
 	rm -rf build $(PROTO_MODULES) $(TEST_PROTO_MODULES) $(PROTO_MODULE_STUBS)

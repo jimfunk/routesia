@@ -7,6 +7,7 @@ import logging
 
 from routesia.config.provider import ConfigProvider
 from routesia.dhcp.client.events import DHCPv4LeaseAcquired, DHCPv4LeaseLost, DHCPv4LeasePreinit
+from routesia.interface.events import PPPoELinkDown, PPPoELinkUp
 from routesia.rpc import RPCInvalidArgument, RPCInvalidArgument, RPCInvalidArgument
 from routesia.service import Provider
 from routesia.service import Service
@@ -58,6 +59,8 @@ class RouteProvider(Provider):
         self.service.subscribe_event(DHCPv4LeasePreinit, self.handle_dhcp_lease_preinit)
         self.service.subscribe_event(DHCPv4LeaseAcquired, self.handle_dhcp_lease_acquired)
         self.service.subscribe_event(DHCPv4LeaseLost, self.handle_dhcp_lease_lost)
+        self.service.subscribe_event(PPPoELinkUp, self.handle_pppoe_link_up)
+        self.service.subscribe_event(PPPoELinkDown, self.handle_pppoe_link_down)
 
         self.rpc.register("route/list", self.rpc_list_routes)
         self.rpc.register("route/table/list", self.rpc_list_tables)
@@ -127,6 +130,14 @@ class RouteProvider(Provider):
     async def handle_dhcp_lease_lost(self, event: DHCPv4LeaseLost):
         table = self.tables.get(event.table) if event.table else self.tables[254]
         table.handle_dhcp_lease_lost(event)
+
+    async def handle_pppoe_link_up(self, event: PPPoELinkUp):
+        table = self.tables.get(event.table) if event.table else self.tables[254]
+        table.handle_pppoe_link_up(event.interface, event.family)
+
+    async def handle_pppoe_link_down(self, event: PPPoELinkDown):
+        table = self.tables.get(event.table) if event.table else self.tables[254]
+        table.handle_pppoe_link_down(event.interface, event.family)
 
     def start(self):
         self.configure()

@@ -12,6 +12,16 @@ enum InterfaceType {
   VLAN = 4;
   SIT = 5;
   VXLAN = 6;
+  PPPOE = 7;
+}
+
+// Address families negotiated over PPP
+//
+enum AddressMode {
+  ANY = 0;
+  IPV4 = 1;
+  IPV6 = 2;
+  NONE = 3;
 }
 
 message InterfaceLink {
@@ -201,6 +211,136 @@ message VXLANInterfaceConfig {
     repeated VXLANEndpointConfig endpoint = 9;
 }
 
+// PPPoE configuration
+//
+message PPPoEInterfaceConfig {
+  // Interface identifier generation for IPv6CP
+  //
+  enum IPv6CPInterfaceID {
+    RANDOM = 0;
+    IPV4 = 1;
+    PERSISTENT = 2;
+  }
+
+  // Ethernet underlay interface
+  //
+  string interface = 1;
+
+  // Credentials for the peer
+  //
+  string username = 2;
+  string password = 3;
+
+  // PPPoE service name
+  //
+  string service = 4;
+
+  // Access concentrator name
+  //
+  string ac = 5;
+
+  // Link MTU. Must allow for the PPPoE header, so 1492 unless the underlay
+  // supports baby jumbo frames
+  //
+  uint32 mtu = 6;
+
+  // Link MRU
+  //
+  uint32 mru = 7;
+
+  // Seconds between LCP echo requests
+  //
+  uint32 lcp_echo_interval = 8;
+
+  // Missed LCP echo requests before the link is dropped
+  //
+  uint32 lcp_echo_failure = 9;
+
+  // Routing table for peer-supplied default routes
+  //
+  uint32 table = 10;
+
+  // Address families to take from the peer
+  //
+  AddressMode address_mode = 11;
+
+  // Interface identifier generation for IPv6CP
+  //
+  IPv6CPInterfaceID ipv6_interface_id = 12;
+}
+
+// PPPoE session state
+//
+message PPPoEStatus {
+  // Local IPv4 address
+  //
+  string local_address = 1;
+
+  // Peer IPv4 address
+  //
+  string peer_address = 2;
+
+  // Local IPv6 link-local address
+  //
+  string local_ipv6_address = 3;
+
+  // Peer IPv6 link-local address
+  //
+  string peer_ipv6_address = 4;
+
+  // Access concentrator name
+  //
+  string ac_name = 5;
+
+  // Access concentrator MAC address
+  //
+  string remote_mac = 6;
+}
+
+// Event sent by the pppd hook scripts
+//
+message PPPoEInterfaceEvent {
+  enum Type {
+    UNDEFINED = 0;
+    IPV4_UP = 1;
+    IPV4_DOWN = 2;
+    IPV6_UP = 3;
+    IPV6_DOWN = 4;
+  }
+
+  // Interface name
+  //
+  string interface = 1;
+
+  // Event type
+  //
+  Type type = 2;
+
+  // Local IPv4 address
+  //
+  string local_address = 3;
+
+  // Peer IPv4 address
+  //
+  string peer_address = 4;
+
+  // Local IPv6 link-local address
+  //
+  string local_ipv6_address = 5;
+
+  // Peer IPv6 link-local address
+  //
+  string peer_ipv6_address = 6;
+
+  // Access concentrator name
+  //
+  string ac_name = 7;
+
+  // Access concentrator MAC address
+  //
+  string remote_mac = 8;
+}
+
 // Interface module config
 //
 message InterfaceConfig {
@@ -226,6 +366,7 @@ message InterfaceConfig {
   VLANInterfaceConfig vlan = 101;
   SITInterfaceConfig sit = 102;
   VXLANInterfaceConfig vxlan = 103;
+  PPPoEInterfaceConfig pppoe = 104;
 }
 
 // List of interface configurations
@@ -246,6 +387,10 @@ message Interface {
   // Interface config, if present
   //
   InterfaceConfig config = 3;
+
+  // PPPoE session state, if this is a PPPoE interface
+  //
+  PPPoEStatus pppoe = 4;
 }
 
 // A list of interface entities

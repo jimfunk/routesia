@@ -2,6 +2,7 @@
 routesia/route/route.py - Route support
 """
 
+import errno
 from ipaddress import (
     IPv4Address,
     IPv4Network,
@@ -11,6 +12,7 @@ from ipaddress import (
     ip_network,
 )
 import logging
+from pyroute2 import NetlinkError
 
 from routesia.dhcp.client.events import DHCPv4LeasePreinit
 from routesia.schema.v1.route_pb2 import RouteState
@@ -38,8 +40,8 @@ class TableEntity:
         if self.config and self.config.name:
             self.name = self.config.name
         self.routes = {}
-        self.dhcp_routes: dict[
-            str, dict[IPv4Address | IPv6Address, DHCPRouteEntity]
+        self.dynamic_routes: dict[
+            str, dict[IPv4Network | IPv6Network, DynamicRouteEntity]
         ] = {}
         self.interfaces = set()
 
@@ -91,25 +93,25 @@ class TableEntity:
         return False
 
     def handle_dhcp_lease_preinit(self, event: DHCPv4LeasePreinit):
-        if event.address and event.interface in self.dhcp_routes:
-            if event.address.network in self.dhcp_routes[event.interface]:
-                route = self.dhcp_routes[event.interface][event.address.network]
+        if event.address and event.interface in self.dynamic_routes:
+            if event.address.network in self.dynamic_routes[event.interface]:
+                route = self.dynamic_routes[event.interface][event.address.network]
                 route.remove()
-                del self.dhcp_routes[event.interface][event.address.network]
-                if not self.dhcp_routes[event.interface]:
-                    del self.dhcp_routes[event.interface]
+                del self.dynamic_routes[event.interface][event.address.network]
+                if not self.dynamic_routes[event.interface]:
+                    del self.dynamic_routes[event.interface]
 
     def handle_dhcp_lease_acquired(self, event: DHCPv4LeasePreinit):
         existing_interface_routes = set()
         existing_gateway_routes = set()
-        if event.interface in self.dhcp_routes:
-            for route in self.dhcp_routes[event.interface].values():
+        if event.interface in self.dynamic_routes:
+            for route in self.dynamic_routes[event.interface].values():
                 if route.gateway:
                     existing_gateway_routes.add((route.destination, route.gateway))
                 else:
                     existing_interface_routes.add((route.destination, route.gateway))
         else:
-            self.dhcp_routes[event.interface] = {}
+            self.dynamic_routes[event.interface] = {}
 
         new_interface_routes = {(event.address.network, None)}
         new_gateway_routes = set()
@@ -122,11 +124,11 @@ class TableEntity:
                 new_interface_routes.add((route.destination, route.gateway))
 
         for destination, _ in existing_gateway_routes - new_gateway_routes:
-            route = self.dhcp_routes[event.interface].pop(destination)
+            route = self.dynamic_routes[event.interface].pop(destination)
             route.remove()
 
         for destination, _ in existing_interface_routes - new_interface_routes:
-            route = self.dhcp_routes[event.interface].pop(destination)
+            route = self.dynamic_routes[event.interface].pop(destination)
             route.remove()
 
         for routes in (
@@ -137,7 +139,7 @@ class TableEntity:
                 logger.info(
                     f"Adding DHCP route {destination} via {gateway or event.interface}"
                 )
-                self.dhcp_routes[event.interface][destination] = DHCPRouteEntity(
+                self.dynamic_routes[event.interface][destination] = DynamicRouteEntity(
                     self.iproute,
                     self,
                     event.interface,
@@ -145,13 +147,30 @@ class TableEntity:
                     gateway,
                     event.address.ip,
                 )
-                self.dhcp_routes[event.interface][destination].apply()
+                self.dynamic_routes[event.interface][destination].apply()
 
     def handle_dhcp_lease_lost(self, event: DHCPv4LeasePreinit):
-        if event.interface in self.dhcp_routes:
-            for route in self.dhcp_routes[event.interface].values():
+        if event.interface in self.dynamic_routes:
+            for route in self.dynamic_routes[event.interface].values():
                 route.remove()
-            del self.dhcp_routes[event.interface]
+            del self.dynamic_routes[event.interface]
+
+    def handle_pppoe_link_up(self, interface: str, family: int):
+        destination = ip_network("0.0.0.0/0" if family == 4 else "::/0")
+        routes = self.dynamic_routes.setdefault(interface, {})
+        if destination not in routes:
+            logger.info(f"Adding PPPoE route {destination} via {interface}")
+            routes[destination] = DynamicRouteEntity(
+                self.iproute, self, interface, destination, None
+            )
+        routes[destination].apply()
+
+    def handle_pppoe_link_down(self, interface: str, family: int):
+        routes = self.dynamic_routes.get(interface, {})
+        for destination in [d for d in routes if d.version == family]:
+            routes.pop(destination).remove()
+        if not routes:
+            self.dynamic_routes.pop(interface, None)
 
     def handle_route_add_event(self, event):
         if event.destination not in self.routes:
@@ -187,7 +206,7 @@ class TableEntity:
                     if not nexthop.gateway and nexthop.interface == event.ifname:
                         route.apply()
 
-        for route in self.dhcp_routes.get(event.ifname, {}).values():
+        for route in self.dynamic_routes.get(event.ifname, {}).values():
             if route.route_args is None:
                 route.apply()
 
@@ -249,9 +268,16 @@ class RouteEntity:
         self.apply()
 
     def remove(self):
-        if self.route_args:
+        if not self.route_args:
+            return
+        try:
             self.iproute.iproute.route("delete", **self.route_args)
-            self.route_args = None
+        except NetlinkError as e:
+            # The kernel flushes routes when their interface goes away, so the
+            # route may already be gone by the time we are told about it
+            if e.code not in (errno.ENODEV, errno.ESRCH):
+                raise
+        self.route_args = None
 
     def handle_config_remove(self):
         logger.debug(
@@ -340,15 +366,15 @@ class RouteEntity:
         message.CopyFrom(self.state)
 
 
-class DHCPRouteEntity(RouteEntity):
+class DynamicRouteEntity(RouteEntity):
     def __init__(
         self,
         iproute,
         table: TableEntity,
         interface: str,
         destination: IPv4Network | IPv6Network,
-        gateway: IPv4Address | IPv6Address,
-        prefsrc: IPv4Address | IPv6Address,
+        gateway: IPv4Address | IPv6Address | None,
+        prefsrc: IPv4Address | IPv6Address | None = None,
     ):
         self.interface = interface
         self.gateway = gateway
@@ -376,12 +402,21 @@ class DHCPRouteEntity(RouteEntity):
         kwargs["oif"] = self.iproute.interface_name_map[self.interface]
         if self.gateway:
             kwargs["gateway"] = str(self.gateway)
-        kwargs["prefsrc"] = str(self.prefsrc)
+        if self.prefsrc:
+            kwargs["prefsrc"] = str(self.prefsrc)
 
         if not self.gateway:
             kwargs["scope"] = RT_SCOPE_LINK
 
-        self.iproute.iproute.route("replace", **kwargs)
+        try:
+            self.iproute.iproute.route("replace", **kwargs)
+        except NetlinkError as e:
+            # The link can still be down when the event carrying the address
+            # arrives. Leave the route unset so the next link event retries it.
+            if e.code not in (errno.ENETDOWN, errno.ENODEV, errno.ESRCH):
+                raise
+            logger.warning("Could not add route %s: %s" % (self.destination, e))
+            return
         self.route_args = kwargs
 
     def to_message(self, message):

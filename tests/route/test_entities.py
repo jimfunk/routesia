@@ -2,18 +2,25 @@
 tests/route/test_entities.py
 """
 
-from ipaddress import ip_address, ip_interface
+import errno
+from ipaddress import ip_address, ip_interface, ip_network
 from types import SimpleNamespace
 
+import pytest
+from pyroute2 import NetlinkError
+
 from routesia.dhcp.client.events import DHCPv4LeaseAcquired
-from routesia.route.entities import TableEntity
+from routesia.route.entities import PROTO_ID, RT_SCOPE_LINK, TableEntity
 
 
 class FakeIPRoute:
     def __init__(self):
         self.routes = []
+        self.error = None
 
     def route(self, cmd, **kwargs):
+        if self.error:
+            raise self.error
         if cmd in ("replace", "delete"):
             self.routes = [
                 route for route in self.routes if route["dst"] != kwargs["dst"]
@@ -25,7 +32,7 @@ class FakeIPRoute:
 class FakeIPRouteProvider:
     def __init__(self):
         self.iproute = FakeIPRoute()
-        self.interface_name_map = {"eth0": 2}
+        self.interface_name_map = {"eth0": 2, "pppoe0": 3}
 
 
 def make_table():
@@ -86,3 +93,104 @@ def test_dhcp_default_route_installed_when_interface_appears():
     table.handle_interface_add(SimpleNamespace(ifname="eth0"))
 
     assert destinations(iproute) == ["192.168.1.0/24", "0.0.0.0/0"]
+
+
+def make_pppoe_table():
+    table, iproute = make_table()
+    table.handle_interface_add(SimpleNamespace(ifname="pppoe0"))
+    return table, iproute
+
+
+def test_pppoe_link_up_installs_default_route():
+    table, iproute = make_pppoe_table()
+
+    table.handle_pppoe_link_up("pppoe0", 4)
+
+    assert iproute.routes == [
+        {
+            "table": 254,
+            "dst": "0.0.0.0/0",
+            "proto": PROTO_ID,
+            "oif": 3,
+            "scope": RT_SCOPE_LINK,
+        }
+    ]
+
+
+def test_pppoe_ipv6_link_up_installs_default_route():
+    table, iproute = make_pppoe_table()
+
+    table.handle_pppoe_link_up("pppoe0", 6)
+
+    assert iproute.routes == [
+        {
+            "table": 254,
+            "dst": "::/0",
+            "proto": PROTO_ID,
+            "oif": 3,
+            "scope": RT_SCOPE_LINK,
+        }
+    ]
+
+
+def test_pppoe_link_up_is_idempotent():
+    table, iproute = make_pppoe_table()
+
+    table.handle_pppoe_link_up("pppoe0", 4)
+    table.handle_pppoe_link_up("pppoe0", 4)
+
+    assert len(iproute.routes) == 1
+
+
+def test_pppoe_link_down_removes_default_route():
+    table, iproute = make_pppoe_table()
+    table.handle_pppoe_link_up("pppoe0", 4)
+
+    table.handle_pppoe_link_down("pppoe0", 4)
+
+    assert iproute.routes == []
+    assert "pppoe0" not in table.dynamic_routes
+
+
+def test_pppoe_link_down_leaves_other_routes():
+    table, iproute = make_pppoe_table()
+    table.handle_pppoe_link_up("pppoe0", 4)
+    table.handle_pppoe_link_up("pppoe0", 6)
+
+    table.handle_pppoe_link_down("pppoe0", 4)
+
+    assert destinations(iproute) == ["::/0"]
+
+
+def test_pppoe_link_down_tolerates_route_already_removed():
+    table, iproute = make_pppoe_table()
+    table.handle_pppoe_link_up("pppoe0", 4)
+    iproute.error = NetlinkError(errno.ESRCH, "No such process")
+
+    table.handle_pppoe_link_down("pppoe0", 4)
+
+    assert "pppoe0" not in table.dynamic_routes
+
+
+def test_route_removal_reraises_unexpected_errors():
+    table, iproute = make_pppoe_table()
+    table.handle_pppoe_link_up("pppoe0", 4)
+    iproute.error = NetlinkError(errno.EPERM, "Operation not permitted")
+
+    with pytest.raises(NetlinkError):
+        table.handle_pppoe_link_down("pppoe0", 4)
+
+
+def test_pppoe_route_add_is_retried_when_link_is_not_ready():
+    table, iproute = make_pppoe_table()
+    iproute.error = NetlinkError(errno.ENETDOWN, "Network is down")
+
+    table.handle_pppoe_link_up("pppoe0", 4)
+
+    route = table.dynamic_routes["pppoe0"][ip_network("0.0.0.0/0")]
+    assert route.route_args is None
+
+    iproute.error = None
+    table.handle_interface_add(SimpleNamespace(ifname="pppoe0"))
+
+    assert route.route_args["dst"] == "0.0.0.0/0"

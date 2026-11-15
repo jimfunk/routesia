@@ -5,12 +5,22 @@ routesia/interface/entities.py - Interface entities
 import errno
 import ipaddress
 import logging
+import os
+import shutil
+import tempfile
+
 from pyroute2.netlink.exceptions import NetlinkError
 
 from routesia.config.provider import InvalidConfig
 from routesia.dhcp.client.events import DHCPv4LeasePreinit
 from routesia.interface import interface_flags
 from routesia.interface import interface_types
+from routesia.interface.events import PPPoELinkDown, PPPoELinkUp
+from routesia.interface.pppoe import (
+    PPPOE_OPTIONS_DIR,
+    PPPoEOptions,
+    detect_pppd_version,
+)
 from routesia.schema.v1 import interface_pb2
 
 
@@ -180,6 +190,150 @@ class InterfaceEntity:
 
 class EthernetInterface(InterfaceEntity):
     pass
+
+
+class PPPInterface(InterfaceEntity):
+    """
+    A PPP link. pppd owns the link, its MTU and its addresses.
+    """
+
+    def apply_link_config(self):
+        pass
+
+    def flush_addresses(self):
+        pass
+
+
+class PPPoEInterface(PPPInterface):
+    """
+    A PPPoE session over an Ethernet interface
+    """
+
+    def __init__(
+        self,
+        provider,
+        name,
+        config=None,
+        options_dir=PPPOE_OPTIONS_DIR,
+        pppd_version=None,
+    ):
+        super().__init__(provider, name, config)
+        self.options_dir = options_dir
+        self.pppd_version = pppd_version
+        self.status = interface_pb2.PPPoEStatus()
+
+    @property
+    def dependent_interfaces(self):
+        if self.config and self.config.pppoe.interface:
+            return [self.config.pppoe.interface]
+        return []
+
+    @property
+    def unit(self):
+        return "routesia-pppoe@%s.service" % self.name
+
+    async def on_event(self, event: interface_pb2.PPPoEInterfaceEvent):
+        if not self.config:
+            return
+
+        if event.type == interface_pb2.PPPoEInterfaceEvent.IPV4_UP:
+            family = 4
+            self.status.local_address = event.local_address
+            self.status.peer_address = event.peer_address
+        elif event.type == interface_pb2.PPPoEInterfaceEvent.IPV6_UP:
+            family = 6
+            self.status.local_ipv6_address = event.local_ipv6_address
+            self.status.peer_ipv6_address = event.peer_ipv6_address
+        elif event.type == interface_pb2.PPPoEInterfaceEvent.IPV4_DOWN:
+            family = 4
+            self.status.local_address = ""
+            self.status.peer_address = ""
+        elif event.type == interface_pb2.PPPoEInterfaceEvent.IPV6_DOWN:
+            family = 6
+            self.status.local_ipv6_address = ""
+            self.status.peer_ipv6_address = ""
+        else:
+            return
+
+        if event.type in (
+            interface_pb2.PPPoEInterfaceEvent.IPV4_UP,
+            interface_pb2.PPPoEInterfaceEvent.IPV6_UP,
+        ):
+            self.status.ac_name = event.ac_name
+            self.status.remote_mac = event.remote_mac
+            self.provider.service.publish_event(
+                PPPoELinkUp(
+                    interface=self.name,
+                    table=self.config.pppoe.table,
+                    family=family,
+                )
+            )
+        else:
+            self.provider.service.publish_event(
+                PPPoELinkDown(
+                    interface=self.name,
+                    table=self.config.pppoe.table,
+                    family=family,
+                )
+            )
+
+    def to_message(self, message):
+        "Set message parameters from entity state"
+        super().to_message(message)
+        message.pppoe.CopyFrom(self.status)
+
+    def on_dependent_interface_add(self, interface_event):
+        self.apply()
+
+    def on_config_removed(self):
+        self.status.Clear()
+        super().on_config_removed()
+
+    def on_interface_remove(self):
+        self.status.Clear()
+        super().on_interface_remove()
+
+    def create(self):
+        config = self.config.pppoe
+        if not config.interface:
+            raise InvalidConfig("PPPoE interface requires an underlay interface")
+        if not config.username:
+            raise InvalidConfig("PPPoE interface requires a username")
+        if not config.password:
+            raise InvalidConfig("PPPoE interface requires a password")
+
+        if not self.provider.get_ifindex(config.interface):
+            # Underlay interface does not exist yet
+            return
+
+        path = os.path.join(self.options_dir, "%s.conf" % self.name)
+        os.makedirs(self.options_dir, mode=0o700, exist_ok=True)
+        options = PPPoEOptions(
+            self.name, config, self.pppd_version or detect_pppd_version()
+        )
+
+        temp = tempfile.NamedTemporaryFile(
+            delete=False, mode="w", dir=os.path.dirname(path)
+        )
+        temp.write(options.generate())
+        temp.flush()
+        temp.close()
+
+        shutil.move(temp.name, path)
+        os.chmod(path, 0o600)
+
+        logger.info("Starting PPPoE session on %s" % self.name)
+        self.provider.systemd.start_unit(self.unit)
+
+    def stop(self):
+        logger.info("Stopping PPPoE session on %s" % self.name)
+        self.provider.systemd.stop_unit(self.unit)
+
+    def remove(self):
+        self.stop()
+        path = os.path.join(self.options_dir, "%s.conf" % self.name)
+        if os.path.exists(path):
+            os.unlink(path)
 
 
 class VirtualInterface(InterfaceEntity):
@@ -383,6 +537,7 @@ INTERFACE_TYPE_ENTITY_MAP = {
     # (interface_types.ARPHRD_TUNNEL, None): IPIPInterface,
     # (interface_types.ARPHRD_TUNNEL6, None): IPIP6Interface,
     (interface_types.ARPHRD_LOOPBACK, None): LoopbackInterface,
+    (interface_types.ARPHRD_PPP, None): PPPInterface,
     (interface_types.ARPHRD_SIT, None): SITInterface,
     # (interface_types.ARPHRD_IPGRE, None): GREInterface,
     # (interface_types.ARPHRD_IEEE80211, None): WiFiInterface,
@@ -399,6 +554,7 @@ INTERFACE_CONFIG_TYPE_ENTITY_MAP = {
     # interface_pb2.IPIP: IPIPInterface,
     # interface_pb2.IPIP6: IPIP6Interface,
     interface_pb2.LOOPBACK: LoopbackInterface,
+    interface_pb2.PPPOE: PPPoEInterface,
     interface_pb2.SIT: SITInterface,
     # interface_pb2.GRE: GREInterface,
     # interface_pb2.WIFI: WiFiInterface,

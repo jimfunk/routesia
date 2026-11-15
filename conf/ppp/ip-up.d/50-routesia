@@ -1,0 +1,5 @@
+#!/bin/sh
+#
+# routesia PPP link event hook
+#
+exec /usr/lib/routesia/ppp-event ip-up "$@"
